@@ -99,7 +99,10 @@ const getErrorMessage = (body: unknown, status: number): string => {
   ) {
     return body.error;
   }
-  return `Request failed (${status})`;
+  if (status === 404) {
+    return "Data feed unavailable. Start the API server to load live dashboard data.";
+  }
+  return `Data feed unavailable. Request returned ${status}.`;
 };
 
 const readResponseData = async (response: Response): Promise<unknown> => {

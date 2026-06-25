@@ -21,33 +21,54 @@ interface TopListProps {
 
 const TopList = ({ title, subtitle, items }: TopListProps) => (
   <Card className="overflow-hidden py-0">
-    <CardHeader className="border-b border-border">
+    <CardHeader className="border-b border-border bg-muted">
       <CardTitle>{title}</CardTitle>
       <CardDescription>{subtitle}</CardDescription>
     </CardHeader>
     <CardContent className="p-0">
       {items.length === 0 ? (
-        <p className="px-4 py-5 text-center text-sm text-muted-foreground">
-          No data yet — sync in progress.
-        </p>
+        <div className="grid min-h-28 place-items-center px-4 py-6 text-center">
+          <div>
+            <p className="text-sm font-medium text-foreground">No rows yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Data will appear after the next sync.
+            </p>
+          </div>
+        </div>
       ) : (
         <ol>
-          {items.map((item, index) => (
-            <li
-              key={`${item.label}-${index}`}
-              className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-2 border-t border-border/50 px-4 py-2.5 first:border-t-0 hover:bg-muted/30"
-            >
-              <span className="font-mono text-xs font-bold text-primary/80">
-                {index + 1}
-              </span>
-              <span className="truncate text-sm" title={item.label}>
-                {item.label}
-              </span>
-              <span className="font-mono text-sm font-bold tabular-nums">
-                {numberFmt.format(item.count)}
-              </span>
-            </li>
-          ))}
+          {items.map((item, index) => {
+            const maxCount = Math.max(...items.map((entry) => entry.count), 1);
+            const width = `${Math.max((item.count / maxCount) * 100, 4)}%`;
+
+            return (
+              <li
+                key={`${item.label}-${index}`}
+                className="border-t border-border/70 px-4 py-3 first:border-t-0 hover:bg-muted"
+              >
+                <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2">
+                  <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    className="truncate text-sm font-medium"
+                    title={item.label}
+                  >
+                    {item.label}
+                  </span>
+                  <span className="font-mono text-sm font-semibold tabular-nums">
+                    {numberFmt.format(item.count)}
+                  </span>
+                </div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+                  <span
+                    className="block h-full rounded-full bg-[var(--ring)]"
+                    style={{ width }}
+                  />
+                </div>
+              </li>
+            );
+          })}
         </ol>
       )}
     </CardContent>
@@ -57,10 +78,17 @@ const TopList = ({ title, subtitle, items }: TopListProps) => (
 interface TopListsProps {
   streets: TopItem[];
   offences: TopItem[];
+  layout?: "grid" | "stack";
 }
 
-export const TopLists = ({ streets, offences }: TopListsProps) => (
-  <div className="grid gap-4 sm:grid-cols-2">
+export const TopLists = ({
+  streets,
+  offences,
+  layout = "grid",
+}: TopListsProps) => (
+  <div
+    className={layout === "grid" ? "grid gap-4 lg:grid-cols-2" : "grid gap-4"}
+  >
     <TopList
       title="Top streets"
       subtitle="All-time by infringement count"

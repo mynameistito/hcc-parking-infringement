@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { Car, MapPinned, Search, SignalHigh } from "lucide-react";
+import { useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -8,92 +9,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { LocationRankItem, VehicleRankItem } from "../client/api";
-import { ExploreModal } from "./explore-modal";
-import type { ExploreOpenState } from "./explore-modal";
 import { formatLocationSubtitle, numberFmt } from "./explore-shared";
+import type { ExploreTab } from "./explore-shared";
 
-const PREVIEW_LIMIT = 10;
+const TABS = ["suburbs", "streets", "vehicles"] as const;
 
-const isVehicleRankItem = (
-  item: LocationRankItem | VehicleRankItem
-): item is VehicleRankItem => "make" in item && "model" in item;
+type ExploreItem = LocationRankItem | VehicleRankItem;
 
-const PreviewTable = ({
-  title,
-  hint,
-  items,
-  emptyLabel,
-  onBrowseAll,
-  onSelect,
-  renderRow,
-}: {
-  title: string;
-  hint: string;
-  items: LocationRankItem[] | VehicleRankItem[];
-  emptyLabel: string;
-  onBrowseAll: () => void;
-  onSelect: (item: LocationRankItem | VehicleRankItem) => void;
-  renderRow: (item: LocationRankItem | VehicleRankItem) => {
-    key: string;
-    label: string;
-    subtitle?: string;
-  };
-}) => {
-  const preview = items.slice(0, PREVIEW_LIMIT);
+const isExploreTab = (value: string): value is ExploreTab =>
+  TABS.some((tab) => tab === value);
 
-  return (
-    <section aria-label={title} className="flex flex-col">
-      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-        <div>
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="text-xs text-muted-foreground">{hint}</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onBrowseAll}>
-          Browse all
-        </Button>
-      </div>
-      {preview.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-muted-foreground">{emptyLabel}</p>
-      ) : (
-        <ol>
-          {preview.map((item, index) => {
-            const row = renderRow(item);
-            return (
-              <li key={row.key}>
-                <button
-                  type="button"
-                  className="grid w-full grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 border-t border-border/50 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
-                  onClick={() => {
-                    onSelect(item);
-                  }}
-                >
-                  <span className="font-mono text-xs font-bold text-primary/80">
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm" title={row.label}>
-                      {row.label}
-                    </span>
-                    {row.subtitle !== undefined && row.subtitle.length > 0 ? (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {row.subtitle}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="font-mono text-xs font-bold tabular-nums">
-                    {numberFmt.format(item.count)}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </section>
-  );
-};
+interface SelectedItem {
+  item: ExploreItem;
+  rank: number;
+  tab: ExploreTab;
+}
 
 interface ExplorePanelProps {
   suburbs: LocationRankItem[];
@@ -101,122 +35,291 @@ interface ExplorePanelProps {
   vehicles: VehicleRankItem[];
 }
 
+const isVehicleRankItem = (item: ExploreItem): item is VehicleRankItem =>
+  "make" in item && "model" in item;
+
+const getItemLabel = (item: ExploreItem): string => {
+  if (isVehicleRankItem(item)) {
+    return item.label;
+  }
+  return item.street !== undefined && item.street.length > 0
+    ? item.street
+    : item.label;
+};
+
+const getItemSubtitle = (item: ExploreItem): string | undefined => {
+  if (isVehicleRankItem(item)) {
+    return `${item.make} / ${item.model || "Unknown model"}`;
+  }
+  return formatLocationSubtitle(item.suburb);
+};
+
+const getTabIcon = (tab: ExploreTab) => {
+  if (tab === "vehicles") {
+    return <Car aria-hidden="true" />;
+  }
+  return <MapPinned aria-hidden="true" />;
+};
+
+const matchesSearch = (item: ExploreItem, search: string): boolean => {
+  if (search.length === 0) {
+    return true;
+  }
+  const haystack = [
+    getItemLabel(item),
+    getItemSubtitle(item),
+    isVehicleRankItem(item) ? item.make : item.suburb,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(search.toLowerCase());
+};
+
+const EmptyWorkbench = ({ label }: { label: string }) => (
+  <div className="grid min-h-56 place-items-center border-t border-border px-4 py-8 text-center">
+    <div>
+      <p className="text-sm font-medium text-foreground">No rows yet</p>
+      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+    </div>
+  </div>
+);
+
+const Inspector = ({
+  selected,
+  maxCount,
+}: {
+  selected: SelectedItem | null;
+  maxCount: number;
+}) => {
+  if (selected === null) {
+    return (
+      <aside className="flex min-h-full flex-col justify-between bg-muted p-4">
+        <div>
+          <Badge variant="outline" className="bg-background">
+            Inspector
+          </Badge>
+          <h3 className="mt-4 text-base font-semibold text-foreground">
+            Select a row
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Pick a suburb, street, or vehicle to pin it here while the rest of
+            the dashboard stays visible.
+          </p>
+        </div>
+        <div className="mt-6 rounded-[6px] border border-border bg-background p-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase">
+            Workbench Mode
+          </p>
+          <p className="mt-2 text-sm text-foreground">
+            Inline drill-down keeps context on the same screen.
+          </p>
+        </div>
+      </aside>
+    );
+  }
+
+  const label = getItemLabel(selected.item);
+  const subtitle = getItemSubtitle(selected.item);
+  const share = Math.round((selected.item.count / Math.max(maxCount, 1)) * 100);
+
+  return (
+    <aside className="bg-muted p-4">
+      <div className="flex items-center justify-between gap-3">
+        <Badge variant="outline" className="bg-background capitalize">
+          {selected.tab}
+        </Badge>
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
+          Rank {String(selected.rank).padStart(2, "0")}
+        </span>
+      </div>
+      <h3 className="mt-4 text-xl font-semibold tracking-[-0.03em] text-foreground">
+        {label}
+      </h3>
+      {subtitle === undefined ? null : (
+        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+      )}
+
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <div className="rounded-[6px] border border-border bg-background p-3">
+          <p className="text-xs text-muted-foreground">Tickets</p>
+          <p className="mt-1 font-mono text-xl font-semibold tabular-nums">
+            {numberFmt.format(selected.item.count)}
+          </p>
+        </div>
+        <div className="rounded-[6px] border border-border bg-background p-3">
+          <p className="text-xs text-muted-foreground">Peak Share</p>
+          <p className="mt-1 font-mono text-xl font-semibold tabular-nums">
+            {share}%
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-[6px] border border-border bg-background p-3">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase">
+          <SignalHigh
+            className="size-4 text-[var(--ring)]"
+            aria-hidden="true"
+          />
+          Relative Volume
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <span
+            className="block h-full rounded-full bg-[var(--ring)]"
+            style={{ width: `${Math.max(share, 4)}%` }}
+          />
+        </div>
+      </div>
+
+      <p className="mt-4 text-sm leading-6 text-muted-foreground">
+        This item is pinned for comparison while you scan the ranking table and
+        hotspot map.
+      </p>
+    </aside>
+  );
+};
+
 export const ExplorePanel = ({
   suburbs,
   streets,
   vehicles,
 }: ExplorePanelProps) => {
-  const [modal, setModal] = useState<ExploreOpenState | null>(null);
+  const [activeTab, setActiveTab] = useState<ExploreTab>("suburbs");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<SelectedItem | null>(null);
+
+  const items = useMemo(() => {
+    if (activeTab === "suburbs") {
+      return suburbs;
+    }
+    if (activeTab === "streets") {
+      return streets;
+    }
+    return vehicles;
+  }, [activeTab, streets, suburbs, vehicles]);
+
+  const visibleItems = useMemo(
+    () => items.filter((item) => matchesSearch(item, search)),
+    [items, search]
+  );
+
+  const maxCount = Math.max(...items.map((item) => item.count), 1);
 
   return (
-    <>
-      <Card className="overflow-hidden py-0" aria-label="Explore">
-        <CardHeader className="border-b border-border">
-          <CardTitle>Explore</CardTitle>
-          <CardDescription>
-            Top locations and vehicles — open any row or browse all to search
-            the full dataset
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid p-0 lg:grid-cols-3 lg:divide-x lg:divide-border">
-          <PreviewTable
-            title="Suburbs"
-            hint="Top 10 by ticket count"
-            items={suburbs}
-            emptyLabel="No suburb data yet."
-            onBrowseAll={() => {
-              setModal({ tab: "suburbs" });
-            }}
-            onSelect={(item) => {
-              setModal({ suburb: item.label, tab: "suburbs" });
-            }}
-            renderRow={(item) => ({
-              key: item.label,
-              label: item.label,
-            })}
-          />
-          <PreviewTable
-            title="Streets"
-            hint="Top 10 by ticket count"
-            items={streets}
-            emptyLabel="No street data yet."
-            onBrowseAll={() => {
-              setModal({ tab: "streets" });
-            }}
-            onSelect={(item) => {
-              if (isVehicleRankItem(item)) {
-                return;
-              }
-              const street =
-                item.street !== undefined && item.street.length > 0
-                  ? item.street
-                  : item.label;
-              setModal({
-                tab: "streets",
-                tickets: {
-                  street,
-                  suburb: item.suburb,
-                  title: street,
-                },
-              });
-            }}
-            renderRow={(item) => {
-              if (isVehicleRankItem(item)) {
-                return { key: item.label, label: item.label };
-              }
-              const label =
-                item.street !== undefined && item.street.length > 0
-                  ? item.street
-                  : item.label;
-              return {
-                key: label,
-                label,
-                subtitle: formatLocationSubtitle(item.suburb),
-              };
-            }}
-          />
-          <PreviewTable
-            title="Vehicles"
-            hint="Top 10 makes & models"
-            items={vehicles}
-            emptyLabel="No vehicle data yet."
-            onBrowseAll={() => {
-              setModal({ tab: "vehicles" });
-            }}
-            onSelect={(item) => {
-              if (!isVehicleRankItem(item)) {
-                return;
-              }
-              setModal({
-                tab: "vehicles",
-                tickets: {
-                  title: item.label,
-                  vehicleMake: item.make,
-                  vehicleModel: item.model,
-                },
-              });
-            }}
-            renderRow={(item) => {
-              if (!isVehicleRankItem(item)) {
-                return { key: item.label, label: item.label };
-              }
-              return {
-                key: `${item.make}|${item.model}`,
-                label: item.label,
-              };
-            }}
-          />
-        </CardContent>
-      </Card>
+    <Card className="overflow-hidden py-0" aria-label="Explore">
+      <CardHeader className="border-b border-border">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <CardTitle>Explore Workbench</CardTitle>
+            <CardDescription>
+              Search, pin, and compare top infringement dimensions in place.
+            </CardDescription>
+          </div>
+          <div className="relative min-w-0 lg:w-80">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              placeholder={`Search ${activeTab}`}
+              className="pl-9"
+            />
+          </div>
+        </div>
+      </CardHeader>
 
-      {modal === null ? null : (
-        <ExploreModal
-          initial={modal}
-          onClose={() => {
-            setModal(null);
-          }}
-        />
-      )}
-    </>
+      <CardContent className="grid p-0 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="min-w-0">
+          <div className="border-b border-border bg-muted px-4 py-3">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value: string) => {
+                if (isExploreTab(value)) {
+                  setActiveTab(value);
+                  setSelected(null);
+                }
+              }}
+            >
+              <TabsList className="w-full">
+                {TABS.map((tab) => (
+                  <TabsTrigger
+                    key={tab}
+                    value={tab}
+                    className="gap-2 capitalize"
+                  >
+                    {getTabIcon(tab)}
+                    {tab}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {visibleItems.length === 0 ? (
+            <EmptyWorkbench
+              label={
+                search.length > 0
+                  ? "No rows match that filter."
+                  : "Data will appear after the next sync."
+              }
+            />
+          ) : (
+            <ol className="max-h-[440px] overflow-auto">
+              {visibleItems.map((item, index) => {
+                const rank = index + 1;
+                const width = `${Math.max((item.count / maxCount) * 100, 4)}%`;
+                const label = getItemLabel(item);
+                const subtitle = getItemSubtitle(item);
+                const isSelected =
+                  selected?.tab === activeTab &&
+                  getItemLabel(selected.item) === label;
+
+                return (
+                  <li key={`${activeTab}-${label}-${index}`}>
+                    <button
+                      type="button"
+                      className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/70 px-4 py-3 text-left transition-colors first:border-t-0 hover:bg-muted focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none data-[selected=true]:bg-muted"
+                      data-selected={isSelected}
+                      onClick={() => {
+                        setSelected({ item, rank, tab: activeTab });
+                      }}
+                    >
+                      <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
+                        {String(rank).padStart(2, "0")}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {label}
+                        </span>
+                        {subtitle === undefined ? null : (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {subtitle}
+                          </span>
+                        )}
+                        <span className="mt-2 block h-1 overflow-hidden rounded-full bg-muted">
+                          <span
+                            className="block h-full rounded-full bg-[var(--ring)]"
+                            style={{ width }}
+                          />
+                        </span>
+                      </span>
+                      <span className="font-mono text-sm font-semibold tabular-nums">
+                        {numberFmt.format(item.count)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
+        <Inspector selected={selected} maxCount={maxCount} />
+      </CardContent>
+    </Card>
   );
 };

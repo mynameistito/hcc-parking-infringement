@@ -1,3 +1,4 @@
+import { Banknote, Sigma } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -84,13 +85,11 @@ interface StatPillProps {
 const StatPill = ({ label, value }: StatPillProps) => {
   const animated = useAnimatedNumber(value);
   return (
-    <div className="rounded-lg border border-border bg-muted/40 px-2 py-3 text-center">
-      <span className="block font-mono text-lg font-bold tabular-nums">
+    <div className="rounded-[6px] border border-border bg-background px-3 py-3">
+      <span className="block font-mono text-lg font-semibold tabular-nums tracking-[-0.02em]">
         {numberFmt.format(animated)}
       </span>
-      <span className="mt-0.5 block text-[0.65rem] font-semibold tracking-wider text-muted-foreground uppercase">
-        {label}
-      </span>
+      <span className="mt-1 block text-xs text-muted-foreground">{label}</span>
     </div>
   );
 };
@@ -119,37 +118,58 @@ export const LiveTicker = ({ stats }: LiveTickerProps) => {
   }, [stats.allTimeTotal]);
 
   return (
-    <Card
-      className="border-primary/20 bg-card shadow-[0_0_60px_rgba(99,102,241,0.12)]"
-      aria-label="All-time parking infringement total"
-    >
-      <CardContent className="px-4 py-8 text-center sm:px-6">
-        <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-          All-time infringements
-        </p>
-        <p
-          className={cn(
-            "mt-2 font-mono text-5xl font-bold tracking-tight text-primary tabular-nums sm:text-6xl",
-            pulse && "animate-ticker-pulse"
-          )}
-          aria-live="polite"
-        >
-          {numberFmt.format(animatedTotal)}
-        </p>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Total fines:{" "}
-          <strong className="font-semibold text-foreground">
-            {currencyFmt.format(stats.allTimeAmountCents / 100)}
-          </strong>
-        </p>
+    <Card className="bg-card" aria-label="All-time parking infringement total">
+      <CardContent className="p-0">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_400px]">
+          <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase">
+              <Sigma className="size-4 text-[var(--ring)]" aria-hidden="true" />
+              All-time infringements
+            </div>
+            <div>
+              <p
+                className={cn(
+                  "font-mono text-5xl font-semibold tracking-[-0.05em] text-primary tabular-nums sm:text-7xl",
+                  pulse && "animate-ticker-pulse"
+                )}
+                aria-live="polite"
+              >
+                {numberFmt.format(animatedTotal)}
+              </p>
+              <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
+                Running total from the public infringement feed.
+              </p>
+            </div>
+            <div className="mt-5 flex w-fit flex-wrap items-center gap-2 rounded-[6px] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <Banknote
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+              Total fines
+              <strong className="font-mono font-semibold text-foreground tabular-nums">
+                {currencyFmt.format(stats.allTimeAmountCents / 100)}
+              </strong>
+            </div>
+          </section>
 
-        <div className="mt-7 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <StatPill label="Today" value={stats.today} />
-          <StatPill label="Last 24h" value={stats.last24h} />
-          <StatPill label="Last 7d" value={stats.last7d} />
-          <StatPill label="Last 30d" value={stats.last30d} />
-          <StatPill label="This month" value={stats.thisMonth} />
-          <StatPill label="Towed today" value={stats.towedToday} />
+          <aside className="border-t border-border bg-muted p-4 sm:p-5 lg:border-t-0 lg:border-l">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-primary">
+                Current Pace
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                Live snapshot
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <StatPill label="Today" value={stats.today} />
+              <StatPill label="Last 24h" value={stats.last24h} />
+              <StatPill label="Last 7d" value={stats.last7d} />
+              <StatPill label="Last 30d" value={stats.last30d} />
+              <StatPill label="This month" value={stats.thisMonth} />
+              <StatPill label="Towed today" value={stats.towedToday} />
+            </div>
+          </aside>
         </div>
       </CardContent>
     </Card>

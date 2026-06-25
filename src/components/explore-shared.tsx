@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { ChevronRight } from "lucide-react";
+import { Car, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +70,7 @@ export const InfringementCards = ({
   if (loading === true) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
-        Loading tickets…
+        Loading tickets...
       </p>
     );
   }
@@ -89,8 +89,8 @@ export const InfringementCards = ({
         <li key={record.infringementNumber}>
           <Card size="sm" className="py-0">
             <CardContent className="grid grid-cols-[2rem_1fr] gap-3 py-3">
-              <span className="text-xl leading-none" aria-hidden>
-                🚗
+              <span className="flex size-8 items-center justify-center rounded-[6px] border border-border bg-muted">
+                <Car className="size-4 text-muted-foreground" aria-hidden />
               </span>
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-semibold">{formatVehicle(record)}</p>
@@ -177,7 +177,7 @@ export const BrowseControls = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="count">Most tickets</SelectItem>
-            <SelectItem value="name">A–Z</SelectItem>
+            <SelectItem value="name">A-Z</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -208,7 +208,7 @@ export const LoadMore = ({
         onClick={onClick}
         disabled={loading}
       >
-        {loading ? "Loading…" : "Load more"}
+        {loading ? "Loading..." : "Load More"}
       </Button>
     );
   }
@@ -235,6 +235,7 @@ export const ExploreListRow = ({
     type="button"
     className={cn(
       "grid w-full grid-cols-[1.5rem_minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-border/50 px-4 py-2.5 text-left transition-colors hover:bg-muted/40",
+      "focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none",
       className
     )}
     onClick={onClick}
@@ -242,8 +243,8 @@ export const ExploreListRow = ({
     {rank === undefined ? (
       <span />
     ) : (
-      <span className="font-mono text-xs font-bold text-primary/80">
-        {rank}
+      <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
+        {String(rank).padStart(2, "0")}
       </span>
     )}
     <span className="min-w-0">
@@ -256,7 +257,7 @@ export const ExploreListRow = ({
         </span>
       ) : null}
     </span>
-    <span className="font-mono text-xs font-bold tabular-nums">
+    <span className="font-mono text-xs font-semibold tabular-nums">
       {numberFmt.format(count)}
     </span>
     <ChevronRight className="size-4 text-muted-foreground" aria-hidden />

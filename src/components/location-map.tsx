@@ -1,3 +1,4 @@
+import { MapPinned } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,10 +43,10 @@ const HeatLegend = ({ maxCount }: { maxCount: number }) => {
 
   return (
     <div
-      className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-lg border border-border bg-card/95 p-2.5 shadow-lg backdrop-blur-sm"
+      className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-[6px] border border-border bg-card/95 p-2.5 shadow-[0_1px_1px_rgba(0,0,0,0.02),0_4px_8px_-4px_rgba(0,0,0,0.04),0_16px_24px_-8px_rgba(0,0,0,0.06)] backdrop-blur-sm"
       aria-label="Ticket heat scale"
     >
-      <p className="mb-1.5 text-[0.62rem] font-bold tracking-wider text-muted-foreground uppercase">
+      <p className="mb-1.5 text-[0.62rem] font-semibold text-muted-foreground uppercase">
         Tickets
       </p>
       <div className="grid h-[0.45rem] grid-cols-5 gap-0.5 overflow-hidden rounded">
@@ -81,25 +82,41 @@ export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
   const hasRoutes = geojson.features.length > 0;
 
   return (
-    <Card className="mb-5 gap-0 overflow-hidden py-0">
-      <CardHeader className="border-b border-border px-4 py-3.5">
-        <CardTitle className="text-base font-semibold">Hotspots map</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          OSM road lines coloured by ticket volume · mapcn · CARTO dark
-          {pendingGeocode > 0
-            ? ` · ${pendingGeocode} roads awaiting geometry…`
-            : ""}
-        </p>
-        {selected === null ? null : (
-          <p className="text-sm text-foreground">
-            <span className="font-medium">{selected.street}</span>
-            {selected.suburb !== null && selected.suburb.length > 0
-              ? ` · ${selected.suburb}`
-              : ""}
-            {" — "}
-            {selected.count.toLocaleString("en-NZ")} tickets
-          </p>
-        )}
+    <Card className="gap-0 overflow-hidden py-0">
+      <CardHeader className="border-b border-border bg-muted px-4 py-3.5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <MapPinned
+                className="size-4 text-[var(--ring)]"
+                aria-hidden="true"
+              />
+              Hotspots Map
+            </CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              OSM road lines coloured by ticket volume.
+              {pendingGeocode > 0
+                ? ` ${pendingGeocode} roads awaiting geometry...`
+                : ""}
+            </p>
+          </div>
+          {selected === null ? (
+            <p className="text-sm text-muted-foreground">
+              Select a route to inspect it.
+            </p>
+          ) : (
+            <p className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
+              <span className="font-medium">{selected.street}</span>
+              {selected.suburb !== null && selected.suburb.length > 0
+                ? `, ${selected.suburb}`
+                : ""}
+              <span className="ml-2 font-mono font-semibold tabular-nums">
+                {selected.count.toLocaleString("en-NZ")}
+              </span>{" "}
+              tickets
+            </p>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="relative p-0">
