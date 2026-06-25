@@ -119,17 +119,14 @@ export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
       </CardHeader>
 
       <CardContent className="relative p-0">
-        <Map
-          center={hamiltonMapCenter()}
-          zoom={13}
-          theme="dark"
-          className={cn(
-            "h-[360px] w-full",
-            hasRoutes ? undefined : "opacity-40"
-          )}
-        >
-          <MapControls showZoom showCompass />
-          {hasRoutes ? (
+        {hasRoutes ? (
+          <Map
+            center={hamiltonMapCenter()}
+            zoom={13}
+            theme="dark"
+            className={cn("h-[360px] w-full")}
+          >
+            <MapControls showZoom showCompass />
             <>
               <MapFitRoutes routes={routes} />
               <MapGeoJSON<RouteFeatureProperties>
@@ -151,8 +148,10 @@ export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
                 }}
               />
             </>
-          ) : null}
-        </Map>
+          </Map>
+        ) : (
+          <div className="h-[360px] w-full bg-muted" />
+        )}
 
         {hasRoutes ? <HeatLegend maxCount={maxCount} /> : null}
 

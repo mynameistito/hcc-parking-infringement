@@ -1,7 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-import { applyDashboardSnapshot } from "./dashboard-snapshot";
+import {
+  applyDashboardSnapshot,
+  getDashboardSnapshotTime,
+  getDashboardSnapshotWeight,
+  parseDashboardMessage,
+  persistDashboardSnapshot,
+  readPersistedDashboardSnapshot,
+} from "./dashboard-snapshot";
 import type { FullDashboardMessage } from "./dashboard-snapshot";
 
 const RECONNECT_DELAY_MS = 3000;
@@ -9,6 +16,7 @@ const PING_INTERVAL_MS = 30_000;
 const SOCKET_IDLE_CLOSE_MS = 2000;
 
 export interface LiveTransportState {
+  cached: boolean;
   connected: boolean;
   ready: boolean;
 }
@@ -19,6 +27,8 @@ interface LiveSocketStore extends LiveTransportState {
   reconnectTimer: number | undefined;
   pingTimer: number | undefined;
   idleCloseTimer: number | undefined;
+  lastSnapshotTime: number;
+  lastSnapshotWeight: number;
   queryClient: ReturnQueryClient | null;
 }
 
@@ -29,8 +39,11 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 
 const store: LiveSocketStore = {
+  cached: false,
   connected: false,
   idleCloseTimer: undefined,
+  lastSnapshotTime: 0,
+  lastSnapshotWeight: 0,
   pingTimer: undefined,
   queryClient: null,
   ready: false,
@@ -39,7 +52,25 @@ const store: LiveSocketStore = {
   ws: null,
 };
 
+let snapshot: LiveTransportState = {
+  cached: store.cached,
+  connected: store.connected,
+  ready: store.ready,
+};
+
 const emit = (): void => {
+  if (
+    snapshot.connected !== store.connected ||
+    snapshot.cached !== store.cached ||
+    snapshot.ready !== store.ready
+  ) {
+    snapshot = {
+      cached: store.cached,
+      connected: store.connected,
+      ready: store.ready,
+    };
+  }
+
   for (const listener of listeners) {
     listener();
   }
@@ -48,36 +79,6 @@ const emit = (): void => {
 const liveSocketUrl = (): string => {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/api/public/live/ws`;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const isFullDashboardMessage = (
-  value: unknown
-): value is FullDashboardMessage =>
-  isRecord(value) &&
-  value.type === "full" &&
-  typeof value.at === "string" &&
-  isRecord(value.live) &&
-  Array.isArray(value.recentInfringements) &&
-  Array.isArray(value.topStreets) &&
-  Array.isArray(value.topOffences) &&
-  Array.isArray(value.streets) &&
-  Array.isArray(value.suburbs) &&
-  Array.isArray(value.vehicles) &&
-  isRecord(value.map);
-
-const parseDashboardMessage = (data: string): FullDashboardMessage | null => {
-  try {
-    const parsed: unknown = JSON.parse(data);
-    if (isFullDashboardMessage(parsed)) {
-      return parsed;
-    }
-  } catch {
-    // ignore malformed messages
-  }
-  return null;
 };
 
 const clearReconnectTimer = (): void => {
@@ -102,9 +103,22 @@ const clearIdleCloseTimer = (): void => {
 };
 
 const onSnapshot = (message: FullDashboardMessage): void => {
+  const messageTime = getDashboardSnapshotTime(message);
+  const messageWeight = getDashboardSnapshotWeight(message);
+  if (messageTime < store.lastSnapshotTime) {
+    return;
+  }
+  if (messageWeight === 0 && store.lastSnapshotWeight > 0) {
+    return;
+  }
+
   if (store.queryClient !== null) {
     applyDashboardSnapshot(store.queryClient, message);
   }
+  persistDashboardSnapshot(message);
+  store.cached = false;
+  store.lastSnapshotTime = messageTime;
+  store.lastSnapshotWeight = messageWeight;
   store.ready = true;
   emit();
 };
@@ -190,19 +204,41 @@ const subscribe = (listener: Listener): (() => void) => {
   };
 };
 
-const getSnapshot = (): LiveTransportState => ({
-  connected: store.connected,
-  ready: store.ready,
-});
+const getSnapshot = (): LiveTransportState => snapshot;
 
 export const useLiveSocket = (): LiveTransportState => {
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     setMounted(true);
+    void (async () => {
+      const cached = await readPersistedDashboardSnapshot();
+      if (cancelled || cached === null) {
+        return;
+      }
+
+      const cachedTime = getDashboardSnapshotTime(cached);
+      const cachedWeight = getDashboardSnapshotWeight(cached);
+      if (cachedTime < store.lastSnapshotTime) {
+        return;
+      }
+      if (cachedWeight === 0 && store.lastSnapshotWeight > 0) {
+        return;
+      }
+
+      applyDashboardSnapshot(queryClient, cached);
+      store.cached = true;
+      store.lastSnapshotTime = cachedTime;
+      store.lastSnapshotWeight = cachedWeight;
+      store.ready = true;
+      emit();
+    })();
     acquireLiveSocket(queryClient);
     return () => {
+      cancelled = true;
       releaseLiveSocket();
     };
   }, [queryClient]);
@@ -210,7 +246,7 @@ export const useLiveSocket = (): LiveTransportState => {
   const liveState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   if (!mounted) {
-    return { connected: false, ready: false };
+    return { cached: false, connected: false, ready: false };
   }
 
   return liveState;

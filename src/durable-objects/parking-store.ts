@@ -6,6 +6,7 @@ import type { CleanInfringement } from "../server/clean.ts";
 
 const AUCKLAND_TZ = "Pacific/Auckland";
 const STATS_LIVE_ID = 1;
+const DASHBOARD_SNAPSHOT_CACHE_ID = 1;
 
 export type SyncRunType = "hourly" | "manual" | "backfill";
 
@@ -575,6 +576,29 @@ export class ParkingStore extends DurableObject<Env> {
         INSERT INTO _sql_schema_migrations (id) VALUES (5);
       `);
     }
+
+    if (currentVersion < 6) {
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS dashboard_snapshot_cache (
+          id INTEGER PRIMARY KEY,
+          payload TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        INSERT INTO _sql_schema_migrations (id) VALUES (6);
+      `);
+    }
+
+    if (currentVersion < 7) {
+      this.ctx.storage.sql.exec(`
+        CREATE INDEX IF NOT EXISTS idx_infringements_location
+          ON infringements (street, suburb, town);
+        CREATE INDEX IF NOT EXISTS idx_infringements_vehicle
+          ON infringements (vehicle_make, vehicle_model);
+
+        INSERT INTO _sql_schema_migrations (id) VALUES (7);
+      `);
+    }
   }
 
   applySyncWindow(payload: SyncWindowPayload): SyncWindowResult {
@@ -1113,26 +1137,37 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   private countLocationsNeedingGeocodeSync(): number {
-    const rows = this.ctx.storage.sql
-      .exec<GeocodeCandidateRow>(
-        `SELECT i.street,
-                nullif(i.suburb, '') as suburb,
-                coalesce(i.town, 'Hamilton') as town,
-                count(*) as count,
-                lc.geometry_json,
-                lc.geocode_failed_at
-         FROM infringements i
-         LEFT JOIN location_cache lc
-           ON i.street = lc.street
-           AND coalesce(i.suburb, '') = lc.suburb
-         WHERE i.street != ''
-           AND i.street != 'Unknown'
-         GROUP BY i.street, i.suburb, i.town, lc.geometry_json, lc.geocode_failed_at
-         ORDER BY count DESC`
+    const retryCutoff = new Date(
+      Date.now() - GEOCODE_FAILURE_RETRY_MS
+    ).toISOString();
+    const row = this.ctx.storage.sql
+      .exec<{ total: number }>(
+        `SELECT count(*) as total
+         FROM (
+           SELECT i.street,
+                  coalesce(i.suburb, '') as suburb,
+                  coalesce(i.town, 'Hamilton') as town,
+                  lc.geometry_json,
+                  lc.geocode_failed_at
+           FROM infringements i
+           LEFT JOIN location_cache lc
+             ON i.street = lc.street
+             AND coalesce(i.suburb, '') = lc.suburb
+           WHERE i.street != ''
+             AND i.street != 'Unknown'
+           GROUP BY i.street, coalesce(i.suburb, ''), coalesce(i.town, 'Hamilton')
+         )
+         WHERE (geometry_json IS NULL OR geometry_json = '' OR geometry_json = '[]')
+           AND (
+             geocode_failed_at IS NULL
+             OR geocode_failed_at = ''
+             OR geocode_failed_at < ?
+           )`,
+        retryCutoff
       )
-      .toArray();
+      .one();
 
-    return filterGeocodeCandidates(rows, Number.MAX_SAFE_INTEGER).length;
+    return row?.total ?? 0;
   }
 
   saveLocationCache(input: LocationCacheInput): void {
@@ -1382,17 +1417,95 @@ export class ParkingStore extends DurableObject<Env> {
       type: "full",
       ...this.buildFullDashboardSnapshotSync(),
     });
+    this.ctx.storage.sql.exec(
+      `INSERT INTO dashboard_snapshot_cache (id, payload, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         payload = excluded.payload,
+         updated_at = excluded.updated_at`,
+      DASHBOARD_SNAPSHOT_CACHE_ID,
+      this.dashboardSnapshotPayload,
+      isoNow()
+    );
+  }
+
+  private readStoredDashboardSnapshotPayload(): string | null {
+    const rows = this.ctx.storage.sql
+      .exec<{ payload: string }>(
+        "SELECT payload FROM dashboard_snapshot_cache WHERE id = ? LIMIT 1",
+        DASHBOARD_SNAPSHOT_CACHE_ID
+      )
+      .toArray();
+
+    return rows[0]?.payload ?? null;
+  }
+
+  private buildColdDashboardSnapshotPayload(): string {
+    return JSON.stringify({
+      at: isoNow(),
+      live: this.readPublicLiveStatsSync(),
+      map: {
+        pendingGeocode: 0,
+        routes: [],
+      },
+      recentInfringements: [],
+      streets: [],
+      suburbs: [],
+      topOffences: [],
+      topStreets: [],
+      type: "full",
+      vehicles: [],
+    });
+  }
+
+  private static getDashboardSnapshotPayloadWeight(payload: string): number {
+    try {
+      const parsed: unknown = JSON.parse(payload);
+      if (typeof parsed !== "object" || parsed === null) {
+        return 0;
+      }
+
+      const snapshot = parsed as {
+        map?: { routes?: unknown[] };
+        recentInfringements?: unknown[];
+        streets?: unknown[];
+        suburbs?: unknown[];
+        topOffences?: unknown[];
+        topStreets?: unknown[];
+        vehicles?: unknown[];
+      };
+
+      return (
+        (snapshot.recentInfringements?.length ?? 0) +
+        (snapshot.topStreets?.length ?? 0) +
+        (snapshot.topOffences?.length ?? 0) +
+        (snapshot.streets?.length ?? 0) +
+        (snapshot.suburbs?.length ?? 0) +
+        (snapshot.vehicles?.length ?? 0) +
+        (snapshot.map?.routes?.length ?? 0)
+      );
+    } catch {
+      return 0;
+    }
   }
 
   private getDashboardSnapshotPayload(): string {
-    if (this.dashboardSnapshotPayload === null) {
-      this.refreshDashboardSnapshotCache();
+    const payload =
+      this.dashboardSnapshotPayload ??
+      this.readStoredDashboardSnapshotPayload();
+
+    if (
+      payload !== null &&
+      ParkingStore.getDashboardSnapshotPayloadWeight(payload) > 0
+    ) {
+      this.dashboardSnapshotPayload = payload;
+      return payload;
     }
-    const payload = this.dashboardSnapshotPayload;
-    if (payload === null) {
-      throw new Error("Dashboard snapshot cache unavailable");
-    }
-    return payload;
+
+    this.refreshDashboardSnapshotCache();
+    return (
+      this.dashboardSnapshotPayload ?? this.buildColdDashboardSnapshotPayload()
+    );
   }
 
   private broadcastLiveUpdate(): void {

@@ -48,6 +48,7 @@ interface DashboardProps {
   recentInfringements: PublicInfringement[];
   mapRoutes: MapRouteItem[];
   pendingGeocode: number;
+  isCached?: boolean;
   isLive?: boolean;
   isFetching?: boolean;
   error?: string | null;
@@ -122,6 +123,42 @@ const ThemeToggle = () => {
   );
 };
 
+const LiveStatusBadge = ({
+  isCached,
+  isLive,
+}: {
+  isCached?: boolean;
+  isLive?: boolean;
+}) => {
+  if (isLive === true) {
+    return (
+      <Badge
+        variant="secondary"
+        className="gap-1.5 border-[color-mix(in_srgb,#00ca50_35%,transparent)] bg-[color-mix(in_srgb,#00ca50_12%,var(--background))] text-[#00ca50]"
+      >
+        <Activity className="size-3" aria-hidden="true" />
+        WebSocket Live
+      </Badge>
+    );
+  }
+
+  if (isCached === true) {
+    return (
+      <Badge variant="outline" className="gap-1.5 bg-background">
+        <Database className="size-3" aria-hidden="true" />
+        Cached
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="gap-1.5 bg-background">
+      <Database className="size-3" aria-hidden="true" />
+      Connecting
+    </Badge>
+  );
+};
+
 export const Dashboard = ({
   live,
   streets,
@@ -132,6 +169,7 @@ export const Dashboard = ({
   recentInfringements,
   mapRoutes,
   pendingGeocode,
+  isCached,
   isLive,
   isFetching,
   error,
@@ -155,20 +193,7 @@ export const Dashboard = ({
 
           <div className="flex flex-col items-start gap-3 lg:items-end">
             <div className="flex flex-wrap items-center gap-2">
-              {isLive === true ? (
-                <Badge
-                  variant="secondary"
-                  className="gap-1.5 border-[color-mix(in_srgb,#00ca50_35%,transparent)] bg-[color-mix(in_srgb,#00ca50_12%,var(--background))] text-[#00ca50]"
-                >
-                  <Activity className="size-3" aria-hidden="true" />
-                  WebSocket Live
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="gap-1.5 bg-background">
-                  <Database className="size-3" aria-hidden="true" />
-                  Polling
-                </Badge>
-              )}
+              <LiveStatusBadge isCached={isCached} isLive={isLive} />
               {isFetching === true ? (
                 <Badge variant="outline" className="bg-background">
                   Updating...

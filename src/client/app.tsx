@@ -40,7 +40,7 @@ const useDashboardCache = <TData,>(
   });
 
 export const App = () => {
-  const { connected, ready } = useLiveSocket();
+  const { cached, connected } = useLiveSocket();
 
   const { data: liveData } = useDashboardCache<LiveStatsResponse>([
     "public",
@@ -93,8 +93,9 @@ export const App = () => {
       recentInfringements={recentData?.data ?? []}
       mapRoutes={mapData?.routes ?? []}
       pendingGeocode={mapData?.pendingGeocode ?? 0}
-      isLive={connected || ready}
-      isFetching={!ready && connected}
+      isCached={cached}
+      isLive={connected && !cached}
+      isFetching={connected && cached}
       error={null}
     />
   );
