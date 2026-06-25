@@ -457,7 +457,6 @@ app.post("/api/v1/geocode/run", async (c) => {
   return c.json({ ok: true, ...result });
 });
 
-// @ts-expect-error Cloudflare asset responses use Workers Response typings.
 app.notFound(async (c) => {
   if (!c.req.path.startsWith("/api/")) {
     return await c.env.ASSETS.fetch(c.req.url);

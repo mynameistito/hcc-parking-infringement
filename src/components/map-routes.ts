@@ -1,3 +1,10 @@
+import type {
+  Feature,
+  FeatureCollection,
+  GeoJsonProperties,
+  LineString,
+} from "geojson";
+
 import type { MapRouteItem } from "../client/api";
 import { heatColor, heatLineOpacity, heatLineWeight } from "./map-heat";
 
@@ -13,7 +20,7 @@ export interface RouteFeatureProperties {
 }
 
 export const isRouteFeatureProperties = (
-  properties: GeoJSON.GeoJsonProperties
+  properties: GeoJsonProperties
 ): properties is RouteFeatureProperties => {
   if (properties === null) {
     return false;
@@ -41,11 +48,8 @@ export const filterRoadGeometry = (
 export const buildRoutesGeoJSON = (
   routes: MapRouteItem[],
   maxCount: number
-): GeoJSON.FeatureCollection<GeoJSON.LineString, RouteFeatureProperties> => {
-  const features: GeoJSON.Feature<
-    GeoJSON.LineString,
-    RouteFeatureProperties
-  >[] = [];
+): FeatureCollection<LineString, RouteFeatureProperties> => {
+  const features: Feature<LineString, RouteFeatureProperties>[] = [];
 
   for (const route of routes) {
     const ratio = route.count / maxCount;

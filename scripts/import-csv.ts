@@ -213,34 +213,46 @@ let skippedRows = 0;
 let lineNumber = 1;
 let seenRows = 0;
 
-for (const line of lines.slice(1)) {
-  if (line.length === 0) {
-    continue;
+const dataLines = lines.slice(1).filter((line) => line.length > 0);
+
+const uploadFullBatch = async (final: boolean) => {
+  const records = batch.splice(0);
+  return await postBatch(records, final);
+};
+
+const processDataLine = async (index: number): Promise<void> => {
+  if (index >= dataLines.length) {
+    return;
+  }
+
+  const line = dataLines[index];
+  if (line === undefined) {
+    await processDataLine(index + 1);
+    return;
   }
 
   lineNumber += 1;
   seenRows += 1;
 
-  if (seenRows <= skipRows) {
-    continue;
+  if (seenRows > skipRows) {
+    batch.push(toRawRecord(headers, parseCsvLine(line)));
+
+    if (batch.length >= batchSize) {
+      const result = await uploadFullBatch(false);
+      importedRows += result.recordsReceived;
+      upsertedRows += result.recordsUpserted;
+      skippedRows += result.skipped;
+      console.log(
+        `Imported ${importedRows.toLocaleString()} rows, total in DO ${result.totalRecords.toLocaleString()}`
+      );
+    }
   }
 
-  const values = parseCsvLine(line);
-  batch.push(toRawRecord(headers, values));
+  await processDataLine(index + 1);
+};
 
-  if (batch.length >= batchSize) {
-    // eslint-disable-next-line no-await-in-loop -- batches must be uploaded in order to avoid overloading the DO.
-    const result = await postBatch(batch.splice(0), false);
-    importedRows += result.recordsReceived;
-    upsertedRows += result.recordsUpserted;
-    skippedRows += result.skipped;
-    console.log(
-      `Imported ${importedRows.toLocaleString()} rows, total in DO ${result.totalRecords.toLocaleString()}`
-    );
-  }
-}
-
-const finalResult = await postBatch(batch, true);
+await processDataLine(0);
+const finalResult = await uploadFullBatch(true);
 importedRows += finalResult.recordsReceived;
 upsertedRows += finalResult.recordsUpserted;
 skippedRows += finalResult.skipped;
