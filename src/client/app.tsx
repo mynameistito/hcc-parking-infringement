@@ -1,21 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
+import type { UseQueryResult } from "@tanstack/react-query";
 
 import { Dashboard } from "@/components/dashboard";
 
-import {
-  fetchLiveStats,
-  fetchMapPoints,
-  fetchRecentInfringements,
-  fetchTopStats,
-  fetchTopStreets,
-  fetchTopSuburbs,
-  fetchTopVehicles,
+import type {
+  InfringementListResponse,
+  LiveStatsResponse,
+  LocationRankItem,
+  MapResponse,
+  TopStatsResponse,
+  VehicleRankItem,
 } from "./api";
 import { useLiveSocket } from "./use-live-socket";
 
-const FALLBACK_POLL_MS = 15_000;
-
-const EMPTY_LIVE = {
+const EMPTY_LIVE: LiveStatsResponse = {
   allTimeAmountCents: 0,
   allTimeTotal: 0,
   last24h: 0,
@@ -28,134 +26,61 @@ const EMPTY_LIVE = {
   towedToday: 0,
 };
 
-const getQueryErrorMessage = (
-  errors: ({ message?: string } | null | undefined)[]
-): string | null => {
-  for (const error of errors) {
-    if (error?.message !== undefined && error.message.length > 0) {
-      return error.message;
-    }
-  }
-  return null;
-};
-
-const isAnyQueryFetching = (flags: boolean[]): boolean => flags.some(Boolean);
+const useDashboardCache = <TData,>(
+  queryKey: readonly unknown[]
+): UseQueryResult<TData> =>
+  useQuery<TData>({
+    enabled: false,
+    gcTime: Number.POSITIVE_INFINITY,
+    queryFn: (): TData => {
+      throw new Error("Dashboard data is delivered over WebSocket");
+    },
+    queryKey,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
 export const App = () => {
-  const isLive = useLiveSocket();
-  const pollInterval = isLive ? false : FALLBACK_POLL_MS;
+  const { connected, ready } = useLiveSocket();
 
-  const {
-    data: liveData,
-    error: liveError,
-    isFetching: liveIsFetching,
-  } = useQuery({
-    queryFn: fetchLiveStats,
-    queryKey: ["public", "live"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const {
-    data: streetsData,
-    error: streetsError,
-    isFetching: streetsIsFetching,
-  } = useQuery({
-    queryFn: async () => await fetchTopStats("street", 5),
-    queryKey: ["public", "top", "street"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const {
-    data: offencesData,
-    error: offencesError,
-    isFetching: offencesIsFetching,
-  } = useQuery({
-    queryFn: async () => await fetchTopStats("offence", 5),
-    queryKey: ["public", "top", "offence"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const {
-    data: topStreetsData,
-    error: topStreetsError,
-    isFetching: topStreetsIsFetching,
-  } = useQuery({
-    queryFn: async () => await fetchTopStreets(10),
-    queryKey: ["public", "locations", "streets"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const {
-    data: topSuburbsData,
-    error: topSuburbsError,
-    isFetching: topSuburbsIsFetching,
-  } = useQuery({
-    queryFn: async () => await fetchTopSuburbs(10),
-    queryKey: ["public", "locations", "suburbs"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const {
-    data: topVehiclesData,
-    error: topVehiclesError,
-    isFetching: topVehiclesIsFetching,
-  } = useQuery({
-    queryFn: async () => await fetchTopVehicles(10),
-    queryKey: ["public", "vehicles", "top"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const {
-    data: mapData,
-    error: mapError,
-    isFetching: mapIsFetching,
-  } = useQuery({
-    queryFn: async () => await fetchMapPoints(50),
-    queryKey: ["public", "locations", "map"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const {
-    data: recentData,
-    error: recentError,
-    isFetching: recentIsFetching,
-  } = useQuery({
-    queryFn: async () => await fetchRecentInfringements(15),
-    queryKey: ["public", "infringements", "recent"],
-    refetchInterval: pollInterval,
-    refetchIntervalInBackground: true,
-  });
-
-  const error = getQueryErrorMessage([
-    liveError,
-    streetsError,
-    offencesError,
-    topStreetsError,
-    topSuburbsError,
-    topVehiclesError,
-    mapError,
-    recentError,
+  const { data: liveData } = useDashboardCache<LiveStatsResponse>([
+    "public",
+    "live",
   ]);
-
-  const isFetching =
-    !isLive &&
-    isAnyQueryFetching([
-      liveIsFetching,
-      streetsIsFetching,
-      offencesIsFetching,
-      topStreetsIsFetching,
-      topSuburbsIsFetching,
-      topVehiclesIsFetching,
-      mapIsFetching,
-      recentIsFetching,
-    ]);
+  const { data: streetsData } = useDashboardCache<TopStatsResponse>([
+    "public",
+    "top",
+    "street",
+  ]);
+  const { data: offencesData } = useDashboardCache<TopStatsResponse>([
+    "public",
+    "top",
+    "offence",
+  ]);
+  const { data: topStreetsData } = useDashboardCache<LocationRankItem[]>([
+    "public",
+    "locations",
+    "streets",
+  ]);
+  const { data: topSuburbsData } = useDashboardCache<LocationRankItem[]>([
+    "public",
+    "locations",
+    "suburbs",
+  ]);
+  const { data: topVehiclesData } = useDashboardCache<VehicleRankItem[]>([
+    "public",
+    "vehicles",
+    "top",
+  ]);
+  const { data: mapData } = useDashboardCache<MapResponse>([
+    "public",
+    "locations",
+    "map",
+  ]);
+  const { data: recentData } = useDashboardCache<InfringementListResponse>([
+    "public",
+    "infringements",
+    "recent",
+  ]);
 
   return (
     <Dashboard
@@ -168,9 +93,9 @@ export const App = () => {
       recentInfringements={recentData?.data ?? []}
       mapRoutes={mapData?.routes ?? []}
       pendingGeocode={mapData?.pendingGeocode ?? 0}
-      isLive={isLive}
-      isFetching={isFetching}
-      error={error}
+      isLive={connected || ready}
+      isFetching={!ready && connected}
+      error={null}
     />
   );
 };

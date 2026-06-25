@@ -3,7 +3,7 @@
   "name": "hcc-parking-infringement",
   "main": "src/worker.ts",
   "compatibility_date": "2026-01-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "web_socket_auto_reply_to_close"],
   "durable_objects": {
     "bindings": [
       {

@@ -19,6 +19,7 @@ import type {
   VehicleRankItem,
 } from "../client/api";
 import { ExplorePanel } from "./explore-panel";
+import { LatestInstances } from "./latest-instances";
 import { LiveTicker } from "./live-ticker";
 import { LocationMap } from "./location-map";
 import { TopLists } from "./top-lists";
@@ -189,8 +190,9 @@ export const Dashboard = ({
       ) : null}
 
       <main className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="xl:col-span-2">
-          <LiveTicker stats={live} recentInfringements={recentInfringements} />
+        <div className="grid gap-6 xl:col-span-2">
+          <LiveTicker stats={live} />
+          <LatestInstances recentInfringements={recentInfringements} />
         </div>
         <section className="min-w-0">
           <LocationMap routes={mapRoutes} pendingGeocode={pendingGeocode} />

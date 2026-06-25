@@ -1,11 +1,8 @@
-import { format } from "date-fns";
 import { Banknote, Sigma } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-import type { PublicInfringement } from "../client/api";
 
 const useAnimatedNumber = (value: number, duration = 600): number => {
   const [display, setDisplay] = useState(value);
@@ -78,7 +75,6 @@ export interface LiveStats {
 
 interface LiveTickerProps {
   stats: LiveStats;
-  recentInfringements: PublicInfringement[];
 }
 
 interface StatPillProps {
@@ -98,15 +94,7 @@ const StatPill = ({ label, value }: StatPillProps) => {
   );
 };
 
-const formatVehicle = (record: PublicInfringement): string => {
-  const parts = [record.vehicleMake, record.vehicleModel].filter(Boolean);
-  if (parts.length > 0) {
-    return parts.join(" ");
-  }
-  return record.vehicleType ?? "Unknown";
-};
-
-export const LiveTicker = ({ stats, recentInfringements }: LiveTickerProps) => {
+export const LiveTicker = ({ stats }: LiveTickerProps) => {
   const animatedTotal = useAnimatedNumber(stats.allTimeTotal);
   const [pulse, setPulse] = useState(false);
   const prevTotalRef = useRef(stats.allTimeTotal);
@@ -127,7 +115,7 @@ export const LiveTicker = ({ stats, recentInfringements }: LiveTickerProps) => {
   return (
     <Card className="bg-card" aria-label="All-time parking infringement total">
       <CardContent className="p-0">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_430px]">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase">
               <Sigma className="size-4 text-[var(--ring)]" aria-hidden="true" />
@@ -168,80 +156,13 @@ export const LiveTicker = ({ stats, recentInfringements }: LiveTickerProps) => {
                 Live snapshot
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               <StatPill label="Today" value={stats.today} />
               <StatPill label="Last 24h" value={stats.last24h} />
               <StatPill label="Last 7d" value={stats.last7d} />
               <StatPill label="Last 30d" value={stats.last30d} />
               <StatPill label="This month" value={stats.thisMonth} />
               <StatPill label="Towed today" value={stats.towedToday} />
-            </div>
-            <div className="mt-5 border-t border-border pt-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-primary">
-                  Latest Instances
-                </h2>
-                <span className="text-xs text-muted-foreground">
-                  Newest first
-                </span>
-              </div>
-              <div className="max-h-[290px] overflow-auto rounded-[6px] border border-border bg-background">
-                <table className="w-full min-w-[520px] border-collapse text-left text-xs">
-                  <thead className="sticky top-0 z-10 bg-muted text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 font-medium">Date</th>
-                      <th className="px-3 py-2 font-medium">Vehicle</th>
-                      <th className="px-3 py-2 font-medium">Street</th>
-                      <th className="px-3 py-2 text-right font-medium">Fine</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentInfringements.length === 0 ? (
-                      <tr>
-                        <td
-                          className="px-3 py-6 text-center text-muted-foreground"
-                          colSpan={4}
-                        >
-                          Waiting for infringement rows...
-                        </td>
-                      </tr>
-                    ) : (
-                      recentInfringements.map((record) => (
-                        <tr
-                          key={record.infringementNumber}
-                          className="border-t border-border/70"
-                        >
-                          <td className="whitespace-nowrap px-3 py-2 font-mono tabular-nums text-muted-foreground">
-                            <time dateTime={record.occurredAt}>
-                              {format(new Date(record.occurredAt), "d MMM yy")}
-                            </time>
-                          </td>
-                          <td
-                            className="max-w-[9rem] truncate px-3 py-2"
-                            title={formatVehicle(record)}
-                          >
-                            {formatVehicle(record)}
-                          </td>
-                          <td
-                            className="max-w-[11rem] truncate px-3 py-2 text-muted-foreground"
-                            title={
-                              record.suburb === null ||
-                              record.suburb.length === 0
-                                ? record.street
-                                : `${record.street}, ${record.suburb}`
-                            }
-                          >
-                            {record.street}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2 text-right font-mono font-semibold tabular-nums">
-                            {currencyFmt.format(record.amountCents / 100)}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </aside>
         </div>

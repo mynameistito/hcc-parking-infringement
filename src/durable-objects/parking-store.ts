@@ -391,6 +391,8 @@ const yearBoundsInAuckland = (now: Date): { start: string; end: string } => {
 };
 
 export class ParkingStore extends DurableObject<Env> {
+  private dashboardSnapshotPayload: string | null = null;
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     void ctx.blockConcurrencyWhile(async () => {
@@ -406,7 +408,9 @@ export class ParkingStore extends DurableObject<Env> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    this.pushToSocket(server);
+    queueMicrotask(() => {
+      this.pushToSocket(server);
+    });
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -421,13 +425,13 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   webSocketClose(
-    ws: WebSocket,
-    code: number,
-    reason: string,
+    _ws: WebSocket,
+    _code: number,
+    _reason: string,
     _wasClean: boolean
   ): void {
     void this.ctx;
-    ws.close(code, reason);
+    // Runtime completes the close handshake via web_socket_auto_reply_to_close.
   }
 
   private async migrate(): Promise<void> {
@@ -1373,16 +1377,35 @@ export class ParkingStore extends DurableObject<Env> {
     };
   }
 
+  private refreshDashboardSnapshotCache(): void {
+    this.dashboardSnapshotPayload = JSON.stringify({
+      type: "full",
+      ...this.buildFullDashboardSnapshotSync(),
+    });
+  }
+
+  private getDashboardSnapshotPayload(): string {
+    if (this.dashboardSnapshotPayload === null) {
+      this.refreshDashboardSnapshotCache();
+    }
+    const payload = this.dashboardSnapshotPayload;
+    if (payload === null) {
+      throw new Error("Dashboard snapshot cache unavailable");
+    }
+    return payload;
+  }
+
   private broadcastLiveUpdate(): void {
+    this.refreshDashboardSnapshotCache();
     const sockets = this.ctx.getWebSockets();
     if (sockets.length === 0) {
       return;
     }
 
-    const payload = JSON.stringify({
-      type: "full",
-      ...this.buildFullDashboardSnapshotSync(),
-    });
+    const payload = this.dashboardSnapshotPayload;
+    if (payload === null) {
+      return;
+    }
 
     for (const ws of sockets) {
       try {
@@ -1395,12 +1418,7 @@ export class ParkingStore extends DurableObject<Env> {
 
   private pushToSocket(ws: WebSocket): void {
     try {
-      ws.send(
-        JSON.stringify({
-          type: "full",
-          ...this.buildFullDashboardSnapshotSync(),
-        })
-      );
+      ws.send(this.getDashboardSnapshotPayload());
     } catch {
       // socket already closed
     }
