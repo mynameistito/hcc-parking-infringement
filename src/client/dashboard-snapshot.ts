@@ -4,6 +4,7 @@ import type {
   LiveStatsResponse,
   LocationRankItem,
   MapResponse,
+  PublicInfringement,
   TopItem,
   VehicleRankItem,
 } from "./api";
@@ -12,6 +13,7 @@ export interface FullDashboardMessage {
   type: "full";
   at: string;
   live: LiveStatsResponse;
+  recentInfringements: PublicInfringement[];
   topStreets: TopItem[];
   topOffences: TopItem[];
   streets: LocationRankItem[];
@@ -37,4 +39,10 @@ export const applyDashboardSnapshot = (
   queryClient.setQueryData(["public", "locations", "suburbs"], message.suburbs);
   queryClient.setQueryData(["public", "vehicles", "top"], message.vehicles);
   queryClient.setQueryData(["public", "locations", "map"], message.map);
+  queryClient.setQueryData(["public", "infringements", "recent"], {
+    data: message.recentInfringements,
+    limit: message.recentInfringements.length,
+    page: 1,
+    total: message.live.allTimeTotal,
+  });
 };

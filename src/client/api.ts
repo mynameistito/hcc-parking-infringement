@@ -295,6 +295,14 @@ export const fetchTopVehicles = async (
     isVehicleRankItemArray
   );
 
+export const fetchRecentInfringements = async (
+  limit = 15
+): Promise<InfringementListResponse> =>
+  await parseJson(
+    `/api/public/infringements/recent?limit=${limit}`,
+    isInfringementListResponse
+  );
+
 const buildBrowseParams = (params: BrowseParams): URLSearchParams => {
   const search = new URLSearchParams();
   if (hasNonEmptyString(params.q)) {

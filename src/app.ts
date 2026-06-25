@@ -1,6 +1,7 @@
-import type { Context } from "hono";
+import type { Context, NotFoundHandler } from "hono";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import type { Env } from "./env.ts";
 import { verifyApiKey, verifyApiKeyOrCronSecret } from "./server/auth.ts";
@@ -13,6 +14,7 @@ import {
   getTopVehicles,
 } from "./server/explore.ts";
 import { geocodeMissingLocations } from "./server/geocode.ts";
+import { importInfringements } from "./server/import.ts";
 import {
   getMapPoints,
   getTopStreets,
@@ -44,8 +46,11 @@ const STORED_HEADERS = {
   "X-Data-Source": "stored",
 } as const;
 
-const storedJson = (c: Context<AppEnv>, body: unknown, status = 200) =>
-  c.json(body, status, STORED_HEADERS);
+const storedJson = (
+  c: Context<AppEnv>,
+  body: unknown,
+  status: ContentfulStatusCode = 200
+) => c.json(body, status, STORED_HEADERS);
 
 const jsonError = (status: number, message: string) =>
   Response.json({ error: message }, { status });
@@ -209,6 +214,15 @@ app.get("/api/public/vehicles/top", async (c) => {
   return storedJson(c, { data: vehicles, meta: { source: "stored" } });
 });
 
+app.get("/api/public/infringements/recent", async (c) => {
+  const limit = Math.min(parsePositiveInt(c.req.query("limit"), 15), 50);
+  const result = await listInfringements(c.env, {
+    limit,
+    page: 1,
+  });
+  return storedJson(c, { meta: { source: "stored" }, ...result });
+});
+
 app.get("/api/public/browse/suburbs", async (c) => {
   const result = await browseSuburbs(c.env, {
     limit: Math.min(parsePositiveInt(c.req.query("limit"), 25), 100),
@@ -294,7 +308,7 @@ app.get("/api/v1/cache/status", async (c) => {
     hccFetchPolicy: {
       backfill: "skips already-ingested windows",
       force: "POST /api/v1/sync/backfill?force=true",
-      hourly: "last 2 days only",
+      hourly: "last 7 days only",
     },
   });
 });
@@ -423,6 +437,19 @@ app.post("/api/v1/sync/backfill", async (c) => {
   }
 });
 
+app.post("/api/v1/import/infringements", async (c) => {
+  assertApiKey(c.req.raw, c.env);
+
+  try {
+    const body: unknown = await c.req.json();
+    const result = await importInfringements(c.env, body);
+    return c.json({ ok: true, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return jsonError(400, message);
+  }
+});
+
 app.post("/api/v1/geocode/run", async (c) => {
   assertApiKey(c.req.raw, c.env);
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 100);
@@ -430,11 +457,13 @@ app.post("/api/v1/geocode/run", async (c) => {
   return c.json({ ok: true, ...result });
 });
 
-app.notFound(async (c) => {
+const handleNotFound = (async (c) => {
   if (!c.req.path.startsWith("/api/")) {
-    return await c.env.ASSETS.fetch(c.req.raw);
+    return await c.env.ASSETS.fetch(c.req.raw as never);
   }
-  return jsonError(404, "Not found");
-});
+  return c.json({ error: "Not found" }, 404);
+}) as NotFoundHandler<AppEnv>;
+
+app.notFound(handleNotFound);
 
 export { app };

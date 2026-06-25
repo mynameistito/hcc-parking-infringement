@@ -25,4 +25,13 @@ export const getMapPoints = async (
 ): Promise<{
   routes: LocationMapPoint[];
   pendingGeocode: number;
-}> => await getParkingStore(env).getMapPoints(limit);
+}> => {
+  const result = await getParkingStore(env).getMapPoints(limit);
+  return {
+    pendingGeocode: result.pendingGeocode,
+    routes: result.routes.map((route) => ({
+      ...route,
+      geometry: route.geometry as LocationMapPoint["geometry"],
+    })),
+  };
+};

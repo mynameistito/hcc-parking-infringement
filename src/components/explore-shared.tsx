@@ -131,7 +131,7 @@ export const InfringementCards = ({
   );
 };
 
-const isBrowseSort = (value: string): value is BrowseSort =>
+const isBrowseSort = (value: string | null): value is BrowseSort =>
   value === "count" || value === "name";
 
 export const BrowseControls = ({

@@ -139,9 +139,7 @@ export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
                 promoteId="id"
                 fillPaint={false}
                 linePaint={{
-                  "line-cap": "round",
                   "line-color": ["get", "color"],
-                  "line-join": "round",
                   "line-opacity": ["get", "opacity"],
                   "line-width": ["get", "width"],
                 }}

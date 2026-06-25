@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import type {
   LocationRankItem,
   MapRouteItem,
+  PublicInfringement,
   VehicleRankItem,
 } from "../client/api";
 import { ExplorePanel } from "./explore-panel";
@@ -43,6 +44,7 @@ interface DashboardProps {
   topStreets: LocationRankItem[];
   topSuburbs: LocationRankItem[];
   topVehicles: VehicleRankItem[];
+  recentInfringements: PublicInfringement[];
   mapRoutes: MapRouteItem[];
   pendingGeocode: number;
   isLive?: boolean;
@@ -126,6 +128,7 @@ export const Dashboard = ({
   topStreets,
   topSuburbs,
   topVehicles,
+  recentInfringements,
   mapRoutes,
   pendingGeocode,
   isLive,
@@ -187,7 +190,7 @@ export const Dashboard = ({
 
       <main className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="xl:col-span-2">
-          <LiveTicker stats={live} />
+          <LiveTicker stats={live} recentInfringements={recentInfringements} />
         </div>
         <section className="min-w-0">
           <LocationMap routes={mapRoutes} pendingGeocode={pendingGeocode} />

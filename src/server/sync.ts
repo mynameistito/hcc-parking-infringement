@@ -10,7 +10,7 @@ import { getParkingStore } from "./store.ts";
 const AUCKLAND_TZ = "Pacific/Auckland";
 const BACKFILL_EARLIEST = "2020-01-01";
 /** Only re-fetch recent days from HCC; historical data lives in ParkingStore. */
-const HOURLY_OVERLAP_DAYS = 2;
+const HOURLY_OVERLAP_DAYS = 7;
 const PAGE_SIZE_LIMIT = 10_000;
 
 export type SyncRunType = "hourly" | "manual" | "backfill";
@@ -106,7 +106,7 @@ export const hourlySync = async (
 ): Promise<SyncWindowResult> => {
   const today = formatDateInAuckland(new Date());
   const start = addDays(today, -HOURLY_OVERLAP_DAYS);
-  return await syncWindow(env, { end: today, runType, start });
+  return await syncWindow(env, { end: today, force: true, runType, start });
 };
 
 export const startBackfill = async (

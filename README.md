@@ -25,7 +25,7 @@ HCC Open Data API  ──►  background sync only (cron / backfill queue)
 ```
 
 - **All API responses** are served from `ParkingStore` — never proxied to HCC.
-- **Hourly cron** only re-fetches the **last 2 days** from HCC (catches late entries).
+- **Hourly cron** only re-fetches the **last 7 days** from HCC (catches late entries).
 - **Backfill** skips date windows already ingested (use `?force=true` to re-fetch).
 - Responses include `X-Data-Source: stored` and `meta.source: "stored"`.
 - **Live dashboard** — WebSocket from `ParkingStore` pushes ticker updates when sync writes data; polls every 15–30s as fallback.
@@ -97,6 +97,24 @@ curl -X POST "https://<worker>/api/v1/sync/backfill" \
   -H "Authorization: Bearer $API_KEY"
 # or: -H "X-API-Key: $API_KEY"
 ```
+
+### 4a. Import historical CSV data
+
+To load a historical export into `ParkingStore`:
+
+```powershell
+$env:API_KEY = "your-production-key"
+$env:WORKER_URL = "https://hcc-parking-infringement.<subdomain>.workers.dev"
+bun run import:csv -- --file=C:\Users\mynameistito\Downloads\Infringement.csv
+```
+
+By default, `bun run import:csv` reads `data\Infringement.csv` from this
+checkout. Put the historical export there for local or production imports, or
+pass `--file=...` to use another path.
+
+The importer sends the CSV in batches to `POST /api/v1/import/infringements`.
+Rows are cleaned through the same normalizer as HCC API data and upserted into
+the Durable Object by infringement number.
 
 ### 5. Geocode map pins (production)
 
@@ -292,7 +310,7 @@ Every sync write (backfill, hourly, manual) broadcasts a complete snapshot from 
 
 ### 6. Optional: manual sync
 
-Recent data only (last 2 days):
+Recent data only (last 7 days):
 
 ```powershell
 $env:API_KEY = "your-long-random-string"
@@ -339,6 +357,7 @@ bun run dev:client
 | `GET /api/v1/health`                            | Sync run status                                                 |
 | `POST /api/v1/sync/backfill`                    | Enqueue missing backfill windows (`?force=true` re-fetches all) |
 | `POST /api/v1/sync`                             | Manual hourly sync                                              |
+| `POST /api/v1/import/infringements`             | Import raw infringement rows into ParkingStore                  |
 | `POST /api/v1/geocode/run?limit=10`             | Geocode streets for map                                         |
 
 ## Scripts
@@ -349,6 +368,7 @@ bun run dev:client
 | `dev:client` | Vite dev server with API proxy                                        |
 | `deploy`     | Build + deploy Worker                                                 |
 | `backfill`   | `POST /api/v1/sync/backfill` (needs `API_KEY` + `WORKER_URL`)         |
+| `import:csv` | Import historical CSV rows into `ParkingStore`                        |
 | `sync`       | `POST /api/v1/sync` (needs `API_KEY` or `CRON_SECRET` + `WORKER_URL`) |
 | `geocode`    | `POST /api/v1/geocode/run` (needs `API_KEY` + `WORKER_URL`)           |
 | `lint`       | Ultracite check                                                       |
@@ -356,7 +376,7 @@ bun run dev:client
 
 ## Cron
 
-`0 * * * *` — hourly sync of the **last 2 days** only (historical data already in ParkingStore).
+`0 * * * *` — hourly sync of the **last 7 days** only (historical data already in ParkingStore).
 
 ## Environment bindings
 

@@ -5,6 +5,7 @@ import { Dashboard } from "@/components/dashboard";
 import {
   fetchLiveStats,
   fetchMapPoints,
+  fetchRecentInfringements,
   fetchTopStats,
   fetchTopStreets,
   fetchTopSuburbs,
@@ -93,6 +94,13 @@ export const App = () => {
     refetchIntervalInBackground: true,
   });
 
+  const recentQuery = useQuery({
+    queryFn: async () => await fetchRecentInfringements(15),
+    queryKey: ["public", "infringements", "recent"],
+    refetchInterval: pollInterval,
+    refetchIntervalInBackground: true,
+  });
+
   const error = getQueryErrorMessage([
     liveQuery.error,
     streetsQuery.error,
@@ -101,6 +109,7 @@ export const App = () => {
     topSuburbsQuery.error,
     topVehiclesQuery.error,
     mapQuery.error,
+    recentQuery.error,
   ]);
 
   const isFetching =
@@ -113,6 +122,7 @@ export const App = () => {
       topSuburbsQuery.isFetching,
       topVehiclesQuery.isFetching,
       mapQuery.isFetching,
+      recentQuery.isFetching,
     ]);
 
   return (
@@ -123,6 +133,7 @@ export const App = () => {
       topStreets={topStreetsQuery.data ?? []}
       topSuburbs={topSuburbsQuery.data ?? []}
       topVehicles={topVehiclesQuery.data ?? []}
+      recentInfringements={recentQuery.data?.data ?? []}
       mapRoutes={mapQuery.data?.routes ?? []}
       pendingGeocode={mapQuery.data?.pendingGeocode ?? 0}
       isLive={isLive}

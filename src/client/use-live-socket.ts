@@ -19,6 +19,7 @@ const isFullDashboardMessage = (
   value.type === "full" &&
   typeof value.at === "string" &&
   isRecord(value.live) &&
+  Array.isArray(value.recentInfringements) &&
   Array.isArray(value.topStreets) &&
   Array.isArray(value.topOffences) &&
   Array.isArray(value.streets) &&

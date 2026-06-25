@@ -26,6 +26,21 @@ export interface SyncWindowResult {
   skipped: number;
 }
 
+export interface ImportBatchPayload {
+  records: CleanInfringement[];
+  recordsReceived: number;
+  skipped: number;
+  final: boolean;
+}
+
+export interface ImportBatchResult {
+  recordsReceived: number;
+  recordsUpserted: number;
+  skipped: number;
+  recomputed: boolean;
+  totalRecords: number;
+}
+
 export interface PublicTopItem {
   label: string;
   count: number;
@@ -84,6 +99,7 @@ export interface LocationCacheInput {
 export interface PublicDashboardSnapshot {
   at: string;
   live: PublicLiveStats;
+  recentInfringements: InfringementRow[];
   topStreets: PublicTopItem[];
   topOffences: PublicTopItem[];
   streets: LocationRankItem[];
@@ -198,7 +214,7 @@ export interface CacheStatus {
 
 const isoNow = (): string => new Date().toISOString();
 
-const isCoordinateRing = (value: unknown): value is [number, number][] =>
+const isCoordinateRing = (value: unknown): value is [number, number][][] =>
   Array.isArray(value) &&
   value.every(
     (line) =>
@@ -266,7 +282,7 @@ const locationNeedsGeocode = (
   return geometry.length === 0;
 };
 
-interface GeocodeCandidateRow {
+interface GeocodeCandidateRow extends Record<string, SqlStorageValue> {
   street: string;
   suburb: string | null;
   town: string;
@@ -369,7 +385,7 @@ const yearBoundsInAuckland = (now: Date): { start: string; end: string } => {
 export class ParkingStore extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    void ctx.blockConcurrencyWhile(() => {
+    void ctx.blockConcurrencyWhile(async () => {
       this.migrate();
     });
   }
@@ -582,6 +598,24 @@ export class ParkingStore extends DurableObject<Env> {
       });
       throw error;
     }
+  }
+
+  importInfringementBatch(payload: ImportBatchPayload): ImportBatchResult {
+    const recordsUpserted = this.upsertInfringements(payload.records);
+
+    if (payload.final) {
+      this.recomputeStats();
+      this.setSyncMeta("last_csv_import_at", isoNow());
+      this.broadcastLiveUpdate();
+    }
+
+    return {
+      recomputed: payload.final,
+      recordsReceived: payload.recordsReceived,
+      recordsUpserted,
+      skipped: payload.skipped,
+      totalRecords: this.countInfringementsSync(),
+    };
   }
 
   getPublicLiveStats(): PublicLiveStats {
@@ -1367,6 +1401,10 @@ export class ParkingStore extends DurableObject<Env> {
       at: isoNow(),
       live: this.readPublicLiveStatsSync(),
       map: this.readMapPointsSync(50),
+      recentInfringements: this.listInfringements({
+        limit: 15,
+        page: 1,
+      }).data,
       streets: this.readTopStreetsRankedSync(10),
       suburbs: this.readTopSuburbsRankedSync(10),
       topOffences: this.readTopGroupedSync("offence", 5),
@@ -1488,6 +1526,14 @@ export class ParkingStore extends DurableObject<Env> {
         .map((row) => toMapRouteRow(row))
         .filter((row): row is LocationMapPoint => row !== null),
     };
+  }
+
+  private countInfringementsSync(): number {
+    const totalRow = this.ctx.storage.sql
+      .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
+      .one();
+
+    return totalRow?.total ?? 0;
   }
 
   private startSyncRun(

@@ -60,7 +60,7 @@ const mergeHoverPaint = <T extends Record<string, unknown>>(
   if (hoverPaint === undefined) {
     return paint;
   }
-  const merged = { ...paint };
+  const merged = { ...paint } as Record<string, unknown>;
   for (const [key, hoverValue] of Object.entries(hoverPaint)) {
     if (hoverValue === undefined) {
       continue;
@@ -76,7 +76,7 @@ const mergeHoverPaint = <T extends Record<string, unknown>>(
             baseValue,
           ];
   }
-  return merged;
+  return merged as T;
 };
 
 const getGeoJSONSource = (
@@ -84,7 +84,10 @@ const getGeoJSONSource = (
   sourceId: string
 ): MapLibreGL.GeoJSONSource | undefined => {
   const source = map.getSource(sourceId);
-  return source?.type === "geojson" ? source : undefined;
+  if (source?.type !== "geojson") {
+    return undefined;
+  }
+  return source as MapLibreGL.GeoJSONSource;
 };
 
 const assertNonNull = <Value,>(
@@ -97,16 +100,16 @@ const assertNonNull = <Value,>(
   return value;
 };
 
-const runEffect = (
-  enabled: boolean,
-  effect: () => (() => void) | undefined
+const runEffect = <T,>(
+  value: T | null | false | undefined,
+  effect: (value: NonNullable<T>) => (() => void) | undefined
 ): (() => void) => {
-  if (!enabled) {
+  if (value === null || value === undefined || value === false) {
     return () => {
       void 0;
     };
   }
-  const cleanup = effect();
+  const cleanup = effect(value);
   return () => {
     if (typeof cleanup === "function") {
       cleanup();
@@ -594,7 +597,7 @@ const MapMarker = ({
 
   useEffect(
     () =>
-      runEffect(map !== null, () => {
+      runEffect(map, (map) => {
         marker.addTo(map);
         return () => {
           marker.remove();
@@ -719,7 +722,7 @@ const MarkerPopup = ({
 
   useEffect(
     () =>
-      runEffect(map !== null, () => {
+      runEffect(map, (map) => {
         popup.setDOMContent(container);
         marker.setPopup(popup);
         return () => {
@@ -787,7 +790,7 @@ const MarkerTooltip = ({
 
   useEffect(
     () =>
-      runEffect(map !== null, () => {
+      runEffect(map, (map) => {
         tooltip.setDOMContent(container);
 
         const handleMouseEnter = () => {
@@ -934,9 +937,11 @@ const CompassButton = ({ onClick }: { onClick: () => void }) => {
 
   useEffect(
     () =>
-      runEffect(map !== null && compassRef.current !== null, () => {
-        const compass = assertNonNull(compassRef.current, "compass element");
-        const activeMap = assertNonNull(map, "map");
+      runEffect(map, (activeMap) => {
+        const compass = compassRef.current;
+        if (compass === null) {
+          return;
+        }
 
         const updateRotation = () => {
           const bearing = activeMap.getBearing();
@@ -1136,7 +1141,7 @@ const MapPopup = ({
 
   useEffect(
     () =>
-      runEffect(map !== null, () => {
+      runEffect(map, (map) => {
         const onCloseProp = () => onCloseRef.current?.();
 
         popup.on("close", onCloseProp);
@@ -1229,7 +1234,7 @@ const MapRoute = ({
   // Add source and layer on mount
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null, () => {
+      runEffect(isLoaded ? map : null, (map) => {
         map.addSource(sourceId, {
           data: {
             geometry: { coordinates: [], type: "LineString" },
@@ -1299,7 +1304,7 @@ const MapRoute = ({
   // Handle click and hover events
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null && interactive, () => {
+      runEffect(isLoaded && interactive ? map : null, (map) => {
         const handleClick = () => {
           onClick?.();
         };
@@ -1345,15 +1350,11 @@ type MapGeoJSONFeature<P extends GeoJsonProperties = GeoJsonProperties> = Omit<
 
 const toMapGeoJSONFeature = <P extends GeoJsonProperties>(
   feature: MapLibreGL.MapGeoJSONFeature
-): MapGeoJSONFeature<P> => ({
-  geometry: feature.geometry,
-  id: feature.id,
-  layer: feature.layer,
-  properties: feature.properties,
-  source: feature.source,
-  state: feature.state,
-  type: feature.type,
-});
+): MapGeoJSONFeature<P> =>
+  ({
+    ...feature,
+    properties: feature.properties as P,
+  }) as MapGeoJSONFeature<P>;
 
 const syncPaintProperties = (
   map: MapLibreGL.Map,
@@ -1512,7 +1513,7 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
   // Add source on mount.
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null, () => {
+      runEffect(isLoaded ? map : null, (map) => {
         map.addSource(sourceId, {
           data,
           type: "geojson",
@@ -1609,7 +1610,7 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
   // Interaction handlers (bound to the fill layer).
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null && interactive && showFill, () => {
+      runEffect(isLoaded && interactive && showFill ? map : null, (map) => {
         let hoveredId: string | number | null = null;
 
         const setHover = (next: string | number | null) => {
@@ -1883,7 +1884,7 @@ const MapArc = <T extends MapArcDatum = MapArcDatum>({
   // Add source and layers on mount.
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null, () => {
+      runEffect(isLoaded ? map : null, (map) => {
         map.addSource(sourceId, {
           data: geoJSON,
           promoteId: "id",
@@ -1960,7 +1961,7 @@ const MapArc = <T extends MapArcDatum = MapArcDatum>({
   // Interaction handlers
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null && interactive, () => {
+      runEffect(isLoaded && interactive ? map : null, (map) => {
         let hoveredId: string | number | null = null;
 
         const setHover = (next: string | number | null) => {
@@ -2115,7 +2116,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
 
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null, () => {
+      runEffect(isLoaded ? map : null, (map) => {
         map.addSource(sourceId, {
           cluster: true,
           clusterMaxZoom,
@@ -2268,7 +2269,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
 
   useEffect(
     () =>
-      runEffect(isLoaded && map !== null, () => {
+      runEffect(isLoaded ? map : null, (map) => {
         const handleClusterClick = (
           e: MapLibreGL.MapMouseEvent & {
             features?: MapLibreGL.MapGeoJSONFeature[];

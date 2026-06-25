@@ -1,5 +1,5 @@
 /**
- * Trigger a manual sync (last 2 days) against your worker.
+ * Trigger a manual sync (last 7 days) against your worker.
  *
  * Usage:
  *   API_KEY=xxx WORKER_URL=https://your-worker.workers.dev bun run sync
