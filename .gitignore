@@ -8,3 +8,5 @@ dist/
 .dev.vars
 *.local
 data/*.csv
+worker-startup.cpuprofile
+.wrangler-dry-run/
