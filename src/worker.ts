@@ -6,8 +6,16 @@ import { hourlySync, processBackfillMessage } from "./server/sync.ts";
 
 export { ParkingStore };
 
+const fetch: ExportedHandler<Env>["fetch"] = (request, env, ctx) => {
+  const url = new URL(request.url);
+  if (!url.pathname.startsWith("/api/")) {
+    return env.ASSETS.fetch(request);
+  }
+  return app.fetch(request, env, ctx);
+};
+
 export default {
-  fetch: app.fetch,
+  fetch,
 
   async queue(batch: MessageBatch<BackfillMessage>, env: Env): Promise<void> {
     const processMessageAt = async (index: number): Promise<void> => {

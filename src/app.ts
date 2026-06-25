@@ -457,11 +457,6 @@ app.post("/api/v1/geocode/run", async (c) => {
   return c.json({ ok: true, ...result });
 });
 
-app.notFound(async (c) => {
-  if (!c.req.path.startsWith("/api/")) {
-    return await c.env.ASSETS.fetch(c.req.url);
-  }
-  return c.json({ error: "Not found" }, 404);
-});
+app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 export { app };

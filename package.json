@@ -8,7 +8,7 @@
     "dev:client": "vite",
     "deploy": "bun run build:client && wrangler deploy",
     "build:client": "vite build",
-    "typecheck": "tsgo --noEmit -p tsconfig.worker.json && tsgo --noEmit -p tsconfig.client.json",
+    "typecheck": "tsgo --noEmit",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "build": "bun run build:client",
