@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hcc-parking-infringement",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PARKING_STORE",
+        "class_name": "ParkingStore",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ParkingStore"],
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "BACKFILL_QUEUE",
+        "queue": "hcc-backfill",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "hcc-backfill",
+        "max_batch_size": 1,
+      },
+    ],
+  },
+  "triggers": {
+    "crons": ["0 * * * *"],
+  },
+  "vars": {
+    "HCC_API_BASE": "https://api.hcc.govt.nz/OpenData",
+  },
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+  },
+}
