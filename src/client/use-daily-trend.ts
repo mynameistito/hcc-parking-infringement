@@ -18,7 +18,7 @@ export const useDailyTrend = (
 
   const { data: fetched } = useQuery({
     enabled: needsFetch,
-    queryFn: async () => fetchDailyTrend(PACE_DAILY_TREND_DAYS),
+    queryFn: async () => await fetchDailyTrend(PACE_DAILY_TREND_DAYS),
     queryKey: ["public", "stats", "daily", "fetch", PACE_DAILY_TREND_DAYS],
     staleTime: 60_000,
   });

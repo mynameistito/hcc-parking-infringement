@@ -22,7 +22,11 @@ const useAnimatedNumber = (value: number, duration = 600): number => {
     const from = fromRef.current;
     const to = value;
     if (from === to) {
-      return;
+      return () => {
+        if (frameRef.current !== null) {
+          cancelAnimationFrame(frameRef.current);
+        }
+      };
     }
 
     const startedAt = performance.now();
@@ -54,14 +58,24 @@ const formatTrendPercent = (percent: number | null): string => {
   if (percent === null) {
     return "—";
   }
-  const sign = percent > 0 ? "+" : (percent < 0 ? "−" : "");
+  let sign = "";
+  if (percent > 0) {
+    sign = "+";
+  } else if (percent < 0) {
+    sign = "−";
+  }
   return `${sign}${Math.abs(percent).toFixed(1)}%`;
 };
 
 const TrendBadge = ({ trend }: { trend: TrendResult }) => {
   const isDown = trend.direction === "down";
   const isUp = trend.direction === "up";
-  const Icon = isUp ? ArrowUpRight : (isDown ? ArrowDownRight : Minus);
+  let Icon = Minus;
+  if (isUp) {
+    Icon = ArrowUpRight;
+  } else if (isDown) {
+    Icon = ArrowDownRight;
+  }
 
   return (
     <span

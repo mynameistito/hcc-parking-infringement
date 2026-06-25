@@ -81,6 +81,9 @@ export interface PaceLiveValues {
   last365d?: number;
 }
 
+const pickValue = (liveValue: number, dailySum: number): number =>
+  Math.max(liveValue, dailySum);
+
 export const buildPacePanelData = (
   dailyTrend: DailyStatPoint[],
   live: PaceLiveValues,
@@ -93,9 +96,6 @@ export const buildPacePanelData = (
   const last7dSeries = sliceDays(dailyTrend, 7);
   const last30dSeries = sliceDays(dailyTrend, 30);
   const last365dSeries = sliceDays(dailyTrend, 365);
-
-  const pickValue = (liveValue: number, dailySum: number): number =>
-    Math.max(liveValue, dailySum);
 
   const clientTrends: PaceTrends = {
     last30d: comparePeriods(dailyTrend, 30),

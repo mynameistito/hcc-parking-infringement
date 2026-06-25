@@ -1490,11 +1490,11 @@ export class ParkingStore extends DurableObject<Env> {
       at: isoNow(),
       dailyTrend: [],
       live: this.readPublicLiveStatsSync(),
-      paceTrends: this.readPaceTrendsSync(),
       map: {
         pendingGeocode: 0,
         routes: [],
       },
+      paceTrends: this.readPaceTrendsSync(),
       recentInfringements: [],
       streets: [],
       suburbs: [],
@@ -1542,8 +1542,8 @@ export class ParkingStore extends DurableObject<Env> {
       if (typeof parsed !== "object" || parsed === null) {
         return false;
       }
-      const dailyTrend = Reflect.get(parsed, "dailyTrend");
-      const paceTrends = Reflect.get(parsed, "paceTrends");
+      const dailyTrend: unknown = Reflect.get(parsed, "dailyTrend");
+      const paceTrends: unknown = Reflect.get(parsed, "paceTrends");
       return (
         Array.isArray(dailyTrend) &&
         dailyTrend.length > 0 &&
@@ -1616,8 +1616,8 @@ export class ParkingStore extends DurableObject<Env> {
 
   private readPaceTrendsSync(): PublicPaceTrends {
     return {
-      last365d: this.computePaceTrend(365),
       last30d: this.computePaceTrend(30),
+      last365d: this.computePaceTrend(365),
       last7d: this.computePaceTrend(7),
     };
   }
@@ -1662,8 +1662,8 @@ export class ParkingStore extends DurableObject<Env> {
       at: isoNow(),
       dailyTrend: this.readDailyTrendSync(PACE_DAILY_TREND_DAYS),
       live: this.readPublicLiveStatsSync(),
-      paceTrends: this.readPaceTrendsSync(),
       map: this.readMapPointsSync(50),
+      paceTrends: this.readPaceTrendsSync(),
       recentInfringements: this.listInfringements({
         limit: 15,
         page: 1,

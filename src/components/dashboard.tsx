@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { PaceTrends } from "@/lib/trend-window";
 
 import type {
   DailyStatPoint,
@@ -20,7 +21,6 @@ import type {
   PublicInfringement,
   VehicleRankItem,
 } from "../client/api";
-import type { PaceTrends } from "@/lib/trend-window";
 import { ExplorePanel } from "./explore-panel";
 import { LatestInstances } from "./latest-instances";
 import { LiveTicker } from "./live-ticker";
@@ -35,7 +35,7 @@ export interface DashboardLiveStats {
   last24h: number;
   last7d: number;
   last30d: number;
-  last365d?: number;
+  last365d: number;
   thisMonth: number;
   towedToday: number;
   lastSyncedAt: string | null;

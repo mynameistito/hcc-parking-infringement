@@ -73,7 +73,7 @@ export const TrendChart = ({
     )
     .join(" ");
 
-  const first = points[0];
+  const [first] = points;
   const last = points.at(-1);
   const baseline = margin.top + plotHeight;
   const area =

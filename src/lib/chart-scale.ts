@@ -4,8 +4,14 @@ export const niceCeil = (value: number): number => {
   }
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const normalized = value / magnitude;
-  const nice =
-    normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  let nice = 10;
+  if (normalized <= 1) {
+    nice = 1;
+  } else if (normalized <= 2) {
+    nice = 2;
+  } else if (normalized <= 5) {
+    nice = 5;
+  }
   return nice * magnitude;
 };
 

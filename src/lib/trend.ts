@@ -25,8 +25,10 @@ export const toTrendResult = (
   previous: number
 ): TrendResult => {
   const percent = percentChange(current, previous);
-  const direction =
-    percent === null || percent === 0 ? "flat" : (percent > 0 ? "up" : "down");
+  let direction: TrendResult["direction"] = "flat";
+  if (percent !== null && percent !== 0) {
+    direction = percent > 0 ? "up" : "down";
+  }
 
   return { current, direction, percent, previous };
 };
@@ -85,7 +87,7 @@ export const dailyTrendCoversDays = (
     return false;
   }
 
-  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...points].toSorted((a, b) => a.date.localeCompare(b.date));
   const earliest = sorted[0]?.date;
   if (earliest === undefined) {
     return false;

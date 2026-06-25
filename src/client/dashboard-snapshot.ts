@@ -1,5 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+import type { TrendResult } from "@/lib/trend";
+import type { PaceTrends } from "@/lib/trend-window";
+
 import type {
   DailyStatPoint,
   LiveStatsResponse,
@@ -9,8 +12,6 @@ import type {
   TopItem,
   VehicleRankItem,
 } from "./api";
-import type { PaceTrends } from "@/lib/trend-window";
-import type { TrendResult } from "@/lib/trend";
 
 export interface FullDashboardMessage {
   type: "full";
