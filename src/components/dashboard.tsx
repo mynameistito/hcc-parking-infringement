@@ -197,17 +197,17 @@ export const Dashboard = ({
   error,
 }: DashboardProps) => (
   <div className="min-h-screen bg-background text-foreground">
-    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full px-4 py-6 sm:px-6 md:px-8 xl:px-10 2xl:px-12">
       <header className="mb-6 border-b border-border pb-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+          <div className="min-w-0">
             <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
               Hamilton City Council Open Data
             </p>
             <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary sm:text-5xl">
               Parking Infringement Dashboard
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
               Live infringement totals, hotspot streets, vehicle trends, and
               ticket geography for Hamilton, New Zealand.
             </p>
@@ -239,8 +239,8 @@ export const Dashboard = ({
         </Alert>
       ) : null}
 
-      <main className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="grid gap-6 xl:col-span-2">
+      <main className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(17.5rem,22.5rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+        <div className="grid gap-6 lg:col-span-2">
           <LiveTicker
             stats={live}
             dailyTrend={dailyTrend}
@@ -267,7 +267,7 @@ export const Dashboard = ({
             isLoading={isLoading}
           />
         </aside>
-        <div className="xl:col-span-2">
+        <div className="lg:col-span-2">
           <ExplorePanel
             suburbs={topSuburbs}
             streets={topStreets}

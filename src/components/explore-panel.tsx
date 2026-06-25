@@ -328,7 +328,7 @@ export const ExplorePanel = ({
         </div>
       </CardHeader>
 
-      <CardContent className="grid p-0 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <CardContent className="grid p-0 lg:grid-cols-[minmax(0,1fr)_minmax(17.5rem,22.5rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
         <section className="min-w-0">
           <div className="border-b border-border bg-muted px-4 py-3">
             <Tabs

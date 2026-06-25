@@ -16,6 +16,30 @@ const CHART_HEIGHT = 112;
 const COMPACT_CHART_HEIGHT = 48;
 const COMPACT_MARGIN = { bottom: 2, left: 2, right: 2, top: 2 };
 const FULL_MARGIN = { bottom: 22, left: 36, right: 8, top: 8 };
+const COMPACT_PRESERVE_ASPECT_RATIO = "none";
+const FULL_PRESERVE_ASPECT_RATIO = "xMidYMid meet";
+
+const getChartLayout = (compact: boolean) => {
+  if (compact) {
+    return {
+      chartHeight: COMPACT_CHART_HEIGHT,
+      emptyHeightClass: "h-[40px]",
+      heightClass: "h-[40px]",
+      margin: COMPACT_MARGIN,
+      preserveAspectRatio: COMPACT_PRESERVE_ASPECT_RATIO,
+      strokeWidth: "2",
+    };
+  }
+
+  return {
+    chartHeight: CHART_HEIGHT,
+    emptyHeightClass: "h-[96px]",
+    heightClass: "h-[112px]",
+    margin: FULL_MARGIN,
+    preserveAspectRatio: FULL_PRESERVE_ASPECT_RATIO,
+    strokeWidth: "1.5",
+  };
+};
 
 const buildPoints = (
   values: number[],
@@ -40,8 +64,8 @@ export const TrendChart = ({
   compact = false,
 }: TrendChartProps) => {
   const gradientId = useId();
-  const margin = compact ? COMPACT_MARGIN : FULL_MARGIN;
-  const chartHeight = compact ? COMPACT_CHART_HEIGHT : CHART_HEIGHT;
+  const layout = getChartLayout(compact);
+  const { chartHeight, margin } = layout;
   const plotWidth = CHART_WIDTH - margin.left - margin.right;
   const plotHeight = chartHeight - margin.top - margin.bottom;
   const maxValue = Math.max(...values, 0);
@@ -52,7 +76,7 @@ export const TrendChart = ({
       <div
         className={cn(
           "flex items-center justify-center rounded-[4px] bg-muted/30 text-[10px] text-muted-foreground",
-          compact ? "h-[40px]" : "h-[96px]",
+          layout.emptyHeightClass,
           className
         )}
       >
@@ -87,7 +111,8 @@ export const TrendChart = ({
   return (
     <svg
       viewBox={`0 0 ${CHART_WIDTH} ${chartHeight}`}
-      className={cn(compact ? "h-[40px]" : "h-[112px]", "w-full", className)}
+      preserveAspectRatio={layout.preserveAspectRatio}
+      className={cn(layout.heightClass, "w-full", className)}
       aria-hidden="true"
     >
       <defs>
@@ -166,7 +191,7 @@ export const TrendChart = ({
           d={line}
           fill="none"
           stroke="var(--chart-1)"
-          strokeWidth={compact ? "2" : "1.5"}
+          strokeWidth={layout.strokeWidth}
           vectorEffect="non-scaling-stroke"
         />
       ) : null}

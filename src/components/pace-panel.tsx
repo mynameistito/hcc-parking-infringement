@@ -110,7 +110,7 @@ const PaceStatBox = ({
   const animated = useAnimatedNumber(value);
 
   return (
-    <div className="rounded-[6px] border border-border bg-background px-3 py-2">
+    <div className="min-w-0 rounded-[6px] border border-border bg-background px-3 py-2">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[11px] text-muted-foreground">{label}</span>
         <TrendBadge trend={trend} />
@@ -163,7 +163,7 @@ export const PacePanel = ({
         <h2 className="text-sm font-semibold text-primary">Current pace</h2>
         <span className="text-[11px] text-muted-foreground">Live snapshot</span>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3 lg:grid-cols-1">
         <PaceStatBox
           label="Last 7D"
           value={panel.values.last7d}

@@ -17,7 +17,7 @@ export const LiveTickerSkeleton = () => (
     aria-label="Loading all-time parking infringement total"
   >
     <CardContent className="p-0">
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
         <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
           <Skeleton className="h-4 w-40" />
           <div className="space-y-3">
@@ -31,7 +31,7 @@ export const LiveTickerSkeleton = () => (
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-3 w-20" />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3 lg:grid-cols-1">
             {Array.from({ length: 3 }, (_, index) => (
               <StatPillSkeleton key={index} />
             ))}

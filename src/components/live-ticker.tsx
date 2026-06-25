@@ -114,7 +114,7 @@ const LiveTickerContent = ({
   return (
     <Card className="bg-card" aria-label="All-time parking infringement total">
       <CardContent className="p-0">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
           <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase">
               <Sigma className="size-4 text-[var(--ring)]" aria-hidden="true" />
