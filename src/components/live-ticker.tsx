@@ -1,8 +1,9 @@
 import { Banknote, Sigma } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { Card, CardContent } from "@/components/ui/card";
 import type { DailyStatPoint } from "@/client/api";
+import { Card, CardContent } from "@/components/ui/card";
+import type { PaceTrends } from "@/lib/trend-window";
 import { cn } from "@/lib/utils";
 
 import { LiveTickerSkeleton } from "./data-skeletons";
@@ -70,9 +71,9 @@ export interface LiveStats {
   allTimeTotal: number;
   allTimeAmountCents: number;
   today: number;
-  last24h: number;
   last7d: number;
   last30d: number;
+  last365d: number;
   thisMonth: number;
   towedToday: number;
 }
@@ -80,15 +81,18 @@ export interface LiveStats {
 interface LiveTickerProps {
   stats: LiveStats;
   dailyTrend: DailyStatPoint[];
+  paceTrends?: PaceTrends;
   isLoading?: boolean;
 }
 
 const LiveTickerContent = ({
   stats,
   dailyTrend,
+  paceTrends,
 }: {
   stats: LiveStats;
   dailyTrend: DailyStatPoint[];
+  paceTrends?: PaceTrends;
 }) => {
   const animatedTotal = useAnimatedNumber(stats.allTimeTotal);
   const [pulse, setPulse] = useState(false);
@@ -144,9 +148,10 @@ const LiveTickerContent = ({
 
           <PacePanel
             dailyTrend={dailyTrend}
-            last24h={stats.last24h}
             last7d={stats.last7d}
             last30d={stats.last30d}
+            last365d={stats.last365d ?? 0}
+            paceTrends={paceTrends}
           />
         </div>
       </CardContent>
@@ -157,11 +162,18 @@ const LiveTickerContent = ({
 export const LiveTicker = ({
   stats,
   dailyTrend,
+  paceTrends,
   isLoading,
 }: LiveTickerProps) => {
   if (isLoading === true) {
     return <LiveTickerSkeleton />;
   }
 
-  return <LiveTickerContent dailyTrend={dailyTrend} stats={stats} />;
+  return (
+    <LiveTickerContent
+      dailyTrend={dailyTrend}
+      paceTrends={paceTrends}
+      stats={stats}
+    />
+  );
 };

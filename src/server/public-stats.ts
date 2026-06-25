@@ -6,6 +6,7 @@ import type {
   PublicLiveStats,
   PublicTopItem,
 } from "../durable-objects/parking-store.ts";
+import { PACE_DAILY_TREND_DAYS } from "../lib/pace-constants.ts";
 import { getParkingStore } from "./store.ts";
 
 export type { PublicLiveStats, PublicTopItem };
@@ -20,7 +21,7 @@ export const getPublicLiveStats = async (env: Env): Promise<PublicLiveStats> =>
 
 export const getPublicDailyTrend = async (
   env: Env,
-  days = 30
+  days = PACE_DAILY_TREND_DAYS
 ): Promise<DailyStatRow[]> => {
   const now = new Date();
   const from = formatDateInAuckland(subDays(now, days - 1));

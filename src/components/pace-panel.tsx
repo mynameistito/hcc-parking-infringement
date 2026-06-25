@@ -2,8 +2,9 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { DailyStatPoint } from "@/client/api";
-import { buildPaceTrends } from "@/lib/trend-window";
 import type { TrendResult } from "@/lib/trend";
+import { buildPacePanelData } from "@/lib/trend-window";
+import type { PaceTrends } from "@/lib/trend-window";
 import { cn } from "@/lib/utils";
 
 import { TrendChart } from "./trend-chart";
@@ -53,14 +54,14 @@ const formatTrendPercent = (percent: number | null): string => {
   if (percent === null) {
     return "—";
   }
-  const sign = percent > 0 ? "+" : percent < 0 ? "−" : "";
+  const sign = percent > 0 ? "+" : (percent < 0 ? "−" : "");
   return `${sign}${Math.abs(percent).toFixed(1)}%`;
 };
 
 const TrendBadge = ({ trend }: { trend: TrendResult }) => {
   const isDown = trend.direction === "down";
   const isUp = trend.direction === "up";
-  const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus;
+  const Icon = isUp ? ArrowUpRight : (isDown ? ArrowDownRight : Minus);
 
   return (
     <span
@@ -115,20 +116,31 @@ const PaceStatBox = ({
 
 interface PacePanelProps {
   dailyTrend: DailyStatPoint[];
-  last24h: number;
   last7d: number;
   last30d: number;
+  last365d: number;
+  paceTrends?: PaceTrends;
 }
 
 export const PacePanel = ({
   dailyTrend,
-  last24h,
   last7d,
   last30d,
+  last365d,
+  paceTrends,
 }: PacePanelProps) => {
-  const { trends, windows } = useMemo(
-    () => buildPaceTrends(dailyTrend),
-    [dailyTrend]
+  const panel = useMemo(
+    () =>
+      buildPacePanelData(
+        dailyTrend,
+        {
+          last30d,
+          last365d,
+          last7d,
+        },
+        paceTrends
+      ),
+    [dailyTrend, last365d, last30d, last7d, paceTrends]
   );
 
   return (
@@ -139,25 +151,25 @@ export const PacePanel = ({
       </div>
       <div className="flex flex-col gap-1.5">
         <PaceStatBox
-          label="Last 24h"
-          value={last24h}
-          trend={trends.last24h}
-          chartValues={windows.last24h.values}
-          chartLabels={windows.last24h.labels}
+          label="Last 7D"
+          value={panel.values.last7d}
+          trend={panel.trends.last7d}
+          chartValues={panel.windows.last7d.values}
+          chartLabels={panel.windows.last7d.labels}
         />
         <PaceStatBox
-          label="Last 7d"
-          value={last7d}
-          trend={trends.last7d}
-          chartValues={windows.last7d.values}
-          chartLabels={windows.last7d.labels}
+          label="Last 30D"
+          value={panel.values.last30d}
+          trend={panel.trends.last30d}
+          chartValues={panel.windows.last30d.values}
+          chartLabels={panel.windows.last30d.labels}
         />
         <PaceStatBox
-          label="Last 30d"
-          value={last30d}
-          trend={trends.last30d}
-          chartValues={windows.last30d.values}
-          chartLabels={windows.last30d.labels}
+          label="Last 365D"
+          value={panel.values.last365d}
+          trend={panel.trends.last365d}
+          chartValues={panel.windows.last365d.values}
+          chartLabels={panel.windows.last365d.labels}
         />
       </div>
     </aside>

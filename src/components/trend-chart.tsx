@@ -82,8 +82,7 @@ export const TrendChart = ({
       : "";
 
   const xTickCount = xLabels.length;
-  const xStep =
-    xTickCount > 1 ? plotWidth / (xTickCount - 1) : plotWidth / 2;
+  const xStep = xTickCount > 1 ? plotWidth / (xTickCount - 1) : plotWidth / 2;
 
   return (
     <svg
@@ -161,9 +160,7 @@ export const TrendChart = ({
           );
         })}
 
-      {area.length > 0 ? (
-        <path d={area} fill={`url(#${gradientId})`} />
-      ) : null}
+      {area.length > 0 ? <path d={area} fill={`url(#${gradientId})`} /> : null}
       {line.length > 0 ? (
         <path
           d={line}

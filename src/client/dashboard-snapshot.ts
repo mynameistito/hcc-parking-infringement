@@ -9,12 +9,15 @@ import type {
   TopItem,
   VehicleRankItem,
 } from "./api";
+import type { PaceTrends } from "@/lib/trend-window";
+import type { TrendResult } from "@/lib/trend";
 
 export interface FullDashboardMessage {
   type: "full";
   at: string;
   live: LiveStatsResponse;
   dailyTrend: DailyStatPoint[];
+  paceTrends?: PaceTrends;
   recentInfringements: PublicInfringement[];
   topStreets: TopItem[];
   topOffences: TopItem[];
@@ -24,8 +27,8 @@ export interface FullDashboardMessage {
   map: MapResponse;
 }
 
-const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v2";
-const DASHBOARD_SNAPSHOT_CACHE_VERSION = 2;
+const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v4";
+const DASHBOARD_SNAPSHOT_CACHE_VERSION = 4;
 const DASHBOARD_SNAPSHOT_DB_NAME = "hcc-dashboard";
 const DASHBOARD_SNAPSHOT_DB_STORE = "snapshots";
 
@@ -44,6 +47,21 @@ const isDailyStatPoint = (value: unknown): value is DailyStatPoint =>
   typeof value.count === "number" &&
   typeof value.totalCents === "number";
 
+const isTrendResult = (value: unknown): value is TrendResult =>
+  isRecord(value) &&
+  typeof value.current === "number" &&
+  typeof value.previous === "number" &&
+  (value.percent === null || typeof value.percent === "number") &&
+  (value.direction === "up" ||
+    value.direction === "down" ||
+    value.direction === "flat");
+
+const isPaceTrends = (value: unknown): value is PaceTrends =>
+  isRecord(value) &&
+  isTrendResult(value.last7d) &&
+  isTrendResult(value.last30d) &&
+  isTrendResult(value.last365d);
+
 const isFullDashboardMessage = (
   value: unknown
 ): value is FullDashboardMessage =>
@@ -54,6 +72,7 @@ const isFullDashboardMessage = (
   (value.dailyTrend === undefined ||
     (Array.isArray(value.dailyTrend) &&
       value.dailyTrend.every(isDailyStatPoint))) &&
+  (value.paceTrends === undefined || isPaceTrends(value.paceTrends)) &&
   Array.isArray(value.recentInfringements) &&
   Array.isArray(value.topStreets) &&
   Array.isArray(value.topOffences) &&
@@ -273,6 +292,9 @@ export const applyDashboardSnapshot = (
 ): void => {
   queryClient.setQueryData(["public", "live"], message.live);
   queryClient.setQueryData(["public", "stats", "daily"], message.dailyTrend);
+  if (message.paceTrends !== undefined) {
+    queryClient.setQueryData(["public", "pace", "trends"], message.paceTrends);
+  }
   queryClient.setQueryData(["public", "top", "street"], {
     groupBy: "street",
     items: message.topStreets,

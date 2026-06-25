@@ -22,7 +22,10 @@ const compactFmt = new Intl.NumberFormat("en-NZ", {
   notation: "compact",
 });
 
-export const formatChartValue = (value: number, style: "number" | "currency") => {
+export const formatChartValue = (
+  value: number,
+  style: "number" | "currency"
+) => {
   if (style === "currency") {
     if (value >= 1000) {
       return `$${compactFmt.format(value).toLowerCase()}`;

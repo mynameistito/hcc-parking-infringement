@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import { PACE_DAILY_TREND_DAYS } from "./lib/pace-constants.ts";
 import { verifyApiKey, verifyApiKeyOrCronSecret } from "./server/auth.ts";
 import { getCacheStatus } from "./server/cache.ts";
 import {
@@ -154,7 +155,10 @@ app.get("/api/public/stats/live", async (c) => {
 });
 
 app.get("/api/public/stats/daily", async (c) => {
-  const days = Math.min(parsePositiveInt(c.req.query("days"), 30), 60);
+  const days = Math.min(
+    parsePositiveInt(c.req.query("days"), PACE_DAILY_TREND_DAYS),
+    PACE_DAILY_TREND_DAYS
+  );
   try {
     const data = await getPublicDailyTrend(c.env, days);
     return storedJson(c, {

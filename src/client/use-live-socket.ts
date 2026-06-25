@@ -106,8 +106,7 @@ const onSnapshot = (message: FullDashboardMessage): void => {
   const messageTime = getDashboardSnapshotTime(message);
   const messageWeight = getDashboardSnapshotWeight(message);
   const isStale = messageTime < store.lastSnapshotTime;
-  const isEmptyRegression =
-    messageWeight === 0 && store.lastSnapshotWeight > 0;
+  const isEmptyRegression = messageWeight === 0 && store.lastSnapshotWeight > 0;
 
   if (!isStale && !isEmptyRegression) {
     if (store.queryClient !== null) {

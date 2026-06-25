@@ -2,15 +2,47 @@ import { format, parseISO } from "date-fns";
 
 import type { DailyStatPoint } from "@/client/api";
 
-import { compareTrailingWindows, fillDailySeries, toTrendResult } from "./trend";
+import { PACE_DAILY_TREND_DAYS } from "./pace-constants";
+import { dailyTrendCoversDays, fillDailySeries, toTrendResult } from "./trend";
 import type { TrendResult } from "./trend";
+
+export { PACE_DAILY_TREND_DAYS };
 
 export const sliceDays = (
   dailyTrend: DailyStatPoint[],
   days: number
-): DailyStatPoint[] => fillDailySeries(dailyTrend, 60).slice(-days);
+): DailyStatPoint[] => fillDailySeries(dailyTrend, days).slice(-days);
 
-const labelsForSeries = (series: DailyStatPoint[], maxTicks: number): string[] => {
+export const sumWindow = (dailyTrend: DailyStatPoint[], days: number): number =>
+  sliceDays(dailyTrend, days).reduce((sum, point) => sum + point.count, 0);
+
+const hasComparablePriorWindow = (
+  dailyTrend: DailyStatPoint[],
+  days: number
+): boolean => dailyTrendCoversDays(dailyTrend, days * 2);
+
+export const comparePeriods = (
+  dailyTrend: DailyStatPoint[],
+  days: number
+): TrendResult => {
+  const span = sliceDays(dailyTrend, days * 2);
+  const counts = span.map((point) => point.count);
+  const current = counts.slice(-days).reduce((sum, value) => sum + value, 0);
+
+  if (!hasComparablePriorWindow(dailyTrend, days)) {
+    return { current, direction: "flat", percent: null, previous: 0 };
+  }
+
+  const previous = counts
+    .slice(-days * 2, -days)
+    .reduce((sum, value) => sum + value, 0);
+  return toTrendResult(current, previous);
+};
+
+const labelsForSeries = (
+  series: DailyStatPoint[],
+  maxTicks: number
+): string[] => {
   if (series.length === 0) {
     return [];
   }
@@ -28,6 +60,9 @@ const labelsForSeries = (series: DailyStatPoint[], maxTicks: number): string[] =
     if (point === undefined) {
       return "";
     }
+    if (series.length > 60) {
+      return format(parseISO(point.date), "MMM").toUpperCase();
+    }
     if (series.length > 14) {
       return format(parseISO(point.date), "d MMM").toUpperCase();
     }
@@ -40,39 +75,60 @@ export interface PaceWindowChart {
   labels: string[];
 }
 
-export const buildPaceTrends = (dailyTrend: DailyStatPoint[]) => {
-  const filled = fillDailySeries(dailyTrend, 60);
-  const counts = filled.map((point) => point.count);
+export interface PaceLiveValues {
+  last7d: number;
+  last30d: number;
+  last365d?: number;
+}
 
-  const last24hSeries = sliceDays(dailyTrend, 7);
+export const buildPacePanelData = (
+  dailyTrend: DailyStatPoint[],
+  live: PaceLiveValues,
+  serverTrends?: PaceTrends | null
+) => {
+  const sum7 = sumWindow(dailyTrend, 7);
+  const sum30 = sumWindow(dailyTrend, 30);
+  const sum365 = sumWindow(dailyTrend, 365);
+
   const last7dSeries = sliceDays(dailyTrend, 7);
   const last30dSeries = sliceDays(dailyTrend, 30);
+  const last365dSeries = sliceDays(dailyTrend, 365);
+
+  const pickValue = (liveValue: number, dailySum: number): number =>
+    Math.max(liveValue, dailySum);
+
+  const clientTrends: PaceTrends = {
+    last30d: comparePeriods(dailyTrend, 30),
+    last365d: comparePeriods(dailyTrend, 365),
+    last7d: comparePeriods(dailyTrend, 7),
+  };
 
   return {
-    trends: {
-      last24h: toTrendResult(counts.at(-1) ?? 0, counts.at(-2) ?? 0),
-      last7d: compareTrailingWindows(counts, 7),
-      last30d: compareTrailingWindows(counts, 30),
+    trends: serverTrends ?? clientTrends,
+    values: {
+      last30d: pickValue(live.last30d, sum30),
+      last365d: pickValue(live.last365d ?? 0, sum365),
+      last7d: pickValue(live.last7d, sum7),
     },
     windows: {
-      last24h: {
-        labels: labelsForSeries(last24hSeries, 5),
-        values: last24hSeries.map((point) => point.count),
+      last30d: {
+        labels: labelsForSeries(last30dSeries, 5),
+        values: last30dSeries.map((point) => point.count),
+      },
+      last365d: {
+        labels: labelsForSeries(last365dSeries, 6),
+        values: last365dSeries.map((point) => point.count),
       },
       last7d: {
         labels: labelsForSeries(last7dSeries, 7),
         values: last7dSeries.map((point) => point.count),
       },
-      last30d: {
-        labels: labelsForSeries(last30dSeries, 5),
-        values: last30dSeries.map((point) => point.count),
-      },
     } satisfies Record<string, PaceWindowChart>,
   };
 };
 
-export type PaceTrends = {
-  last24h: TrendResult;
-  last7d: TrendResult;
+export interface PaceTrends {
+  last365d: TrendResult;
   last30d: TrendResult;
-};
+  last7d: TrendResult;
+}

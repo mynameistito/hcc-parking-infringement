@@ -1,7 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
-import { subDays } from "date-fns";
+import { parseISO, subDays } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
+import { PACE_DAILY_TREND_DAYS } from "../lib/pace-constants.ts";
+import { toTrendResult } from "../lib/trend.ts";
+import type { TrendResult } from "../lib/trend.ts";
 import type { CleanInfringement } from "../server/clean.ts";
 
 const AUCKLAND_TZ = "Pacific/Auckland";
@@ -96,10 +99,17 @@ export interface LocationCacheInput {
   geometry: [number, number][][];
 }
 
+export interface PublicPaceTrends {
+  last7d: TrendResult;
+  last30d: TrendResult;
+  last365d: TrendResult;
+}
+
 export interface PublicDashboardSnapshot {
   at: string;
   live: PublicLiveStats;
   dailyTrend: DailyStatRow[];
+  paceTrends: PublicPaceTrends;
   recentInfringements: InfringementRow[];
   topStreets: PublicTopItem[];
   topOffences: PublicTopItem[];
@@ -119,6 +129,7 @@ export interface PublicLiveStats {
   last24h: number;
   last7d: number;
   last30d: number;
+  last365d: number;
   thisMonth: number;
   towedToday: number;
   lastSyncedAt: string | null;
@@ -600,6 +611,36 @@ export class ParkingStore extends DurableObject<Env> {
         INSERT INTO _sql_schema_migrations (id) VALUES (7);
       `);
     }
+
+    if (currentVersion < 8) {
+      this.ctx.storage.sql.exec(`
+        ALTER TABLE stats_live ADD COLUMN last_365d INTEGER NOT NULL DEFAULT 0;
+        INSERT INTO _sql_schema_migrations (id) VALUES (8);
+      `);
+      this.recomputeStats();
+      this.refreshDashboardSnapshotCache();
+    }
+
+    if (currentVersion < 9) {
+      const statsRow = this.ctx.storage.sql
+        .exec<{ last_365d: number; all_time_total: number }>(
+          "SELECT last_365d, all_time_total FROM stats_live WHERE id = ? LIMIT 1",
+          STATS_LIVE_ID
+        )
+        .one();
+
+      if (
+        (statsRow?.last_365d ?? 0) === 0 &&
+        (statsRow?.all_time_total ?? 0) > 0
+      ) {
+        this.recomputeStats();
+        this.refreshDashboardSnapshotCache();
+      }
+
+      this.ctx.storage.sql.exec(`
+        INSERT INTO _sql_schema_migrations (id) VALUES (9);
+      `);
+    }
   }
 
   applySyncWindow(payload: SyncWindowPayload): SyncWindowResult {
@@ -670,6 +711,7 @@ export class ParkingStore extends DurableObject<Env> {
         last_24h: number;
         last_7d: number;
         last_30d: number;
+        last_365d: number;
         this_month: number;
         towed_today: number;
         last_synced_at: string | null;
@@ -685,6 +727,7 @@ export class ParkingStore extends DurableObject<Env> {
         allTimeTotal: 0,
         last24h: 0,
         last30d: 0,
+        last365d: 0,
         last7d: 0,
         lastRecordAt: null,
         lastSyncedAt: null,
@@ -699,6 +742,7 @@ export class ParkingStore extends DurableObject<Env> {
       allTimeTotal: row.all_time_total,
       last24h: row.last_24h,
       last30d: row.last_30d,
+      last365d: row.last_365d ?? 0,
       last7d: row.last_7d,
       lastRecordAt: row.last_record_at,
       lastSyncedAt: row.last_synced_at,
@@ -1446,6 +1490,7 @@ export class ParkingStore extends DurableObject<Env> {
       at: isoNow(),
       dailyTrend: [],
       live: this.readPublicLiveStatsSync(),
+      paceTrends: this.readPaceTrendsSync(),
       map: {
         pendingGeocode: 0,
         routes: [],
@@ -1491,14 +1536,23 @@ export class ParkingStore extends DurableObject<Env> {
     }
   }
 
-  private static snapshotHasDailyTrend(payload: string): boolean {
+  private static snapshotIsComplete(payload: string): boolean {
     try {
       const parsed: unknown = JSON.parse(payload);
       if (typeof parsed !== "object" || parsed === null) {
         return false;
       }
       const dailyTrend = Reflect.get(parsed, "dailyTrend");
-      return Array.isArray(dailyTrend) && dailyTrend.length > 0;
+      const paceTrends = Reflect.get(parsed, "paceTrends");
+      return (
+        Array.isArray(dailyTrend) &&
+        dailyTrend.length > 0 &&
+        typeof paceTrends === "object" &&
+        paceTrends !== null &&
+        Reflect.get(paceTrends, "last7d") !== undefined &&
+        Reflect.get(paceTrends, "last30d") !== undefined &&
+        Reflect.get(paceTrends, "last365d") !== undefined
+      );
     } catch {
       return false;
     }
@@ -1512,7 +1566,7 @@ export class ParkingStore extends DurableObject<Env> {
     if (
       payload !== null &&
       ParkingStore.getDashboardSnapshotPayloadWeight(payload) > 0 &&
-      ParkingStore.snapshotHasDailyTrend(payload)
+      ParkingStore.snapshotIsComplete(payload)
     ) {
       this.dashboardSnapshotPayload = payload;
       return payload;
@@ -1553,18 +1607,62 @@ export class ParkingStore extends DurableObject<Env> {
     }
   }
 
-  private readDailyTrendSync(days = 30): DailyStatRow[] {
+  private readDailyTrendSync(days = PACE_DAILY_TREND_DAYS): DailyStatRow[] {
     const now = new Date();
     const from = formatDateInAuckland(subDays(now, days - 1));
     const to = formatDateInAuckland(now);
     return this.getDailyStats(from, to);
   }
 
+  private readPaceTrendsSync(): PublicPaceTrends {
+    return {
+      last365d: this.computePaceTrend(365),
+      last30d: this.computePaceTrend(30),
+      last7d: this.computePaceTrend(7),
+    };
+  }
+
+  private computePaceTrend(days: number): TrendResult {
+    const now = new Date();
+    const today = formatDateInAuckland(now);
+    const todayWindow = dateBounds(today);
+    const currentStart = formatDateInAuckland(subDays(now, days));
+    const current = this.aggregateWindow(
+      `${currentStart}T00:00:00+12:00`,
+      todayWindow.end
+    ).count;
+
+    const currentStartDate = parseISO(`${currentStart}T12:00:00`);
+    const priorEndDay = formatDateInAuckland(subDays(currentStartDate, 1));
+    const priorStartDay = formatDateInAuckland(subDays(currentStartDate, days));
+    const previous = this.aggregateWindow(
+      dateBounds(priorStartDay).start,
+      dateBounds(priorEndDay).end
+    ).count;
+
+    const earliestRow = this.ctx.storage.sql
+      .exec<{ earliest: string | null }>(
+        "SELECT min(substr(occurred_at, 1, 10)) as earliest FROM infringements"
+      )
+      .one();
+
+    if (
+      earliestRow?.earliest !== null &&
+      earliestRow?.earliest !== undefined &&
+      earliestRow.earliest > priorStartDay
+    ) {
+      return { current, direction: "flat", percent: null, previous };
+    }
+
+    return toTrendResult(current, previous);
+  }
+
   private buildFullDashboardSnapshotSync(): PublicDashboardSnapshot {
     return {
       at: isoNow(),
-      dailyTrend: this.readDailyTrendSync(30),
+      dailyTrend: this.readDailyTrendSync(PACE_DAILY_TREND_DAYS),
       live: this.readPublicLiveStatsSync(),
+      paceTrends: this.readPaceTrendsSync(),
       map: this.readMapPointsSync(50),
       recentInfringements: this.listInfringements({
         limit: 15,
@@ -1844,6 +1942,7 @@ export class ParkingStore extends DurableObject<Env> {
     const last24hStart = subDays(now, 1).toISOString();
     const last7dStart = formatDateInAuckland(subDays(now, 7));
     const last30dStart = formatDateInAuckland(subDays(now, 30));
+    const last365dStart = formatDateInAuckland(subDays(now, 365));
 
     const allTime = this.aggregateWindow(
       "1970-01-01T00:00:00+12:00",
@@ -1861,6 +1960,10 @@ export class ParkingStore extends DurableObject<Env> {
       `${last30dStart}T00:00:00+12:00`,
       todayWindow.end
     );
+    const last365d = this.aggregateWindow(
+      `${last365dStart}T00:00:00+12:00`,
+      todayWindow.end
+    );
 
     const lastRecord = this.ctx.storage.sql
       .exec<{ latest: string | null }>(
@@ -1873,9 +1976,9 @@ export class ParkingStore extends DurableObject<Env> {
     this.ctx.storage.sql.exec(
       `INSERT INTO stats_live (
         id, all_time_total, all_time_amount_cents, today, last_24h, last_7d,
-        last_30d, this_month, this_year, towed_all_time, towed_today,
+        last_30d, last_365d, this_month, this_year, towed_all_time, towed_today,
         last_synced_at, last_record_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         all_time_total = excluded.all_time_total,
         all_time_amount_cents = excluded.all_time_amount_cents,
@@ -1883,6 +1986,7 @@ export class ParkingStore extends DurableObject<Env> {
         last_24h = excluded.last_24h,
         last_7d = excluded.last_7d,
         last_30d = excluded.last_30d,
+        last_365d = excluded.last_365d,
         this_month = excluded.this_month,
         this_year = excluded.this_year,
         towed_all_time = excluded.towed_all_time,
@@ -1896,6 +2000,7 @@ export class ParkingStore extends DurableObject<Env> {
       last24h.count,
       last7d.count,
       last30d.count,
+      last365d.count,
       monthStats.count,
       yearStats.count,
       allTime.towedCount,

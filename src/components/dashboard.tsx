@@ -20,6 +20,7 @@ import type {
   PublicInfringement,
   VehicleRankItem,
 } from "../client/api";
+import type { PaceTrends } from "@/lib/trend-window";
 import { ExplorePanel } from "./explore-panel";
 import { LatestInstances } from "./latest-instances";
 import { LiveTicker } from "./live-ticker";
@@ -34,6 +35,7 @@ export interface DashboardLiveStats {
   last24h: number;
   last7d: number;
   last30d: number;
+  last365d?: number;
   thisMonth: number;
   towedToday: number;
   lastSyncedAt: string | null;
@@ -43,6 +45,7 @@ export interface DashboardLiveStats {
 interface DashboardProps {
   live: DashboardLiveStats;
   dailyTrend: DailyStatPoint[];
+  paceTrends?: PaceTrends;
   streets: TopItem[];
   offences: TopItem[];
   topStreets: LocationRankItem[];
@@ -178,6 +181,7 @@ const LiveStatusBadge = ({
 export const Dashboard = ({
   live,
   dailyTrend,
+  paceTrends,
   streets,
   offences,
   topStreets,
@@ -237,7 +241,12 @@ export const Dashboard = ({
 
       <main className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="grid gap-6 xl:col-span-2">
-          <LiveTicker stats={live} dailyTrend={dailyTrend} isLoading={isLoading} />
+          <LiveTicker
+            stats={live}
+            dailyTrend={dailyTrend}
+            paceTrends={paceTrends}
+            isLoading={isLoading}
+          />
           <LatestInstances
             recentInfringements={recentInfringements}
             isLoading={isLoading}

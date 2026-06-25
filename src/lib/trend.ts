@@ -1,4 +1,7 @@
 import { addDays, format, parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
+
+const AUCKLAND_TZ = "Pacific/Auckland";
 
 export interface TrendResult {
   current: number;
@@ -12,10 +15,7 @@ export const percentChange = (
   previous: number
 ): number | null => {
   if (previous === 0) {
-    if (current === 0) {
-      return 0;
-    }
-    return null;
+    return current === 0 ? 0 : null;
   }
   return ((current - previous) / previous) * 100;
 };
@@ -26,11 +26,7 @@ export const toTrendResult = (
 ): TrendResult => {
   const percent = percentChange(current, previous);
   const direction =
-    percent === null || percent === 0
-      ? "flat"
-      : percent > 0
-        ? "up"
-        : "down";
+    percent === null || percent === 0 ? "flat" : (percent > 0 ? "up" : "down");
 
   return { current, direction, percent, previous };
 };
@@ -54,14 +50,15 @@ export const compareTrailingWindows = (
 
 const toDayKey = (date: Date): string => format(date, "yyyy-MM-dd");
 
+const todayInAuckland = (): string =>
+  formatInTimeZone(new Date(), AUCKLAND_TZ, "yyyy-MM-dd");
+
 export const fillDailySeries = (
   points: { date: string; count: number; totalCents: number }[],
-  days: number
+  days: number,
+  endDate = todayInAuckland()
 ): { date: string; count: number; totalCents: number }[] => {
   const byDate = new Map(points.map((point) => [point.date, point]));
-  const sortedDates = [...byDate.keys()].sort();
-  const endDate =
-    sortedDates.at(-1) ?? toDayKey(new Date());
   const end = parseISO(`${endDate}T12:00:00`);
   const result: { date: string; count: number; totalCents: number }[] = [];
 
@@ -80,6 +77,26 @@ export const fillDailySeries = (
   return result;
 };
 
-export const hasDailyTrendData = (
-  points: { count: number }[]
-): boolean => points.some((point) => point.count > 0);
+export const dailyTrendCoversDays = (
+  points: { date: string }[],
+  days: number
+): boolean => {
+  if (points.length === 0) {
+    return false;
+  }
+
+  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
+  const earliest = sorted[0]?.date;
+  if (earliest === undefined) {
+    return false;
+  }
+
+  const end = todayInAuckland();
+  const endDate = parseISO(`${end}T12:00:00`);
+  const requiredStart = addDays(endDate, -(days - 1));
+  const earliestDate = parseISO(`${earliest}T12:00:00`);
+  return earliestDate <= requiredStart;
+};
+
+export const hasDailyTrendData = (points: { count: number }[]): boolean =>
+  points.some((point) => point.count > 0);

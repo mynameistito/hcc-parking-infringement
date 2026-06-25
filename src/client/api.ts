@@ -1,3 +1,5 @@
+import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
+
 export interface LiveStatsResponse {
   allTimeTotal: number;
   allTimeAmountCents: number;
@@ -5,6 +7,7 @@ export interface LiveStatsResponse {
   last24h: number;
   last7d: number;
   last30d: number;
+  last365d: number;
   thisMonth: number;
   towedToday: number;
   lastSyncedAt: string | null;
@@ -144,6 +147,7 @@ const isLiveStatsResponse = (value: unknown): value is LiveStatsResponse =>
   typeof value.last24h === "number" &&
   typeof value.last7d === "number" &&
   typeof value.last30d === "number" &&
+  (value.last365d === undefined || typeof value.last365d === "number") &&
   typeof value.thisMonth === "number" &&
   typeof value.towedToday === "number" &&
   (value.lastSyncedAt === null || typeof value.lastSyncedAt === "string") &&
@@ -270,7 +274,7 @@ export const fetchLiveStats = async (): Promise<LiveStatsResponse> =>
   await parseEnvelope("/api/public/stats/live", isLiveStatsResponse);
 
 export const fetchDailyTrend = async (
-  days = 30
+  days = PACE_DAILY_TREND_DAYS
 ): Promise<DailyStatPoint[]> =>
   await parseEnvelope(
     `/api/public/stats/daily?days=${days}`,

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 
 import { Dashboard } from "@/components/dashboard";
+import type { PaceTrends } from "@/lib/trend-window";
 
 import type {
   DailyStatPoint,
@@ -20,6 +21,7 @@ const EMPTY_LIVE: LiveStatsResponse = {
   allTimeTotal: 0,
   last24h: 0,
   last30d: 0,
+  last365d: 0,
   last7d: 0,
   lastRecordAt: null,
   lastSyncedAt: null,
@@ -54,6 +56,11 @@ export const App = () => {
     "daily",
   ]);
   const dailyTrend = useDailyTrend(dailyTrendData, ready);
+  const { data: paceTrendsData } = useDashboardCache<PaceTrends | undefined>([
+    "public",
+    "pace",
+    "trends",
+  ]);
   const { data: streetsData } = useDashboardCache<TopStatsResponse>([
     "public",
     "top",
@@ -94,6 +101,7 @@ export const App = () => {
     <Dashboard
       live={liveData ?? EMPTY_LIVE}
       dailyTrend={dailyTrend}
+      paceTrends={paceTrendsData}
       streets={streetsData?.items ?? []}
       offences={offencesData?.items ?? []}
       topStreets={topStreetsData ?? []}

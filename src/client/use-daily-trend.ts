@@ -1,24 +1,33 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
+import { dailyTrendCoversDays, hasDailyTrendData } from "@/lib/trend";
+
 import { fetchDailyTrend } from "./api";
 import type { DailyStatPoint } from "./api";
-import { hasDailyTrendData } from "@/lib/trend";
 
 export const useDailyTrend = (
   cached: DailyStatPoint[] | undefined,
   ready: boolean
 ): DailyStatPoint[] => {
   const needsFetch =
-    ready && (cached === undefined || !hasDailyTrendData(cached));
+    ready &&
+    (cached === undefined ||
+      !hasDailyTrendData(cached) ||
+      !dailyTrendCoversDays(cached, PACE_DAILY_TREND_DAYS));
 
   const { data: fetched } = useQuery({
     enabled: needsFetch,
-    queryFn: () => fetchDailyTrend(30),
-    queryKey: ["public", "stats", "daily", "fetch"],
+    queryFn: async () => fetchDailyTrend(PACE_DAILY_TREND_DAYS),
+    queryKey: ["public", "stats", "daily", "fetch", PACE_DAILY_TREND_DAYS],
     staleTime: 60_000,
   });
 
-  if (cached !== undefined && hasDailyTrendData(cached)) {
+  if (
+    cached !== undefined &&
+    hasDailyTrendData(cached) &&
+    dailyTrendCoversDays(cached, PACE_DAILY_TREND_DAYS)
+  ) {
     return cached;
   }
 
