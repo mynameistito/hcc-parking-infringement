@@ -20,6 +20,8 @@ interface LocationMapProps {
   pendingGeocode: number;
 }
 
+const HEAT_LEGEND_STOPS = [0, 0.25, 0.5, 0.75, 1] as const;
+
 const MapFitRoutes = ({ routes }: { routes: MapRouteItem[] }) => {
   const { map, isLoaded } = useMap();
 
@@ -39,33 +41,29 @@ const MapFitRoutes = ({ routes }: { routes: MapRouteItem[] }) => {
   return null;
 };
 
-const HeatLegend = ({ maxCount }: { maxCount: number }) => {
-  const stops = [0, 0.25, 0.5, 0.75, 1];
-
-  return (
-    <div
-      className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-[6px] border border-border bg-card/95 p-2.5 shadow-[0_1px_1px_rgba(0,0,0,0.02),0_4px_8px_-4px_rgba(0,0,0,0.04),0_16px_24px_-8px_rgba(0,0,0,0.06)] backdrop-blur-sm"
-      aria-label="Ticket heat scale"
-    >
-      <p className="mb-1.5 text-[0.62rem] font-semibold text-muted-foreground uppercase">
-        Tickets
-      </p>
-      <div className="grid h-[0.45rem] grid-cols-5 gap-0.5 overflow-hidden rounded">
-        {stops.map((stop) => (
-          <span
-            key={stop}
-            className="block h-full"
-            style={{ background: heatColor(stop) }}
-          />
-        ))}
-      </div>
-      <div className="mt-1 flex justify-between text-[0.62rem] text-muted-foreground">
-        <span>Low</span>
-        <span>{maxCount.toLocaleString("en-NZ")}</span>
-      </div>
+const HeatLegend = ({ maxCount }: { maxCount: number }) => (
+  <div
+    className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-[6px] border border-border bg-card/95 p-2.5 shadow-[0_1px_1px_rgba(0,0,0,0.02),0_4px_8px_-4px_rgba(0,0,0,0.04),0_16px_24px_-8px_rgba(0,0,0,0.06)] backdrop-blur-sm"
+    aria-label="Ticket heat scale"
+  >
+    <p className="mb-1.5 text-[0.62rem] font-semibold text-muted-foreground uppercase">
+      Tickets
+    </p>
+    <div className="grid h-[0.45rem] grid-cols-5 gap-0.5 overflow-hidden rounded">
+      {HEAT_LEGEND_STOPS.map((stop) => (
+        <span
+          key={stop}
+          className="block h-full"
+          style={{ background: heatColor(stop) }}
+        />
+      ))}
     </div>
-  );
-};
+    <div className="mt-1 flex justify-between text-[0.62rem] text-muted-foreground">
+      <span>Low</span>
+      <span>{maxCount.toLocaleString("en-NZ")}</span>
+    </div>
+  </div>
+);
 
 export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
   const [selected, setSelected] = useState<RouteFeatureProperties | null>(null);

@@ -16,24 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { BrowseSort, PublicInfringement } from "../client/api";
-
-export const EXPLORE_PAGE_SIZE = 25;
-
-export const numberFmt = new Intl.NumberFormat("en-NZ");
-export const moneyFmt = new Intl.NumberFormat("en-NZ", {
-  currency: "NZD",
-  maximumFractionDigits: 0,
-  style: "currency",
-});
-
-export type ExploreTab = "suburbs" | "streets" | "vehicles";
-
-export interface TicketFilter {
-  street?: string;
-  suburb?: string;
-  vehicleMake?: string;
-  vehicleModel?: string;
-}
+import { formatVehicle, moneyFmt, numberFmt } from "./explore-utils";
 
 export const useDebouncedValue = <T,>(value: T, delay = 300): T => {
   const [debounced, setDebounced] = useState(value);
@@ -48,14 +31,6 @@ export const useDebouncedValue = <T,>(value: T, delay = 300): T => {
   }, [value, delay]);
 
   return debounced;
-};
-
-export const formatVehicle = (record: PublicInfringement): string => {
-  const parts = [record.vehicleMake, record.vehicleModel].filter(Boolean);
-  if (parts.length > 0) {
-    return parts.join(" ");
-  }
-  return record.vehicleType ?? "Unknown vehicle";
 };
 
 export const InfringementCards = ({
@@ -263,28 +238,3 @@ export const ExploreListRow = ({
     <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
   </button>
 );
-
-export const isExploreTab = (value: string): value is ExploreTab =>
-  value === "suburbs" || value === "streets" || value === "vehicles";
-
-export const optionalSearchQuery = (search: string): string | undefined =>
-  search.length > 0 ? search : undefined;
-
-export const formatStreetSuburb = (
-  street: string,
-  suburb: string | undefined
-): string => {
-  if (suburb !== undefined && suburb.length > 0 && suburb !== "Unknown") {
-    return `${street}, ${suburb}`;
-  }
-  return street;
-};
-
-export const formatLocationSubtitle = (
-  suburb: string | undefined
-): string | undefined => {
-  if (suburb !== undefined && suburb.length > 0 && suburb !== "Unknown") {
-    return suburb;
-  }
-  return undefined;
-};

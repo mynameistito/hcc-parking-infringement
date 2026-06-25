@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { LocationRankItem, VehicleRankItem } from "../client/api";
-import { formatLocationSubtitle, numberFmt } from "./explore-shared";
-import type { ExploreTab } from "./explore-shared";
+import { formatLocationSubtitle, numberFmt } from "./explore-utils";
+import type { ExploreTab } from "./explore-utils";
 
 const TABS = ["suburbs", "streets", "vehicles"] as const;
 
@@ -52,6 +52,15 @@ const getItemSubtitle = (item: ExploreItem): string | undefined => {
     return `${item.make} / ${item.model || "Unknown model"}`;
   }
   return formatLocationSubtitle(item.suburb);
+};
+
+const getItemKey = (item: ExploreItem, tab: ExploreTab): string => {
+  if (isVehicleRankItem(item)) {
+    return `${tab}-${item.make}-${item.model}`;
+  }
+  const street = item.street ?? item.label;
+  const suburb = item.suburb ?? "";
+  return `${tab}-${street}-${suburb}`;
 };
 
 const getTabIcon = (tab: ExploreTab) => {
@@ -280,7 +289,7 @@ export const ExplorePanel = ({
                   getItemLabel(selected.item) === label;
 
                 return (
-                  <li key={`${activeTab}-${label}-${index}`}>
+                  <li key={getItemKey(item, activeTab)}>
                     <button
                       type="button"
                       className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/70 px-4 py-3 text-left transition-colors first:border-t-0 hover:bg-muted focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none data-[selected=true]:bg-muted"

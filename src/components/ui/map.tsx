@@ -15,17 +15,18 @@ import MapLibreGL from "maplibre-gl";
 import type { PopupOptions, MarkerOptions } from "maplibre-gl";
 import {
   createContext,
-  forwardRef,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useId,
   useImperativeHandle,
   useMemo,
+  useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/utils";
@@ -117,7 +118,8 @@ const useLazyInstance = <T,>(factory: () => T): T => {
   return ref.current;
 };
 
-const useFrozenValue = <T,>(value: T): T => {
+/** Captures a value once for mount-only effects (stable identity across renders). */
+const useMountValue = <T,>(value: T): T => {
   const ref = useRef<T | null>(null);
   ref.current ??= value;
   return ref.current;
@@ -148,44 +150,35 @@ const getSystemTheme = (): Theme => {
     : "light";
 };
 
+const subscribeToSystemTheme = (onStoreChange: () => void): (() => void) => {
+  const observer = new MutationObserver(onStoreChange);
+  observer.observe(document.documentElement, {
+    attributeFilter: ["class"],
+    attributes: true,
+  });
+
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", onStoreChange);
+
+  return () => {
+    observer.disconnect();
+    mediaQuery.removeEventListener("change", onStoreChange);
+  };
+};
+
+const getSystemThemeSnapshot = (): Theme =>
+  getDocumentTheme() ?? getSystemTheme();
+
+const noopUnsubscribe = () => {
+  void 0;
+};
+
 const useResolvedTheme = (themeProp?: "light" | "dark"): Theme => {
-  const [detectedTheme, setDetectedTheme] = useState<Theme>(
-    () => getDocumentTheme() ?? getSystemTheme()
+  const detectedTheme = useSyncExternalStore(
+    themeProp === undefined ? subscribeToSystemTheme : () => noopUnsubscribe,
+    getSystemThemeSnapshot,
+    () => "light" as Theme
   );
-
-  useEffect(() => {
-    let cleanup: (() => void) | undefined;
-
-    if (themeProp === undefined) {
-      const observer = new MutationObserver(() => {
-        const docTheme = getDocumentTheme();
-        if (docTheme) {
-          setDetectedTheme(docTheme);
-        }
-      });
-      observer.observe(document.documentElement, {
-        attributeFilter: ["class"],
-        attributes: true,
-      });
-
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleSystemChange = (e: MediaQueryListEvent) => {
-        if (!getDocumentTheme()) {
-          setDetectedTheme(e.matches ? "dark" : "light");
-        }
-      };
-      mediaQuery.addEventListener("change", handleSystemChange);
-
-      cleanup = () => {
-        observer.disconnect();
-        mediaQuery.removeEventListener("change", handleSystemChange);
-      };
-    }
-
-    return () => {
-      cleanup?.();
-    };
-  }, [themeProp]);
 
   return themeProp ?? detectedTheme;
 };
@@ -199,7 +192,7 @@ interface MapContextValue {
 const MapContext = createContext<MapContextValue | null>(null);
 
 const useMap = () => {
-  const context = useContext(MapContext);
+  const context = use(MapContext);
   if (!context) {
     throw new Error("useMap must be used within a Map component");
   }
@@ -223,6 +216,7 @@ type MapStyleOption = string | MapLibreGL.StyleSpecification;
 type MapRef = MapLibreGL.Map;
 
 type MapProps = {
+  ref?: Ref<MapRef>;
   children?: ReactNode;
   /** Additional CSS classes for the map container */
   className?: string;
@@ -271,6 +265,53 @@ const DefaultLoader = () => (
   </div>
 );
 
+interface MapRuntimeState {
+  isLoaded: boolean;
+  loadedStyle: MapStyleOption | null;
+  mapInstance: MapLibreGL.Map | null;
+}
+
+type MapRuntimeAction =
+  | { type: "destroy" }
+  | { type: "init"; map: MapLibreGL.Map }
+  | { type: "mapLoaded" }
+  | { type: "styleLoaded"; style: MapStyleOption };
+
+const initialMapRuntimeState: MapRuntimeState = {
+  isLoaded: false,
+  loadedStyle: null,
+  mapInstance: null,
+};
+
+const mapRuntimeReducer = (
+  state: MapRuntimeState,
+  action: MapRuntimeAction
+): MapRuntimeState => {
+  switch (action.type) {
+    case "destroy": {
+      return initialMapRuntimeState;
+    }
+    case "init": {
+      return {
+        isLoaded: false,
+        loadedStyle: null,
+        mapInstance: action.map,
+      };
+    }
+    case "mapLoaded": {
+      return state.mapInstance === null ? state : { ...state, isLoaded: true };
+    }
+    case "styleLoaded": {
+      return state.mapInstance === null
+        ? state
+        : { ...state, loadedStyle: action.style };
+    }
+    default: {
+      return state;
+    }
+  }
+};
+
 const getViewport = (map: MapLibreGL.Map): MapViewport => {
   const center = map.getCenter();
   return {
@@ -281,224 +322,225 @@ const getViewport = (map: MapLibreGL.Map): MapViewport => {
   };
 };
 
-const Map = forwardRef<MapRef, MapProps>(
-  (
-    {
-      children,
-      className,
-      theme: themeProp,
-      styles,
-      blank = false,
-      projection,
-      viewport,
-      onViewportChange,
-      loading = false,
-      ...props
-    },
-    ref
-  ) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
-    const [isLoaded, setIsLoaded] = useState(false);
-    const [isStyleLoaded, setIsStyleLoaded] = useState(false);
-    const currentStyleRef = useRef<MapStyleOption | null>(null);
-    const styleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const internalUpdateRef = useRef(false);
-    const resolvedTheme = useResolvedTheme(themeProp);
+const Map = ({
+  ref,
+  children,
+  className,
+  theme: themeProp,
+  styles,
+  blank = false,
+  projection,
+  viewport,
+  onViewportChange,
+  loading = false,
+  ...props
+}: MapProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mapRuntime, dispatchMapRuntime] = useReducer(
+    mapRuntimeReducer,
+    initialMapRuntimeState
+  );
+  const { isLoaded, loadedStyle, mapInstance } = mapRuntime;
+  const currentStyleRef = useRef<MapStyleOption | null>(null);
+  const styleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const internalUpdateRef = useRef(false);
+  const resolvedTheme = useResolvedTheme(themeProp);
 
-    const isControlled =
-      viewport !== undefined && onViewportChange !== undefined;
+  const isControlled = viewport !== undefined && onViewportChange !== undefined;
 
-    const onViewportChangeRef = useRef(onViewportChange);
-    onViewportChangeRef.current = onViewportChange;
+  const onViewportChangeRef = useRef(onViewportChange);
+  onViewportChangeRef.current = onViewportChange;
 
-    const mapStyles = useMemo(() => {
-      // Explicit styles win. Otherwise `blank` opts into the transparent
-      // tile-less basemap; with neither, fall back to the Carto defaults.
-      if (styles) {
-        return {
-          dark: styles.dark ?? defaultStyles.dark,
-          light: styles.light ?? defaultStyles.light,
-        };
-      }
-      if (blank) {
-        return { dark: blankMapStyle, light: blankMapStyle };
-      }
-      return defaultStyles;
-    }, [styles, blank]);
+  const mapStyles = useMemo(() => {
+    // Explicit styles win. Otherwise `blank` opts into the transparent
+    // tile-less basemap; with neither, fall back to the Carto defaults.
+    if (styles) {
+      return {
+        dark: styles.dark ?? defaultStyles.dark,
+        light: styles.light ?? defaultStyles.light,
+      };
+    }
+    if (blank) {
+      return { dark: blankMapStyle, light: blankMapStyle };
+    }
+    return defaultStyles;
+  }, [styles, blank]);
 
-    // Expose the map instance to the parent component
-    useImperativeHandle(ref, () => {
-      if (mapInstance === null) {
-        throw new Error("Map is not initialized");
-      }
-      return mapInstance;
-    }, [mapInstance]);
+  const activeStyle =
+    resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
+  const isStyleLoaded = loadedStyle === activeStyle;
 
-    const clearStyleTimeout = useCallback(() => {
-      if (styleTimeoutRef.current) {
-        clearTimeout(styleTimeoutRef.current);
-        styleTimeoutRef.current = null;
-      }
-    }, []);
+  // Expose the map instance to the parent component
+  useImperativeHandle(ref, () => {
+    if (mapInstance === null) {
+      throw new Error("Map is not initialized");
+    }
+    return mapInstance;
+  }, [mapInstance]);
 
-    const mapInitConfig = useFrozenValue({
-      mapOptions: props,
-      mapStyles,
-      projection,
-      resolvedTheme,
-      viewport,
-    });
+  const clearStyleTimeout = useCallback(() => {
+    if (styleTimeoutRef.current) {
+      clearTimeout(styleTimeoutRef.current);
+      styleTimeoutRef.current = null;
+    }
+  }, []);
 
-    // Initialize the map
-    useEffect(() => {
-      let cleanup: (() => void) | undefined;
-      const container = containerRef.current;
+  const mapInitConfig = useMountValue({
+    mapOptions: props,
+    mapStyles,
+    projection,
+    resolvedTheme,
+    viewport,
+  });
 
-      if (container !== null) {
-        const config = mapInitConfig;
-        const initialStyle =
-          config.resolvedTheme === "dark"
-            ? config.mapStyles.dark
-            : config.mapStyles.light;
-        currentStyleRef.current = initialStyle;
+  // Initialize the map
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    const container = containerRef.current;
 
-        const map = new MapLibreGL.Map({
-          attributionControl: {
-            compact: true,
-          },
-          container,
-          renderWorldCopies: false,
-          style: initialStyle,
-          ...config.mapOptions,
-          ...config.viewport,
-        });
+    if (container !== null) {
+      const config = mapInitConfig;
+      const initialStyle =
+        config.resolvedTheme === "dark"
+          ? config.mapStyles.dark
+          : config.mapStyles.light;
+      currentStyleRef.current = initialStyle;
 
-        const styleDataHandler = () => {
-          clearStyleTimeout();
-          styleTimeoutRef.current = setTimeout(() => {
-            setIsStyleLoaded(true);
-            if (config.projection) {
-              map.setProjection(config.projection);
-            }
-          }, 100);
-        };
-        const loadHandler = () => {
-          setIsLoaded(true);
-        };
+      const map = new MapLibreGL.Map({
+        attributionControl: {
+          compact: true,
+        },
+        container,
+        renderWorldCopies: false,
+        style: initialStyle,
+        ...config.mapOptions,
+        ...config.viewport,
+      });
 
-        const handleMove = () => {
-          if (internalUpdateRef.current) {
-            return;
+      const styleDataHandler = () => {
+        clearStyleTimeout();
+        styleTimeoutRef.current = setTimeout(() => {
+          const style = currentStyleRef.current;
+          if (style !== null) {
+            dispatchMapRuntime({ style, type: "styleLoaded" });
           }
-          onViewportChangeRef.current?.(getViewport(map));
-        };
-
-        map.on("load", loadHandler);
-        map.on("styledata", styleDataHandler);
-        map.on("move", handleMove);
-        setMapInstance(map);
-
-        cleanup = () => {
-          clearStyleTimeout();
-          map.off("load", loadHandler);
-          map.off("styledata", styleDataHandler);
-          map.off("move", handleMove);
-          map.remove();
-          setIsLoaded(false);
-          setIsStyleLoaded(false);
-          setMapInstance(null);
-        };
-      }
-
-      return () => {
-        cleanup?.();
+          if (config.projection) {
+            map.setProjection(config.projection);
+          }
+        }, 100);
       };
-    }, [clearStyleTimeout, mapInitConfig]);
-
-    // Sync controlled viewport to map
-    useEffect(() => {
-      if (mapInstance === null || !isControlled || viewport === undefined) {
-        return;
-      }
-      if (mapInstance.isMoving()) {
-        return;
-      }
-
-      const current = getViewport(mapInstance);
-      const next = {
-        bearing: viewport.bearing ?? current.bearing,
-        center: viewport.center ?? current.center,
-        pitch: viewport.pitch ?? current.pitch,
-        zoom: viewport.zoom ?? current.zoom,
+      const loadHandler = () => {
+        dispatchMapRuntime({ type: "mapLoaded" });
       };
 
-      if (
-        next.center[0] === current.center[0] &&
-        next.center[1] === current.center[1] &&
-        next.zoom === current.zoom &&
-        next.bearing === current.bearing &&
-        next.pitch === current.pitch
-      ) {
-        return;
-      }
+      const handleMove = () => {
+        if (internalUpdateRef.current) {
+          return;
+        }
+        onViewportChangeRef.current?.(getViewport(map));
+      };
 
-      internalUpdateRef.current = true;
-      mapInstance.jumpTo(next);
-      internalUpdateRef.current = false;
-    }, [mapInstance, isControlled, viewport]);
+      map.on("load", loadHandler);
+      map.on("styledata", styleDataHandler);
+      map.on("move", handleMove);
+      dispatchMapRuntime({ map, type: "init" });
 
-    // Handle style change
-    useEffect(() => {
-      if (mapInstance === null) {
-        return;
-      }
+      cleanup = () => {
+        clearStyleTimeout();
+        map.off("load", loadHandler);
+        map.off("styledata", styleDataHandler);
+        map.off("move", handleMove);
+        map.remove();
+        dispatchMapRuntime({ type: "destroy" });
+      };
+    }
 
-      const newStyle =
-        resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
+    return () => {
+      cleanup?.();
+    };
+  }, [clearStyleTimeout, mapInitConfig]);
 
-      if (currentStyleRef.current === newStyle) {
-        return;
-      }
+  // Sync controlled viewport to map
+  useEffect(() => {
+    if (mapInstance === null || !isControlled || viewport === undefined) {
+      return;
+    }
+    if (mapInstance.isMoving()) {
+      return;
+    }
 
-      clearStyleTimeout();
-      currentStyleRef.current = newStyle;
-      setIsStyleLoaded(false);
+    const current = getViewport(mapInstance);
+    const next = {
+      bearing: viewport.bearing ?? current.bearing,
+      center: viewport.center ?? current.center,
+      pitch: viewport.pitch ?? current.pitch,
+      zoom: viewport.zoom ?? current.zoom,
+    };
 
-      mapInstance.setStyle(newStyle, { diff: true });
-    }, [mapInstance, resolvedTheme, mapStyles, clearStyleTimeout]);
+    if (
+      next.center[0] === current.center[0] &&
+      next.center[1] === current.center[1] &&
+      next.zoom === current.zoom &&
+      next.bearing === current.bearing &&
+      next.pitch === current.pitch
+    ) {
+      return;
+    }
 
-    // Sync projection when the prop changes after mount.
-    useEffect(() => {
-      if (mapInstance === null || !isStyleLoaded || projection === undefined) {
-        return;
-      }
-      mapInstance.setProjection(projection);
-    }, [mapInstance, isStyleLoaded, projection]);
+    internalUpdateRef.current = true;
+    mapInstance.jumpTo(next);
+    internalUpdateRef.current = false;
+  }, [mapInstance, isControlled, viewport]);
 
-    const contextValue = useMemo(
-      () => ({
-        isLoaded: isLoaded && isStyleLoaded,
-        map: mapInstance,
-        resolvedTheme,
-      }),
-      [mapInstance, isLoaded, isStyleLoaded, resolvedTheme]
-    );
+  // Handle style change
+  useEffect(() => {
+    if (mapInstance === null) {
+      return;
+    }
 
-    return (
-      <MapContext.Provider value={contextValue}>
-        <div
-          ref={containerRef}
-          className={cn("relative h-full w-full", className)}
-        >
-          {(!isLoaded || loading) && <DefaultLoader />}
-          {/* SSR-safe: children render only when map is loaded on client */}
-          {mapInstance !== null && children}
-        </div>
-      </MapContext.Provider>
-    );
-  }
-);
+    const newStyle =
+      resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
+
+    if (currentStyleRef.current === newStyle) {
+      return;
+    }
+
+    clearStyleTimeout();
+    currentStyleRef.current = newStyle;
+
+    mapInstance.setStyle(newStyle, { diff: true });
+  }, [mapInstance, resolvedTheme, mapStyles, clearStyleTimeout]);
+
+  // Sync projection when the prop changes after mount.
+  useEffect(() => {
+    if (mapInstance === null || !isStyleLoaded || projection === undefined) {
+      return;
+    }
+    mapInstance.setProjection(projection);
+  }, [mapInstance, isStyleLoaded, projection]);
+
+  const contextValue = useMemo(
+    () => ({
+      isLoaded: isLoaded && isStyleLoaded,
+      map: mapInstance,
+      resolvedTheme,
+    }),
+    [mapInstance, isLoaded, isStyleLoaded, resolvedTheme]
+  );
+
+  return (
+    <MapContext.Provider value={contextValue}>
+      <div
+        ref={containerRef}
+        className={cn("relative h-full w-full", className)}
+      >
+        {(!isLoaded || loading) && <DefaultLoader />}
+        {/* SSR-safe: children render only when map is loaded on client */}
+        {mapInstance !== null && children}
+      </div>
+    </MapContext.Provider>
+  );
+};
 
 interface MarkerContextValue {
   marker: MapLibreGL.Marker;
@@ -508,7 +550,7 @@ interface MarkerContextValue {
 const MarkerContext = createContext<MarkerContextValue | null>(null);
 
 const useMarkerContext = () => {
-  const context = useContext(MarkerContext);
+  const context = use(MarkerContext);
   if (!context) {
     throw new Error("Marker components must be used within MapMarker");
   }
@@ -1233,7 +1275,7 @@ const MapRoute = ({
   const id = propId ?? autoId;
   const sourceId = `route-source-${id}`;
   const layerId = `route-layer-${id}`;
-  const routeSetup = useFrozenValue({
+  const routeSetup = useMountValue({
     color,
     dashArray,
     layerId,
@@ -1542,7 +1584,7 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
   const latestRef = useRef({ onClick, onHover });
   latestRef.current = { onClick, onHover };
 
-  const geoJsonSourceSetup = useFrozenValue({
+  const geoJsonSourceSetup = useMountValue({
     data,
     fillLayerId,
     lineLayerId,
@@ -1926,7 +1968,7 @@ const MapArc = <T extends MapArcDatum = MapArcDatum>({
   const latestRef = useRef({ data, onClick, onHover });
   latestRef.current = { data, onClick, onHover };
 
-  const arcSetup = useFrozenValue({
+  const arcSetup = useMountValue({
     beforeId,
     geoJSON,
     hitLayerId,
@@ -2182,7 +2224,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
     pointColor,
   });
 
-  const clusterSetup = useFrozenValue({
+  const clusterSetup = useMountValue({
     clusterColors,
     clusterCountLayerId,
     clusterLayerId,

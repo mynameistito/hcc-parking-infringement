@@ -4,10 +4,10 @@ const parseApiKeys = (apiKeyValue: string | undefined): Set<string> => {
   }
 
   return new Set(
-    apiKeyValue
-      .split(",")
-      .map((key) => key.trim())
-      .filter(Boolean)
+    apiKeyValue.split(",").flatMap((key) => {
+      const trimmed = key.trim();
+      return trimmed.length > 0 ? [trimmed] : [];
+    })
   );
 };
 

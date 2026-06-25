@@ -45,56 +45,88 @@ export const App = () => {
   const isLive = useLiveSocket();
   const pollInterval = isLive ? false : FALLBACK_POLL_MS;
 
-  const liveQuery = useQuery({
+  const {
+    data: liveData,
+    error: liveError,
+    isFetching: liveIsFetching,
+  } = useQuery({
     queryFn: fetchLiveStats,
     queryKey: ["public", "live"],
     refetchInterval: pollInterval,
     refetchIntervalInBackground: true,
   });
 
-  const streetsQuery = useQuery({
+  const {
+    data: streetsData,
+    error: streetsError,
+    isFetching: streetsIsFetching,
+  } = useQuery({
     queryFn: async () => await fetchTopStats("street", 5),
     queryKey: ["public", "top", "street"],
     refetchInterval: pollInterval,
     refetchIntervalInBackground: true,
   });
 
-  const offencesQuery = useQuery({
+  const {
+    data: offencesData,
+    error: offencesError,
+    isFetching: offencesIsFetching,
+  } = useQuery({
     queryFn: async () => await fetchTopStats("offence", 5),
     queryKey: ["public", "top", "offence"],
     refetchInterval: pollInterval,
     refetchIntervalInBackground: true,
   });
 
-  const topStreetsQuery = useQuery({
+  const {
+    data: topStreetsData,
+    error: topStreetsError,
+    isFetching: topStreetsIsFetching,
+  } = useQuery({
     queryFn: async () => await fetchTopStreets(10),
     queryKey: ["public", "locations", "streets"],
     refetchInterval: pollInterval,
     refetchIntervalInBackground: true,
   });
 
-  const topSuburbsQuery = useQuery({
+  const {
+    data: topSuburbsData,
+    error: topSuburbsError,
+    isFetching: topSuburbsIsFetching,
+  } = useQuery({
     queryFn: async () => await fetchTopSuburbs(10),
     queryKey: ["public", "locations", "suburbs"],
     refetchInterval: pollInterval,
     refetchIntervalInBackground: true,
   });
 
-  const topVehiclesQuery = useQuery({
+  const {
+    data: topVehiclesData,
+    error: topVehiclesError,
+    isFetching: topVehiclesIsFetching,
+  } = useQuery({
     queryFn: async () => await fetchTopVehicles(10),
     queryKey: ["public", "vehicles", "top"],
     refetchInterval: pollInterval,
     refetchIntervalInBackground: true,
   });
 
-  const mapQuery = useQuery({
+  const {
+    data: mapData,
+    error: mapError,
+    isFetching: mapIsFetching,
+  } = useQuery({
     queryFn: async () => await fetchMapPoints(50),
     queryKey: ["public", "locations", "map"],
     refetchInterval: pollInterval,
     refetchIntervalInBackground: true,
   });
 
-  const recentQuery = useQuery({
+  const {
+    data: recentData,
+    error: recentError,
+    isFetching: recentIsFetching,
+  } = useQuery({
     queryFn: async () => await fetchRecentInfringements(15),
     queryKey: ["public", "infringements", "recent"],
     refetchInterval: pollInterval,
@@ -102,40 +134,40 @@ export const App = () => {
   });
 
   const error = getQueryErrorMessage([
-    liveQuery.error,
-    streetsQuery.error,
-    offencesQuery.error,
-    topStreetsQuery.error,
-    topSuburbsQuery.error,
-    topVehiclesQuery.error,
-    mapQuery.error,
-    recentQuery.error,
+    liveError,
+    streetsError,
+    offencesError,
+    topStreetsError,
+    topSuburbsError,
+    topVehiclesError,
+    mapError,
+    recentError,
   ]);
 
   const isFetching =
     !isLive &&
     isAnyQueryFetching([
-      liveQuery.isFetching,
-      streetsQuery.isFetching,
-      offencesQuery.isFetching,
-      topStreetsQuery.isFetching,
-      topSuburbsQuery.isFetching,
-      topVehiclesQuery.isFetching,
-      mapQuery.isFetching,
-      recentQuery.isFetching,
+      liveIsFetching,
+      streetsIsFetching,
+      offencesIsFetching,
+      topStreetsIsFetching,
+      topSuburbsIsFetching,
+      topVehiclesIsFetching,
+      mapIsFetching,
+      recentIsFetching,
     ]);
 
   return (
     <Dashboard
-      live={liveQuery.data ?? EMPTY_LIVE}
-      streets={streetsQuery.data?.items ?? []}
-      offences={offencesQuery.data?.items ?? []}
-      topStreets={topStreetsQuery.data ?? []}
-      topSuburbs={topSuburbsQuery.data ?? []}
-      topVehicles={topVehiclesQuery.data ?? []}
-      recentInfringements={recentQuery.data?.data ?? []}
-      mapRoutes={mapQuery.data?.routes ?? []}
-      pendingGeocode={mapQuery.data?.pendingGeocode ?? 0}
+      live={liveData ?? EMPTY_LIVE}
+      streets={streetsData?.items ?? []}
+      offences={offencesData?.items ?? []}
+      topStreets={topStreetsData ?? []}
+      topSuburbs={topSuburbsData ?? []}
+      topVehicles={topVehiclesData ?? []}
+      recentInfringements={recentData?.data ?? []}
+      mapRoutes={mapData?.routes ?? []}
+      pendingGeocode={mapData?.pendingGeocode ?? 0}
       isLive={isLive}
       isFetching={isFetching}
       error={error}

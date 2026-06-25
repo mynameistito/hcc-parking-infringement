@@ -109,25 +109,20 @@ const formatVehicle = (record: PublicInfringement): string => {
 export const LiveTicker = ({ stats, recentInfringements }: LiveTickerProps) => {
   const animatedTotal = useAnimatedNumber(stats.allTimeTotal);
   const [pulse, setPulse] = useState(false);
-  const prevTotal = useRef(stats.allTimeTotal);
+  const prevTotalRef = useRef(stats.allTimeTotal);
+  const pulseTimerRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    let timer: number | undefined;
-
-    if (stats.allTimeTotal !== prevTotal.current) {
-      prevTotal.current = stats.allTimeTotal;
-      setPulse(true);
-      timer = window.setTimeout(() => {
-        setPulse(false);
-      }, 550);
+  if (stats.allTimeTotal !== prevTotalRef.current) {
+    prevTotalRef.current = stats.allTimeTotal;
+    setPulse(true);
+    if (pulseTimerRef.current !== null) {
+      window.clearTimeout(pulseTimerRef.current);
     }
-
-    return () => {
-      if (timer !== undefined) {
-        window.clearTimeout(timer);
-      }
-    };
-  }, [stats.allTimeTotal]);
+    pulseTimerRef.current = window.setTimeout(() => {
+      setPulse(false);
+      pulseTimerRef.current = null;
+    }, 550);
+  }
 
   return (
     <Card className="bg-card" aria-label="All-time parking infringement total">
