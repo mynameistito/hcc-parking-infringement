@@ -4,7 +4,7 @@ import react from "ultracite/oxlint/react";
 
 export default defineConfig({
   extends: [core, react],
-  ignorePatterns: ["worker-configuration.d.ts"],
+  ignorePatterns: ["worker-configuration.d.ts", ".wrangler-dry-run/**"],
   options: {
     typeAware: true,
   },
