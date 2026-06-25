@@ -20,6 +20,7 @@ import {
   getTopSuburbs,
 } from "./server/locations.ts";
 import {
+  getPublicDailyTrend,
   getPublicLiveStats,
   getPublicTopOffences,
   getPublicTopStreets,
@@ -149,6 +150,20 @@ app.get("/api/public/stats/live", async (c) => {
   } catch (error) {
     console.error("public live stats error", error);
     return jsonError(500, "Failed to load live stats");
+  }
+});
+
+app.get("/api/public/stats/daily", async (c) => {
+  const days = Math.min(parsePositiveInt(c.req.query("days"), 30), 60);
+  try {
+    const data = await getPublicDailyTrend(c.env, days);
+    return storedJson(c, {
+      data,
+      meta: { days, source: "stored" },
+    });
+  } catch (error) {
+    console.error("public daily stats error", error);
+    return jsonError(500, "Failed to load daily stats");
   }
 });
 

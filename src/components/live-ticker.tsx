@@ -2,9 +2,11 @@ import { Banknote, Sigma } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import type { DailyStatPoint } from "@/client/api";
 import { cn } from "@/lib/utils";
 
 import { LiveTickerSkeleton } from "./data-skeletons";
+import { PacePanel } from "./pace-panel";
 
 const useAnimatedNumber = (value: number, duration = 600): number => {
   const [display, setDisplay] = useState(value);
@@ -77,27 +79,17 @@ export interface LiveStats {
 
 interface LiveTickerProps {
   stats: LiveStats;
+  dailyTrend: DailyStatPoint[];
   isLoading?: boolean;
 }
 
-interface StatPillProps {
-  label: string;
-  value: number;
-}
-
-const StatPill = ({ label, value }: StatPillProps) => {
-  const animated = useAnimatedNumber(value);
-  return (
-    <div className="rounded-[6px] border border-border bg-background px-3 py-3">
-      <span className="block font-mono text-lg font-semibold tabular-nums tracking-[-0.02em]">
-        {numberFmt.format(animated)}
-      </span>
-      <span className="mt-1 block text-xs text-muted-foreground">{label}</span>
-    </div>
-  );
-};
-
-const LiveTickerContent = ({ stats }: { stats: LiveStats }) => {
+const LiveTickerContent = ({
+  stats,
+  dailyTrend,
+}: {
+  stats: LiveStats;
+  dailyTrend: DailyStatPoint[];
+}) => {
   const animatedTotal = useAnimatedNumber(stats.allTimeTotal);
   const [pulse, setPulse] = useState(false);
   const prevTotalRef = useRef(stats.allTimeTotal);
@@ -150,34 +142,26 @@ const LiveTickerContent = ({ stats }: { stats: LiveStats }) => {
             </div>
           </section>
 
-          <aside className="border-t border-border bg-muted p-4 sm:p-5 lg:border-t-0 lg:border-l">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-primary">
-                Current Pace
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                Live snapshot
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              <StatPill label="Today" value={stats.today} />
-              <StatPill label="Last 24h" value={stats.last24h} />
-              <StatPill label="Last 7d" value={stats.last7d} />
-              <StatPill label="Last 30d" value={stats.last30d} />
-              <StatPill label="This month" value={stats.thisMonth} />
-              <StatPill label="Towed today" value={stats.towedToday} />
-            </div>
-          </aside>
+          <PacePanel
+            dailyTrend={dailyTrend}
+            last24h={stats.last24h}
+            last7d={stats.last7d}
+            last30d={stats.last30d}
+          />
         </div>
       </CardContent>
     </Card>
   );
 };
 
-export const LiveTicker = ({ stats, isLoading }: LiveTickerProps) => {
+export const LiveTicker = ({
+  stats,
+  dailyTrend,
+  isLoading,
+}: LiveTickerProps) => {
   if (isLoading === true) {
     return <LiveTickerSkeleton />;
   }
 
-  return <LiveTickerContent stats={stats} />;
+  return <LiveTickerContent dailyTrend={dailyTrend} stats={stats} />;
 };

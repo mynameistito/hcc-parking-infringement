@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import type {
+  DailyStatPoint,
   LiveStatsResponse,
   LocationRankItem,
   MapResponse,
@@ -13,6 +14,7 @@ export interface FullDashboardMessage {
   type: "full";
   at: string;
   live: LiveStatsResponse;
+  dailyTrend: DailyStatPoint[];
   recentInfringements: PublicInfringement[];
   topStreets: TopItem[];
   topOffences: TopItem[];
@@ -22,8 +24,8 @@ export interface FullDashboardMessage {
   map: MapResponse;
 }
 
-const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v1";
-const DASHBOARD_SNAPSHOT_CACHE_VERSION = 1;
+const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v2";
+const DASHBOARD_SNAPSHOT_CACHE_VERSION = 2;
 const DASHBOARD_SNAPSHOT_DB_NAME = "hcc-dashboard";
 const DASHBOARD_SNAPSHOT_DB_STORE = "snapshots";
 
@@ -36,6 +38,12 @@ interface CachedDashboardSnapshot {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
+const isDailyStatPoint = (value: unknown): value is DailyStatPoint =>
+  isRecord(value) &&
+  typeof value.date === "string" &&
+  typeof value.count === "number" &&
+  typeof value.totalCents === "number";
+
 const isFullDashboardMessage = (
   value: unknown
 ): value is FullDashboardMessage =>
@@ -43,6 +51,9 @@ const isFullDashboardMessage = (
   value.type === "full" &&
   typeof value.at === "string" &&
   isRecord(value.live) &&
+  (value.dailyTrend === undefined ||
+    (Array.isArray(value.dailyTrend) &&
+      value.dailyTrend.every(isDailyStatPoint))) &&
   Array.isArray(value.recentInfringements) &&
   Array.isArray(value.topStreets) &&
   Array.isArray(value.topOffences) &&
@@ -160,7 +171,10 @@ export const parseDashboardMessage = (
   try {
     const parsed: unknown = JSON.parse(data);
     if (isFullDashboardMessage(parsed)) {
-      return parsed;
+      return {
+        ...parsed,
+        dailyTrend: parsed.dailyTrend ?? [],
+      };
     }
   } catch {
     // ignore malformed messages
@@ -258,6 +272,7 @@ export const applyDashboardSnapshot = (
   message: FullDashboardMessage
 ): void => {
   queryClient.setQueryData(["public", "live"], message.live);
+  queryClient.setQueryData(["public", "stats", "daily"], message.dailyTrend);
   queryClient.setQueryData(["public", "top", "street"], {
     groupBy: "street",
     items: message.topStreets,

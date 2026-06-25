@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import type {
+  DailyStatPoint,
   LocationRankItem,
   MapRouteItem,
   PublicInfringement,
@@ -41,6 +42,7 @@ export interface DashboardLiveStats {
 
 interface DashboardProps {
   live: DashboardLiveStats;
+  dailyTrend: DailyStatPoint[];
   streets: TopItem[];
   offences: TopItem[];
   topStreets: LocationRankItem[];
@@ -175,6 +177,7 @@ const LiveStatusBadge = ({
 
 export const Dashboard = ({
   live,
+  dailyTrend,
   streets,
   offences,
   topStreets,
@@ -234,7 +237,7 @@ export const Dashboard = ({
 
       <main className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="grid gap-6 xl:col-span-2">
-          <LiveTicker stats={live} isLoading={isLoading} />
+          <LiveTicker stats={live} dailyTrend={dailyTrend} isLoading={isLoading} />
           <LatestInstances
             recentInfringements={recentInfringements}
             isLoading={isLoading}

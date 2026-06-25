@@ -4,6 +4,7 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { Dashboard } from "@/components/dashboard";
 
 import type {
+  DailyStatPoint,
   InfringementListResponse,
   LiveStatsResponse,
   LocationRankItem,
@@ -11,6 +12,7 @@ import type {
   TopStatsResponse,
   VehicleRankItem,
 } from "./api";
+import { useDailyTrend } from "./use-daily-trend";
 import { useLiveSocket } from "./use-live-socket";
 
 const EMPTY_LIVE: LiveStatsResponse = {
@@ -46,6 +48,12 @@ export const App = () => {
     "public",
     "live",
   ]);
+  const { data: dailyTrendData } = useDashboardCache<DailyStatPoint[]>([
+    "public",
+    "stats",
+    "daily",
+  ]);
+  const dailyTrend = useDailyTrend(dailyTrendData, ready);
   const { data: streetsData } = useDashboardCache<TopStatsResponse>([
     "public",
     "top",
@@ -85,6 +93,7 @@ export const App = () => {
   return (
     <Dashboard
       live={liveData ?? EMPTY_LIVE}
+      dailyTrend={dailyTrend}
       streets={streetsData?.items ?? []}
       offences={offencesData?.items ?? []}
       topStreets={topStreetsData ?? []}

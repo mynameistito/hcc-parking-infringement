@@ -11,6 +11,12 @@ export interface LiveStatsResponse {
   lastRecordAt: string | null;
 }
 
+export interface DailyStatPoint {
+  date: string;
+  count: number;
+  totalCents: number;
+}
+
 export interface TopItem {
   label: string;
   count: number;
@@ -251,8 +257,25 @@ const isVehicleBrowseResponse = (
 const hasNonEmptyString = (value: string | undefined): value is string =>
   value !== undefined && value.length > 0;
 
+const isDailyStatPoint = (value: unknown): value is DailyStatPoint =>
+  isRecord(value) &&
+  typeof value.date === "string" &&
+  typeof value.count === "number" &&
+  typeof value.totalCents === "number";
+
+const isDailyStatPointArray = (value: unknown): value is DailyStatPoint[] =>
+  Array.isArray(value) && value.every(isDailyStatPoint);
+
 export const fetchLiveStats = async (): Promise<LiveStatsResponse> =>
   await parseEnvelope("/api/public/stats/live", isLiveStatsResponse);
+
+export const fetchDailyTrend = async (
+  days = 30
+): Promise<DailyStatPoint[]> =>
+  await parseEnvelope(
+    `/api/public/stats/daily?days=${days}`,
+    isDailyStatPointArray
+  );
 
 export const fetchTopStats = async (
   groupBy: "street" | "offence",

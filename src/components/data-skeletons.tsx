@@ -2,14 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const LoadingStatus = ({ label }: { label: string }) => (
-  <span className="sr-only">{label}</span>
-);
-
 export const StatPillSkeleton = () => (
-  <div className="rounded-[6px] border border-border bg-background px-3 py-3">
-    <Skeleton className="h-6 w-16" />
-    <Skeleton className="mt-2 h-3 w-20" />
+  <div className="rounded-[6px] border border-border bg-background px-3 py-2">
+    <Skeleton className="h-3 w-16" />
+    <Skeleton className="mt-1 h-8 w-20" />
+    <Skeleton className="mt-1.5 h-[40px] w-full" />
   </div>
 );
 
@@ -29,13 +26,13 @@ export const LiveTickerSkeleton = () => (
           </div>
           <Skeleton className="mt-5 h-10 w-56 rounded-[6px]" />
         </section>
-        <aside className="border-t border-border bg-muted p-4 sm:p-5 lg:border-t-0 lg:border-l">
+        <aside className="border-t border-border p-4 sm:p-5 lg:border-t-0 lg:border-l">
           <div className="mb-3 flex items-center justify-between gap-3">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-3 w-20" />
           </div>
           <div className="flex flex-col gap-2">
-            {Array.from({ length: 6 }, (_, index) => (
+            {Array.from({ length: 3 }, (_, index) => (
               <StatPillSkeleton key={index} />
             ))}
           </div>
@@ -57,7 +54,6 @@ export const TopListSkeleton = ({
     aria-busy="true"
     aria-label="Loading list"
   >
-    <LoadingStatus label="Loading list" />
     {Array.from({ length: rows }, (_, index) => (
       <li
         key={index}
@@ -86,7 +82,6 @@ export const TableRowsSkeleton = ({
     aria-busy="true"
     aria-label="Loading table rows"
   >
-    <LoadingStatus label="Loading table rows" />
     {Array.from({ length: rows }, (_, rowIndex) => (
       <tr key={rowIndex} className="border-t border-border/70">
         {Array.from({ length: cols }, (__, colIndex) => (
@@ -110,7 +105,6 @@ export const ExploreListSkeleton = ({ rows = 8 }: { rows?: number }) => (
     aria-busy="true"
     aria-label="Loading explore list"
   >
-    <LoadingStatus label="Loading explore list" />
     {Array.from({ length: rows }, (_, index) => (
       <li
         key={index}
@@ -152,7 +146,6 @@ export const InfringementCardsSkeleton = ({
   count?: number;
 }) => (
   <ul className="space-y-2" aria-busy="true" aria-label="Loading tickets">
-    <LoadingStatus label="Loading tickets" />
     {Array.from({ length: count }, (_, index) => (
       <li key={index}>
         <InfringementCardSkeleton />
@@ -167,7 +160,6 @@ export const MapAreaSkeleton = ({ className }: { className?: string }) => (
     aria-busy="true"
     aria-label="Loading map"
   >
-    <LoadingStatus label="Loading map" />
     <Skeleton className="absolute inset-0 rounded-none" />
   </div>
 );
@@ -178,7 +170,6 @@ export const InspectorSkeleton = () => (
     aria-busy="true"
     aria-label="Loading inspector"
   >
-    <LoadingStatus label="Loading inspector" />
     <div className="flex items-center justify-between gap-3">
       <Skeleton className="h-5 w-16 rounded-full" />
       <Skeleton className="h-3 w-14" />

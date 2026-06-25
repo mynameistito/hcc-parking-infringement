@@ -99,6 +99,7 @@ export interface LocationCacheInput {
 export interface PublicDashboardSnapshot {
   at: string;
   live: PublicLiveStats;
+  dailyTrend: DailyStatRow[];
   recentInfringements: InfringementRow[];
   topStreets: PublicTopItem[];
   topOffences: PublicTopItem[];
@@ -1443,6 +1444,7 @@ export class ParkingStore extends DurableObject<Env> {
   private buildColdDashboardSnapshotPayload(): string {
     return JSON.stringify({
       at: isoNow(),
+      dailyTrend: [],
       live: this.readPublicLiveStatsSync(),
       map: {
         pendingGeocode: 0,
@@ -1489,6 +1491,19 @@ export class ParkingStore extends DurableObject<Env> {
     }
   }
 
+  private static snapshotHasDailyTrend(payload: string): boolean {
+    try {
+      const parsed: unknown = JSON.parse(payload);
+      if (typeof parsed !== "object" || parsed === null) {
+        return false;
+      }
+      const dailyTrend = Reflect.get(parsed, "dailyTrend");
+      return Array.isArray(dailyTrend) && dailyTrend.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
   private getDashboardSnapshotPayload(): string {
     const payload =
       this.dashboardSnapshotPayload ??
@@ -1496,7 +1511,8 @@ export class ParkingStore extends DurableObject<Env> {
 
     if (
       payload !== null &&
-      ParkingStore.getDashboardSnapshotPayloadWeight(payload) > 0
+      ParkingStore.getDashboardSnapshotPayloadWeight(payload) > 0 &&
+      ParkingStore.snapshotHasDailyTrend(payload)
     ) {
       this.dashboardSnapshotPayload = payload;
       return payload;
@@ -1537,9 +1553,17 @@ export class ParkingStore extends DurableObject<Env> {
     }
   }
 
+  private readDailyTrendSync(days = 30): DailyStatRow[] {
+    const now = new Date();
+    const from = formatDateInAuckland(subDays(now, days - 1));
+    const to = formatDateInAuckland(now);
+    return this.getDailyStats(from, to);
+  }
+
   private buildFullDashboardSnapshotSync(): PublicDashboardSnapshot {
     return {
       at: isoNow(),
+      dailyTrend: this.readDailyTrendSync(30),
       live: this.readPublicLiveStatsSync(),
       map: this.readMapPointsSync(50),
       recentInfringements: this.listInfringements({

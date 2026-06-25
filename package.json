@@ -4,15 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run build:client && wrangler dev",
-    "dev:client": "vite",
-    "deploy": "bun run build:client && wrangler deploy",
-    "build:client": "vite build",
+    "dev": "vite dev",
+    "deploy": "vite build && wrangler deploy -c dist/hcc_parking_infringement/wrangler.json",
+    "build": "vite build",
     "typecheck": "wrangler types --check && tsgo --noEmit",
     "cf-typegen": "wrangler types",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "build": "bun run build:client",
     "backfill": "bun run scripts/backfill.ts",
     "import:csv": "bun run scripts/import-csv.ts",
     "sync": "bun run scripts/sync.ts",
@@ -41,6 +39,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.42.3",
     "@types/node": "^26.0.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
