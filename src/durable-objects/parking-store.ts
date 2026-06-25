@@ -2,7 +2,6 @@ import { DurableObject } from "cloudflare:workers";
 import { subDays } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
-import type { Env } from "../env.ts";
 import type { CleanInfringement } from "../server/clean.ts";
 
 const AUCKLAND_TZ = "Pacific/Auckland";

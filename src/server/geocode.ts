@@ -2,7 +2,6 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { z } from "zod";
 
-import type { Env } from "../env.ts";
 import { getParkingStore } from "./store.ts";
 
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";

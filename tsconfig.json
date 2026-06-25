@@ -4,7 +4,7 @@
     "lib": ["ES2022", "ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "types": ["@cloudflare/workers-types", "@types/node"],
+    "types": ["@types/node"],
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
@@ -20,6 +20,11 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "oxlint.config.ts"],
+  "include": [
+    "worker-configuration.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "oxlint.config.ts"
+  ],
   "exclude": ["node_modules", "dist", ".wrangler"]
 }

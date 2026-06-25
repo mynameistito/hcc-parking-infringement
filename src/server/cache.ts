@@ -1,5 +1,4 @@
 import type { CacheStatus } from "../durable-objects/parking-store.ts";
-import type { Env } from "../env.ts";
 import { getParkingStore } from "./store.ts";
 
 export type { CacheStatus };

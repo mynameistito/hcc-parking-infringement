@@ -1,5 +1,3 @@
-import type { Env } from "../env.ts";
-
 const parseApiKeys = (apiKeyValue: string | undefined): Set<string> => {
   if (apiKeyValue === undefined || apiKeyValue === "") {
     return new Set();

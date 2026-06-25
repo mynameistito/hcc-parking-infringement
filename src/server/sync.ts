@@ -1,7 +1,7 @@
 import { formatInTimeZone } from "date-fns-tz";
 
+import type { BackfillMessage } from "../backfill.ts";
 import type { DateWindow } from "../durable-objects/parking-store.ts";
-import type { BackfillMessage, Env } from "../env.ts";
 import { cleanInfringements } from "./clean.ts";
 import { fetchAllInWindow } from "./hcc-client.ts";
 import type { FetchAllResult } from "./hcc-client.ts";

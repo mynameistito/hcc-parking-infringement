@@ -1,5 +1,4 @@
 import type { ParkingStore } from "../durable-objects/parking-store.ts";
-import type { Env } from "../env.ts";
 
 const STORE_NAME = "hamilton-parking";
 

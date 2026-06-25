@@ -2,7 +2,6 @@ import type {
   PublicLiveStats,
   PublicTopItem,
 } from "../durable-objects/parking-store.ts";
-import type { Env } from "../env.ts";
 import { getParkingStore } from "./store.ts";
 
 export type { PublicLiveStats, PublicTopItem };

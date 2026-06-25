@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import type { ImportBatchResult } from "../durable-objects/parking-store.ts";
-import type { Env } from "../env.ts";
 import { cleanInfringements } from "./clean.ts";
 import { getParkingStore } from "./store.ts";
 

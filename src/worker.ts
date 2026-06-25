@@ -1,21 +1,19 @@
 import { app } from "./app.ts";
+import type { BackfillMessage } from "./backfill.ts";
 import { ParkingStore } from "./durable-objects/parking-store.ts";
-import type { BackfillMessage, Env } from "./env.ts";
 import { geocodeMissingLocations } from "./server/geocode.ts";
 import { hourlySync, processBackfillMessage } from "./server/sync.ts";
 
 export { ParkingStore };
 
-const fetch: ExportedHandler<Env>["fetch"] = (request, env, ctx) => {
-  const url = new URL(request.url);
-  if (!url.pathname.startsWith("/api/")) {
-    return env.ASSETS.fetch(request);
-  }
-  return app.fetch(request, env, ctx);
-};
-
 export default {
-  fetch,
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith("/api/")) {
+      return await env.ASSETS.fetch(request.url);
+    }
+    return await app.fetch(request, env, ctx);
+  },
 
   async queue(batch: MessageBatch<BackfillMessage>, env: Env): Promise<void> {
     const processMessageAt = async (index: number): Promise<void> => {

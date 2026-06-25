@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import type { Env } from "../env.ts";
-
 const DEFAULT_API_BASE =
   "https://api.hcc.govt.nz/OpenData/get_parking_infringement";
 
