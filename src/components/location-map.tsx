@@ -11,6 +11,7 @@ import {
   boundsFromRoutes,
   buildRoutesGeoJSON,
   hamiltonMapCenter,
+  isRouteFeatureProperties,
 } from "./map-routes";
 import type { RouteFeatureProperties } from "./map-routes";
 
@@ -145,7 +146,10 @@ export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
                 }}
                 interactive
                 onClick={(event) => {
-                  setSelected(event.feature.properties);
+                  const { properties } = event.feature;
+                  if (isRouteFeatureProperties(properties)) {
+                    setSelected(properties);
+                  }
                 }}
               />
             </>

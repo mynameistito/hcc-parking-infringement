@@ -322,6 +322,15 @@ const filterGeocodeCandidates = (
   return results;
 };
 
+export const normalizeLocationGeometry = (
+  geometry: number[][][]
+): [number, number][][] => {
+  if (!isCoordinateRing(geometry)) {
+    return [];
+  }
+  return filterRoadGeometry(geometry);
+};
+
 const toMapRouteRow = (row: {
   street: string;
   suburb: string | null;
@@ -386,7 +395,7 @@ export class ParkingStore extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     void ctx.blockConcurrencyWhile(async () => {
-      this.migrate();
+      await this.migrate();
     });
   }
 
@@ -422,7 +431,9 @@ export class ParkingStore extends DurableObject<Env> {
     ws.close(code, reason);
   }
 
-  private migrate(): void {
+  private async migrate(): Promise<void> {
+    await Promise.resolve();
+
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
         id INTEGER PRIMARY KEY,

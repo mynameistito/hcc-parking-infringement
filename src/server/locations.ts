@@ -1,3 +1,4 @@
+import { normalizeLocationGeometry } from "../durable-objects/parking-store.ts";
 import type {
   LocationMapPoint,
   LocationRankItem,
@@ -31,7 +32,7 @@ export const getMapPoints = async (
     pendingGeocode: result.pendingGeocode,
     routes: result.routes.map((route) => ({
       ...route,
-      geometry: route.geometry as LocationMapPoint["geometry"],
+      geometry: normalizeLocationGeometry(route.geometry),
     })),
   };
 };

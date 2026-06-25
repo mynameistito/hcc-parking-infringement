@@ -12,6 +12,25 @@ export interface RouteFeatureProperties {
   opacity: number;
 }
 
+export const isRouteFeatureProperties = (
+  properties: GeoJSON.GeoJsonProperties
+): properties is RouteFeatureProperties => {
+  if (properties === null) {
+    return false;
+  }
+
+  return (
+    typeof properties.id === "string" &&
+    typeof properties.street === "string" &&
+    (typeof properties.suburb === "string" || properties.suburb === null) &&
+    typeof properties.town === "string" &&
+    typeof properties.count === "number" &&
+    typeof properties.color === "string" &&
+    typeof properties.width === "number" &&
+    typeof properties.opacity === "number"
+  );
+};
+
 export const isRealRoadLine = (line: [number, number][]): boolean =>
   line.length >= 3;
 

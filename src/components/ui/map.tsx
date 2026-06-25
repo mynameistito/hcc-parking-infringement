@@ -53,14 +53,14 @@ const blankMapStyle: MapLibreGL.StyleSpecification = {
   version: 8,
 };
 
-const mergeHoverPaint = <T extends Record<string, unknown>>(
-  paint: T,
-  hoverPaint: T | undefined
-): T => {
+const mergeHoverPaint = (
+  paint: Record<string, unknown>,
+  hoverPaint: Record<string, unknown> | undefined
+): Record<string, unknown> => {
   if (hoverPaint === undefined) {
     return paint;
   }
-  const merged = { ...paint } as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...paint };
   for (const [key, hoverValue] of Object.entries(hoverPaint)) {
     if (hoverValue === undefined) {
       continue;
@@ -76,28 +76,22 @@ const mergeHoverPaint = <T extends Record<string, unknown>>(
             baseValue,
           ];
   }
-  return merged as T;
+  return merged;
 };
+
+const isGeoJSONSource = (
+  source: MapLibreGL.Source
+): source is MapLibreGL.GeoJSONSource => source.type === "geojson";
 
 const getGeoJSONSource = (
   map: MapLibreGL.Map,
   sourceId: string
 ): MapLibreGL.GeoJSONSource | undefined => {
   const source = map.getSource(sourceId);
-  if (source?.type !== "geojson") {
+  if (source === undefined || !isGeoJSONSource(source)) {
     return undefined;
   }
-  return source as MapLibreGL.GeoJSONSource;
-};
-
-const assertNonNull = <Value,>(
-  value: Value | null | undefined,
-  label: string
-): Value => {
-  if (value === null || value === undefined) {
-    throw new Error(`Expected ${label}`);
-  }
-  return value;
+  return source;
 };
 
 const runEffect = <T,>(
@@ -533,7 +527,7 @@ const MapMarker = ({
   draggable = false,
   ...markerOptions
 }: MapMarkerProps) => {
-  const { map } = useMap();
+  const { map: mapInstance } = useMap();
 
   const callbacksRef = useRef({
     onClick,
@@ -597,14 +591,14 @@ const MapMarker = ({
 
   useEffect(
     () =>
-      runEffect(map, (map) => {
+      runEffect(mapInstance, (map) => {
         marker.addTo(map);
         return () => {
           marker.remove();
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [map]
+    [mapInstance]
   );
 
   const { offset, rotation, rotationAlignment, pitchAlignment } = markerOptions;
@@ -649,7 +643,7 @@ const MapMarker = ({
   ]);
 
   return (
-    <MarkerContext.Provider value={{ map, marker }}>
+    <MarkerContext.Provider value={{ map: mapInstance, marker }}>
       {children}
     </MarkerContext.Provider>
   );
@@ -703,7 +697,7 @@ const MarkerPopup = ({
   closeButton = false,
   ...popupOptions
 }: MarkerPopupProps) => {
-  const { marker, map } = useMarkerContext();
+  const { marker, map: mapInstance } = useMarkerContext();
   const container = useMemo(() => document.createElement("div"), []);
   const { offset, maxWidth } = popupOptions;
 
@@ -722,7 +716,7 @@ const MarkerPopup = ({
 
   useEffect(
     () =>
-      runEffect(map, (map) => {
+      runEffect(mapInstance, (_map) => {
         popup.setDOMContent(container);
         marker.setPopup(popup);
         return () => {
@@ -730,7 +724,7 @@ const MarkerPopup = ({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [map]
+    [mapInstance]
   );
 
   // Sync popup options when they change.
@@ -772,7 +766,7 @@ const MarkerTooltip = ({
   className,
   ...popupOptions
 }: MarkerTooltipProps) => {
-  const { marker, map } = useMarkerContext();
+  const { marker, map: mapInstance } = useMarkerContext();
   const container = useMemo(() => document.createElement("div"), []);
   const { offset, maxWidth } = popupOptions;
 
@@ -790,7 +784,7 @@ const MarkerTooltip = ({
 
   useEffect(
     () =>
-      runEffect(map, (map) => {
+      runEffect(mapInstance, (map) => {
         tooltip.setDOMContent(container);
 
         const handleMouseEnter = () => {
@@ -815,7 +809,7 @@ const MarkerTooltip = ({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [map]
+    [mapInstance]
   );
 
   // Sync tooltip options when they change.
@@ -940,7 +934,9 @@ const CompassButton = ({ onClick }: { onClick: () => void }) => {
       runEffect(map, (activeMap) => {
         const compass = compassRef.current;
         if (compass === null) {
-          return;
+          return () => {
+            void 0;
+          };
         }
 
         const updateRotation = () => {
@@ -1120,7 +1116,7 @@ const MapPopup = ({
   closeButton = false,
   ...popupOptions
 }: MapPopupProps) => {
-  const { map } = useMap();
+  const { map: mapInstance } = useMap();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const container = useMemo(() => document.createElement("div"), []);
@@ -1141,7 +1137,7 @@ const MapPopup = ({
 
   useEffect(
     () =>
-      runEffect(map, (map) => {
+      runEffect(mapInstance, (map) => {
         const onCloseProp = () => onCloseRef.current?.();
 
         popup.on("close", onCloseProp);
@@ -1156,7 +1152,7 @@ const MapPopup = ({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [map]
+    [mapInstance]
   );
 
   // Sync popup position and options when they change.
@@ -1225,7 +1221,7 @@ const MapRoute = ({
   onMouseLeave,
   interactive = true,
 }: MapRouteProps) => {
-  const { map, isLoaded } = useMap();
+  const { map: mapInstance, isLoaded } = useMap();
   const autoId = useId();
   const id = propId ?? autoId;
   const sourceId = `route-source-${id}`;
@@ -1234,7 +1230,7 @@ const MapRoute = ({
   // Add source and layer on mount
   useEffect(
     () =>
-      runEffect(isLoaded ? map : null, (map) => {
+      runEffect(isLoaded ? mapInstance : null, (map) => {
         map.addSource(sourceId, {
           data: {
             geometry: { coordinates: [], type: "LineString" },
@@ -1271,16 +1267,16 @@ const MapRoute = ({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLoaded, map]
+    [isLoaded, mapInstance]
   );
 
   // When coordinates change, update the source data
   useEffect(() => {
-    if (!isLoaded || map === null || coordinates.length < 2) {
+    if (!isLoaded || mapInstance === null || coordinates.length < 2) {
       return;
     }
 
-    const source = getGeoJSONSource(map, sourceId);
+    const source = getGeoJSONSource(mapInstance, sourceId);
     if (source !== undefined) {
       source.setData({
         geometry: { coordinates, type: "LineString" },
@@ -1288,23 +1284,27 @@ const MapRoute = ({
         type: "Feature",
       });
     }
-  }, [isLoaded, map, coordinates, sourceId]);
+  }, [isLoaded, mapInstance, coordinates, sourceId]);
 
   useEffect(() => {
-    if (!isLoaded || map === null || map.getLayer(layerId) === undefined) {
+    if (
+      !isLoaded ||
+      mapInstance === null ||
+      mapInstance.getLayer(layerId) === undefined
+    ) {
       return;
     }
 
-    map.setPaintProperty(layerId, "line-color", color);
-    map.setPaintProperty(layerId, "line-width", width);
-    map.setPaintProperty(layerId, "line-opacity", opacity);
-    map.setPaintProperty(layerId, "line-dasharray", dashArray);
-  }, [isLoaded, map, layerId, color, width, opacity, dashArray]);
+    mapInstance.setPaintProperty(layerId, "line-color", color);
+    mapInstance.setPaintProperty(layerId, "line-width", width);
+    mapInstance.setPaintProperty(layerId, "line-opacity", opacity);
+    mapInstance.setPaintProperty(layerId, "line-dasharray", dashArray);
+  }, [isLoaded, mapInstance, layerId, color, width, opacity, dashArray]);
 
   // Handle click and hover events
   useEffect(
     () =>
-      runEffect(isLoaded && interactive ? map : null, (map) => {
+      runEffect(isLoaded && interactive ? mapInstance : null, (map) => {
         const handleClick = () => {
           onClick?.();
         };
@@ -1327,7 +1327,15 @@ const MapRoute = ({
           map.off("mouseleave", layerId, handleMouseLeave);
         };
       }),
-    [isLoaded, map, layerId, onClick, onMouseEnter, onMouseLeave, interactive]
+    [
+      isLoaded,
+      mapInstance,
+      layerId,
+      onClick,
+      onMouseEnter,
+      onMouseLeave,
+      interactive,
+    ]
   );
 
   return null;
@@ -1343,18 +1351,27 @@ type MapFillPaint = NonNullable<MapLibreGL.FillLayerSpecification["paint"]>;
 type MapLinePaint = NonNullable<MapLibreGL.LineLayerSpecification["paint"]>;
 
 /** A rendered feature with strongly-typed `properties`. */
-type MapGeoJSONFeature<P extends GeoJsonProperties = GeoJsonProperties> = Omit<
-  MapLibreGL.MapGeoJSONFeature,
-  "properties"
-> & { properties: P };
+interface MapGeoJSONFeature {
+  geometry: Geometry;
+  id?: string | number;
+  layer: MapLibreGL.MapGeoJSONFeature["layer"];
+  properties: GeoJsonProperties;
+  source: string;
+  state: Record<string, unknown>;
+  type: "Feature";
+}
 
-const toMapGeoJSONFeature = <P extends GeoJsonProperties>(
+const toMapGeoJSONFeature = (
   feature: MapLibreGL.MapGeoJSONFeature
-): MapGeoJSONFeature<P> =>
-  ({
-    ...feature,
-    properties: feature.properties as P,
-  }) as MapGeoJSONFeature<P>;
+): MapGeoJSONFeature => ({
+  geometry: feature.geometry,
+  id: feature.id,
+  layer: feature.layer,
+  properties: feature.properties,
+  source: feature.source,
+  state: feature.state,
+  type: feature.type,
+});
 
 const syncPaintProperties = (
   map: MapLibreGL.Map,
@@ -1404,9 +1421,9 @@ const readNumberProperty = (
 };
 
 /** Event payload passed to MapGeoJSON interaction callbacks. */
-interface MapGeoJSONEvent<P extends GeoJsonProperties = GeoJsonProperties> {
+interface MapGeoJSONEvent {
   /** The feature under the cursor, with its typed GeoJSON properties. */
-  feature: MapGeoJSONFeature<P>;
+  feature: MapGeoJSONFeature;
   /** Longitude of the cursor at the time of the event. */
   longitude: number;
   /** Latitude of the cursor at the time of the event. */
@@ -1443,9 +1460,9 @@ interface MapGeoJSONProps<P extends GeoJsonProperties = GeoJsonProperties> {
    */
   fillHoverPaint?: MapFillPaint;
   /** Callback when a feature is clicked. */
-  onClick?: (e: MapGeoJSONEvent<P>) => void;
+  onClick?: (e: MapGeoJSONEvent) => void;
   /** Callback fired when the hovered feature changes; `null` when the cursor leaves. */
-  onHover?: (e: MapGeoJSONEvent<P> | null) => void;
+  onHover?: (e: MapGeoJSONEvent | null) => void;
   /** Whether features respond to mouse events (default: false). */
   interactive?: boolean;
   /** Optional MapLibre layer id to insert the layers before (z-order control). */
@@ -1479,7 +1496,7 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
   interactive = false,
   beforeId,
 }: MapGeoJSONProps<P>) => {
-  const { map, isLoaded, resolvedTheme } = useMap();
+  const { map: mapInstance, isLoaded, resolvedTheme } = useMap();
   const autoId = useId();
   const id = propId ?? autoId;
   const sourceId = `geojson-source-${id}`;
@@ -1513,7 +1530,7 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
   // Add source on mount.
   useEffect(
     () =>
-      runEffect(isLoaded ? map : null, (map) => {
+      runEffect(isLoaded ? mapInstance : null, (map) => {
         map.addSource(sourceId, {
           data,
           type: "geojson",
@@ -1537,31 +1554,31 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLoaded, map]
+    [isLoaded, mapInstance]
   );
 
   // Sync data when it changes.
   useEffect(() => {
-    if (!isLoaded || map === null) {
+    if (!isLoaded || mapInstance === null) {
       return;
     }
-    const source = getGeoJSONSource(map, sourceId);
+    const source = getGeoJSONSource(mapInstance, sourceId);
     source?.setData(data);
-  }, [isLoaded, map, data, sourceId]);
+  }, [isLoaded, mapInstance, data, sourceId]);
 
   // Sync layers and paint when visibility or styling changes.
   useEffect(() => {
-    if (!isLoaded || map === null) {
+    if (!isLoaded || mapInstance === null) {
       return;
     }
 
-    const source = map.getSource(sourceId);
+    const source = mapInstance.getSource(sourceId);
     if (source === undefined) {
       return;
     }
 
-    if (showFill && !map.getLayer(fillLayerId)) {
-      map.addLayer(
+    if (showFill && !mapInstance.getLayer(fillLayerId)) {
+      mapInstance.addLayer(
         {
           id: fillLayerId,
           paint: mergedFillPaint,
@@ -1570,12 +1587,12 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
         },
         beforeId
       );
-    } else if (!showFill && map.getLayer(fillLayerId)) {
-      map.removeLayer(fillLayerId);
+    } else if (!showFill && mapInstance.getLayer(fillLayerId)) {
+      mapInstance.removeLayer(fillLayerId);
     }
 
-    if (showLine && !map.getLayer(lineLayerId)) {
-      map.addLayer(
+    if (showLine && !mapInstance.getLayer(lineLayerId)) {
+      mapInstance.addLayer(
         {
           id: lineLayerId,
           paint: mergedLinePaint,
@@ -1584,19 +1601,19 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
         },
         beforeId
       );
-    } else if (!showLine && map.getLayer(lineLayerId)) {
-      map.removeLayer(lineLayerId);
+    } else if (!showLine && mapInstance.getLayer(lineLayerId)) {
+      mapInstance.removeLayer(lineLayerId);
     }
 
-    if (showFill && map.getLayer(fillLayerId) !== undefined) {
-      syncPaintProperties(map, fillLayerId, mergedFillPaint);
+    if (showFill && mapInstance.getLayer(fillLayerId) !== undefined) {
+      syncPaintProperties(mapInstance, fillLayerId, mergedFillPaint);
     }
-    if (showLine && map.getLayer(lineLayerId) !== undefined) {
-      syncPaintProperties(map, lineLayerId, mergedLinePaint);
+    if (showLine && mapInstance.getLayer(lineLayerId) !== undefined) {
+      syncPaintProperties(mapInstance, lineLayerId, mergedLinePaint);
     }
   }, [
     isLoaded,
-    map,
+    mapInstance,
     sourceId,
     fillLayerId,
     lineLayerId,
@@ -1610,81 +1627,84 @@ const MapGeoJSON = <P extends GeoJsonProperties = GeoJsonProperties>({
   // Interaction handlers (bound to the fill layer).
   useEffect(
     () =>
-      runEffect(isLoaded && interactive && showFill ? map : null, (map) => {
-        let hoveredId: string | number | null = null;
+      runEffect(
+        isLoaded && interactive && showFill ? mapInstance : null,
+        (map) => {
+          let hoveredId: string | number | null = null;
 
-        const setHover = (next: string | number | null) => {
-          if (next === hoveredId) {
-            return;
-          }
-          const sourceExists = map.getSource(sourceId) !== undefined;
-          if (hoveredId !== null && sourceExists) {
-            map.setFeatureState(
-              { id: hoveredId, source: sourceId },
-              { hover: false }
-            );
-          }
-          hoveredId = next;
-          if (next !== null && sourceExists) {
-            map.setFeatureState(
-              { id: next, source: sourceId },
-              { hover: true }
-            );
-          }
-        };
+          const setHover = (next: string | number | null) => {
+            if (next === hoveredId) {
+              return;
+            }
+            const sourceExists = map.getSource(sourceId) !== undefined;
+            if (hoveredId !== null && sourceExists) {
+              map.setFeatureState(
+                { id: hoveredId, source: sourceId },
+                { hover: false }
+              );
+            }
+            hoveredId = next;
+            if (next !== null && sourceExists) {
+              map.setFeatureState(
+                { id: next, source: sourceId },
+                { hover: true }
+              );
+            }
+          };
 
-        const handleMouseMove = (e: MapLibreGL.MapLayerMouseEvent) => {
-          const [feature] = e.features ?? [];
-          if (feature === undefined) {
-            return;
-          }
-          map.getCanvas().style.cursor = "pointer";
+          const handleMouseMove = (e: MapLibreGL.MapLayerMouseEvent) => {
+            const [feature] = e.features ?? [];
+            if (feature === undefined) {
+              return;
+            }
+            map.getCanvas().style.cursor = "pointer";
 
-          const featureId = feature.id;
-          if (featureId === hoveredId) {
-            return;
-          }
-          setHover(featureId ?? null);
-          latestRef.current.onHover?.({
-            feature: toMapGeoJSONFeature<P>(feature),
-            latitude: e.lngLat.lat,
-            longitude: e.lngLat.lng,
-            originalEvent: e,
-          });
-        };
+            const featureId = feature.id;
+            if (featureId === hoveredId) {
+              return;
+            }
+            setHover(featureId ?? null);
+            latestRef.current.onHover?.({
+              feature: toMapGeoJSONFeature(feature),
+              latitude: e.lngLat.lat,
+              longitude: e.lngLat.lng,
+              originalEvent: e,
+            });
+          };
 
-        const handleMouseLeave = () => {
-          setHover(null);
-          map.getCanvas().style.cursor = "";
-          latestRef.current.onHover?.(null);
-        };
+          const handleMouseLeave = () => {
+            setHover(null);
+            map.getCanvas().style.cursor = "";
+            latestRef.current.onHover?.(null);
+          };
 
-        const handleClick = (e: MapLibreGL.MapLayerMouseEvent) => {
-          const [feature] = e.features ?? [];
-          if (feature === undefined) {
-            return;
-          }
-          latestRef.current.onClick?.({
-            feature: toMapGeoJSONFeature<P>(feature),
-            latitude: e.lngLat.lat,
-            longitude: e.lngLat.lng,
-            originalEvent: e,
-          });
-        };
+          const handleClick = (e: MapLibreGL.MapLayerMouseEvent) => {
+            const [feature] = e.features ?? [];
+            if (feature === undefined) {
+              return;
+            }
+            latestRef.current.onClick?.({
+              feature: toMapGeoJSONFeature(feature),
+              latitude: e.lngLat.lat,
+              longitude: e.lngLat.lng,
+              originalEvent: e,
+            });
+          };
 
-        map.on("mousemove", fillLayerId, handleMouseMove);
-        map.on("mouseleave", fillLayerId, handleMouseLeave);
-        map.on("click", fillLayerId, handleClick);
+          map.on("mousemove", fillLayerId, handleMouseMove);
+          map.on("mouseleave", fillLayerId, handleMouseLeave);
+          map.on("click", fillLayerId, handleClick);
 
-        return () => {
-          map.off("mousemove", fillLayerId, handleMouseMove);
-          map.off("mouseleave", fillLayerId, handleMouseLeave);
-          map.off("click", fillLayerId, handleClick);
-          setHover(null);
-          map.getCanvas().style.cursor = "";
-        };
-      }),
-    [isLoaded, map, fillLayerId, sourceId, interactive, showFill]
+          return () => {
+            map.off("mousemove", fillLayerId, handleMouseMove);
+            map.off("mouseleave", fillLayerId, handleMouseLeave);
+            map.off("click", fillLayerId, handleClick);
+            setHover(null);
+            map.getCanvas().style.cursor = "";
+          };
+        }
+      ),
+    [isLoaded, mapInstance, fillLayerId, sourceId, interactive, showFill]
   );
 
   return null;
@@ -1838,7 +1858,7 @@ const MapArc = <T extends MapArcDatum = MapArcDatum>({
   interactive = true,
   beforeId,
 }: MapArcProps<T>) => {
-  const { map, isLoaded } = useMap();
+  const { map: mapInstance, isLoaded } = useMap();
   const autoId = useId();
   const id = propId ?? autoId;
   const sourceId = `arc-source-${id}`;
@@ -1884,7 +1904,7 @@ const MapArc = <T extends MapArcDatum = MapArcDatum>({
   // Add source and layers on mount.
   useEffect(
     () =>
-      runEffect(isLoaded ? map : null, (map) => {
+      runEffect(isLoaded ? mapInstance : null, (map) => {
         map.addSource(sourceId, {
           data: geoJSON,
           promoteId: "id",
@@ -1934,34 +1954,46 @@ const MapArc = <T extends MapArcDatum = MapArcDatum>({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLoaded, map]
+    [isLoaded, mapInstance]
   );
 
   // Sync features when data / curvature / samples change.
   useEffect(() => {
-    if (!isLoaded || map === null) {
+    if (!isLoaded || mapInstance === null) {
       return;
     }
-    const source = getGeoJSONSource(map, sourceId);
+    const source = getGeoJSONSource(mapInstance, sourceId);
     source?.setData(geoJSON);
-  }, [isLoaded, map, geoJSON, sourceId]);
+  }, [isLoaded, mapInstance, geoJSON, sourceId]);
 
   // Sync paint/layout when they change.
   useEffect(() => {
-    if (!isLoaded || map === null || map.getLayer(layerId) === undefined) {
+    if (
+      !isLoaded ||
+      mapInstance === null ||
+      mapInstance.getLayer(layerId) === undefined
+    ) {
       return;
     }
-    syncPaintProperties(map, layerId, mergedPaint);
-    syncLayoutProperties(map, layerId, mergedLayout);
-    if (map.getLayer(hitLayerId) !== undefined) {
-      map.setPaintProperty(hitLayerId, "line-width", hitWidth);
+    syncPaintProperties(mapInstance, layerId, mergedPaint);
+    syncLayoutProperties(mapInstance, layerId, mergedLayout);
+    if (mapInstance.getLayer(hitLayerId) !== undefined) {
+      mapInstance.setPaintProperty(hitLayerId, "line-width", hitWidth);
     }
-  }, [isLoaded, map, layerId, hitLayerId, mergedPaint, mergedLayout, hitWidth]);
+  }, [
+    isLoaded,
+    mapInstance,
+    layerId,
+    hitLayerId,
+    mergedPaint,
+    mergedLayout,
+    hitWidth,
+  ]);
 
   // Interaction handlers
   useEffect(
     () =>
-      runEffect(isLoaded && interactive ? map : null, (map) => {
+      runEffect(isLoaded && interactive ? mapInstance : null, (map) => {
         let hoveredId: string | number | null = null;
 
         const setHover = (next: string | number | null) => {
@@ -2050,7 +2082,7 @@ const MapArc = <T extends MapArcDatum = MapArcDatum>({
           map.getCanvas().style.cursor = "";
         };
       }),
-    [isLoaded, map, hitLayerId, sourceId, interactive]
+    [isLoaded, mapInstance, hitLayerId, sourceId, interactive]
   );
 
   return null;
@@ -2073,7 +2105,7 @@ interface MapClusterLayerProps<
   pointColor?: string;
   /** Callback when an unclustered point is clicked */
   onPointClick?: (
-    feature: MapGeoJSONFeature<P>,
+    feature: MapGeoJSONFeature,
     coordinates: [number, number]
   ) => void;
   /** Callback when a cluster is clicked. If not provided, zooms into the cluster */
@@ -2101,7 +2133,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
   onPointClick,
   onClusterClick,
 }: MapClusterLayerProps<P>) => {
-  const { map, isLoaded } = useMap();
+  const { map: mapInstance, isLoaded } = useMap();
   const id = useId();
   const sourceId = `cluster-source-${id}`;
   const clusterLayerId = `clusters-${id}`;
@@ -2116,7 +2148,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
 
   useEffect(
     () =>
-      runEffect(isLoaded ? map : null, (map) => {
+      runEffect(isLoaded ? mapInstance : null, (map) => {
         map.addSource(sourceId, {
           cluster: true,
           clusterMaxZoom,
@@ -2203,24 +2235,24 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLoaded, map, sourceId]
+    [isLoaded, mapInstance, sourceId]
   );
 
   // Update source data when data prop changes (only for non-URL data)
   useEffect(() => {
-    if (!isLoaded || map === null || typeof data === "string") {
+    if (!isLoaded || mapInstance === null || typeof data === "string") {
       return;
     }
 
-    const source = getGeoJSONSource(map, sourceId);
+    const source = getGeoJSONSource(mapInstance, sourceId);
     if (source !== undefined) {
       source.setData(data);
     }
-  }, [isLoaded, map, data, sourceId]);
+  }, [isLoaded, mapInstance, data, sourceId]);
 
   // Update layer styles when props change
   useEffect(() => {
-    if (!isLoaded || map === null) {
+    if (!isLoaded || mapInstance === null) {
       return;
     }
 
@@ -2230,8 +2262,8 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
       prev.clusterThresholds !== clusterThresholds;
 
     // Update cluster layer colors and sizes
-    if (map.getLayer(clusterLayerId) && colorsChanged) {
-      map.setPaintProperty(clusterLayerId, "circle-color", [
+    if (mapInstance.getLayer(clusterLayerId) && colorsChanged) {
+      mapInstance.setPaintProperty(clusterLayerId, "circle-color", [
         "step",
         ["get", "point_count"],
         clusterColors[0],
@@ -2240,7 +2272,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
         clusterThresholds[1],
         clusterColors[2],
       ]);
-      map.setPaintProperty(clusterLayerId, "circle-radius", [
+      mapInstance.setPaintProperty(clusterLayerId, "circle-radius", [
         "step",
         ["get", "point_count"],
         20,
@@ -2252,14 +2284,21 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
     }
 
     // Update unclustered point layer color
-    if (map.getLayer(unclusteredLayerId) && prev.pointColor !== pointColor) {
-      map.setPaintProperty(unclusteredLayerId, "circle-color", pointColor);
+    if (
+      mapInstance.getLayer(unclusteredLayerId) &&
+      prev.pointColor !== pointColor
+    ) {
+      mapInstance.setPaintProperty(
+        unclusteredLayerId,
+        "circle-color",
+        pointColor
+      );
     }
 
     stylePropsRef.current = { clusterColors, clusterThresholds, pointColor };
   }, [
     isLoaded,
-    map,
+    mapInstance,
     clusterLayerId,
     unclusteredLayerId,
     clusterColors,
@@ -2269,7 +2308,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
 
   useEffect(
     () =>
-      runEffect(isLoaded ? map : null, (map) => {
+      runEffect(isLoaded ? mapInstance : null, (map) => {
         const handleClusterClick = (
           e: MapLibreGL.MapMouseEvent & {
             features?: MapLibreGL.MapGeoJSONFeature[];
@@ -2342,7 +2381,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
             coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
           }
 
-          onPointClick(toMapGeoJSONFeature<P>(feature), coordinates);
+          onPointClick(toMapGeoJSONFeature(feature), coordinates);
         };
 
         const handleMouseEnterCluster = () => {
@@ -2378,7 +2417,7 @@ const MapClusterLayer = <P extends GeoJsonProperties = GeoJsonProperties>({
       }),
     [
       isLoaded,
-      map,
+      mapInstance,
       clusterLayerId,
       unclusteredLayerId,
       sourceId,
