@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import type {
   LocationRankItem,
@@ -51,10 +52,17 @@ interface DashboardProps {
   isCached?: boolean;
   isLive?: boolean;
   isFetching?: boolean;
+  isLoading?: boolean;
   error?: string | null;
 }
 
-const LastUpdated = ({ lastSyncedAt }: { lastSyncedAt: string | null }) => {
+const LastUpdated = ({
+  lastSyncedAt,
+  isLoading,
+}: {
+  lastSyncedAt: string | null;
+  isLoading?: boolean;
+}) => {
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -65,6 +73,12 @@ const LastUpdated = ({ lastSyncedAt }: { lastSyncedAt: string | null }) => {
       window.clearInterval(id);
     };
   }, []);
+
+  if (isLoading === true) {
+    return (
+      <Skeleton className="h-5 w-44" aria-label="Loading last updated time" />
+    );
+  }
 
   if (lastSyncedAt === null || lastSyncedAt.length === 0) {
     return (
@@ -172,6 +186,7 @@ export const Dashboard = ({
   isCached,
   isLive,
   isFetching,
+  isLoading,
   error,
 }: DashboardProps) => (
   <div className="min-h-screen bg-background text-foreground">
@@ -201,7 +216,10 @@ export const Dashboard = ({
               ) : null}
               <ThemeToggle />
             </div>
-            <LastUpdated lastSyncedAt={live.lastSyncedAt} />
+            <LastUpdated
+              lastSyncedAt={live.lastSyncedAt}
+              isLoading={isLoading}
+            />
           </div>
         </div>
       </header>
@@ -216,20 +234,33 @@ export const Dashboard = ({
 
       <main className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="grid gap-6 xl:col-span-2">
-          <LiveTicker stats={live} />
-          <LatestInstances recentInfringements={recentInfringements} />
+          <LiveTicker stats={live} isLoading={isLoading} />
+          <LatestInstances
+            recentInfringements={recentInfringements}
+            isLoading={isLoading}
+          />
         </div>
         <section className="min-w-0">
-          <LocationMap routes={mapRoutes} pendingGeocode={pendingGeocode} />
+          <LocationMap
+            routes={mapRoutes}
+            pendingGeocode={pendingGeocode}
+            isLoading={isLoading}
+          />
         </section>
         <aside className="min-w-0">
-          <TopLists streets={streets} offences={offences} layout="stack" />
+          <TopLists
+            streets={streets}
+            offences={offences}
+            layout="stack"
+            isLoading={isLoading}
+          />
         </aside>
         <div className="xl:col-span-2">
           <ExplorePanel
             suburbs={topSuburbs}
             streets={topStreets}
             vehicles={topVehicles}
+            isLoading={isLoading}
           />
         </div>
       </main>

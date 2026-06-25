@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { LocationRankItem, VehicleRankItem } from "../client/api";
+import { ExploreListSkeleton, InspectorSkeleton } from "./data-skeletons";
 import { formatLocationSubtitle, numberFmt } from "./explore-utils";
 import type { ExploreTab } from "./explore-utils";
 
@@ -33,6 +34,7 @@ interface ExplorePanelProps {
   suburbs: LocationRankItem[];
   streets: LocationRankItem[];
   vehicles: VehicleRankItem[];
+  isLoading?: boolean;
 }
 
 const isVehicleRankItem = (item: ExploreItem): item is VehicleRankItem =>
@@ -188,10 +190,94 @@ const Inspector = ({
   );
 };
 
+const ExploreListBody = ({
+  isLoading,
+  visibleItems,
+  activeTab,
+  maxCount,
+  search,
+  selected,
+  onSelect,
+}: {
+  isLoading?: boolean;
+  visibleItems: ExploreItem[];
+  activeTab: ExploreTab;
+  maxCount: number;
+  search: string;
+  selected: SelectedItem | null;
+  onSelect: (item: SelectedItem) => void;
+}) => {
+  if (isLoading === true) {
+    return <ExploreListSkeleton />;
+  }
+
+  if (visibleItems.length === 0) {
+    return (
+      <EmptyWorkbench
+        label={
+          search.length > 0
+            ? "No rows match that filter."
+            : "Data will appear after the next sync."
+        }
+      />
+    );
+  }
+
+  return (
+    <ol className="max-h-[440px] overflow-auto">
+      {visibleItems.map((item, index) => {
+        const rank = index + 1;
+        const width = `${Math.max((item.count / maxCount) * 100, 4)}%`;
+        const label = getItemLabel(item);
+        const subtitle = getItemSubtitle(item);
+        const isSelected =
+          selected?.tab === activeTab && getItemLabel(selected.item) === label;
+
+        return (
+          <li key={getItemKey(item, activeTab)}>
+            <button
+              type="button"
+              className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/70 px-4 py-3 text-left transition-colors first:border-t-0 hover:bg-muted focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none data-[selected=true]:bg-muted"
+              data-selected={isSelected}
+              onClick={() => {
+                onSelect({ item, rank, tab: activeTab });
+              }}
+            >
+              <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
+                {String(rank).padStart(2, "0")}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {label}
+                </span>
+                {subtitle === undefined ? null : (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {subtitle}
+                  </span>
+                )}
+                <span className="mt-2 block h-1 overflow-hidden rounded-full bg-muted">
+                  <span
+                    className="block h-full rounded-full bg-[var(--ring)]"
+                    style={{ width }}
+                  />
+                </span>
+              </span>
+              <span className="font-mono text-sm font-semibold tabular-nums">
+                {numberFmt.format(item.count)}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
+
 export const ExplorePanel = ({
   suburbs,
   streets,
   vehicles,
+  isLoading,
 }: ExplorePanelProps) => {
   const [activeTab, setActiveTab] = useState<ExploreTab>("suburbs");
   const [search, setSearch] = useState("");
@@ -269,65 +355,21 @@ export const ExplorePanel = ({
             </Tabs>
           </div>
 
-          {visibleItems.length === 0 ? (
-            <EmptyWorkbench
-              label={
-                search.length > 0
-                  ? "No rows match that filter."
-                  : "Data will appear after the next sync."
-              }
-            />
-          ) : (
-            <ol className="max-h-[440px] overflow-auto">
-              {visibleItems.map((item, index) => {
-                const rank = index + 1;
-                const width = `${Math.max((item.count / maxCount) * 100, 4)}%`;
-                const label = getItemLabel(item);
-                const subtitle = getItemSubtitle(item);
-                const isSelected =
-                  selected?.tab === activeTab &&
-                  getItemLabel(selected.item) === label;
-
-                return (
-                  <li key={getItemKey(item, activeTab)}>
-                    <button
-                      type="button"
-                      className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/70 px-4 py-3 text-left transition-colors first:border-t-0 hover:bg-muted focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none data-[selected=true]:bg-muted"
-                      data-selected={isSelected}
-                      onClick={() => {
-                        setSelected({ item, rank, tab: activeTab });
-                      }}
-                    >
-                      <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
-                        {String(rank).padStart(2, "0")}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">
-                          {label}
-                        </span>
-                        {subtitle === undefined ? null : (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {subtitle}
-                          </span>
-                        )}
-                        <span className="mt-2 block h-1 overflow-hidden rounded-full bg-muted">
-                          <span
-                            className="block h-full rounded-full bg-[var(--ring)]"
-                            style={{ width }}
-                          />
-                        </span>
-                      </span>
-                      <span className="font-mono text-sm font-semibold tabular-nums">
-                        {numberFmt.format(item.count)}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
+          <ExploreListBody
+            isLoading={isLoading}
+            visibleItems={visibleItems}
+            activeTab={activeTab}
+            maxCount={maxCount}
+            search={search}
+            selected={selected}
+            onSelect={setSelected}
+          />
         </section>
-        <Inspector selected={selected} maxCount={maxCount} />
+        {isLoading === true ? (
+          <InspectorSkeleton />
+        ) : (
+          <Inspector selected={selected} maxCount={maxCount} />
+        )}
       </CardContent>
     </Card>
   );

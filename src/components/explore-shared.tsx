@@ -13,9 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import type { BrowseSort, PublicInfringement } from "../client/api";
+import { InfringementCardsSkeleton } from "./data-skeletons";
 import { formatVehicle, moneyFmt, numberFmt } from "./explore-utils";
 
 export const useDebouncedValue = <T,>(value: T, delay = 300): T => {
@@ -43,11 +45,7 @@ export const InfringementCards = ({
   emptyLabel: string;
 }) => {
   if (loading === true) {
-    return (
-      <p className="py-6 text-center text-sm text-muted-foreground">
-        Loading tickets...
-      </p>
-    );
+    return <InfringementCardsSkeleton />;
   }
 
   if (records.length === 0) {
@@ -175,15 +173,18 @@ export const LoadMore = ({
   onClick: () => void;
 }) => {
   if (hasMore) {
+    if (loading) {
+      return <Skeleton className="mx-4 my-3 h-9 w-[calc(100%-2rem)]" />;
+    }
+
     return (
       <Button
         type="button"
         variant="outline"
         className="mx-4 my-3 w-[calc(100%-2rem)] border-dashed"
         onClick={onClick}
-        disabled={loading}
       >
-        {loading ? "Loading..." : "Load More"}
+        Load More
       </Button>
     );
   }

@@ -6,6 +6,7 @@ import { Map, MapControls, MapGeoJSON, useMap } from "@/components/ui/map";
 import { cn } from "@/lib/utils";
 
 import type { MapRouteItem } from "../client/api";
+import { MapAreaSkeleton } from "./data-skeletons";
 import { heatColor } from "./map-heat";
 import {
   boundsFromRoutes,
@@ -18,6 +19,7 @@ import type { RouteFeatureProperties } from "./map-routes";
 interface LocationMapProps {
   routes: MapRouteItem[];
   pendingGeocode: number;
+  isLoading?: boolean;
 }
 
 const HEAT_LEGEND_STOPS = [0, 0.25, 0.5, 0.75, 1] as const;
@@ -65,7 +67,83 @@ const HeatLegend = ({ maxCount }: { maxCount: number }) => (
   </div>
 );
 
-export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
+const MapContent = ({
+  isLoading,
+  hasRoutes,
+  routes,
+  geojson,
+  maxCount,
+  onSelect,
+}: {
+  isLoading?: boolean;
+  hasRoutes: boolean;
+  routes: MapRouteItem[];
+  geojson: ReturnType<typeof buildRoutesGeoJSON>;
+  maxCount: number;
+  onSelect: (properties: RouteFeatureProperties) => void;
+}) => {
+  if (isLoading === true) {
+    return <MapAreaSkeleton className="h-[360px] w-full" />;
+  }
+
+  if (hasRoutes) {
+    return (
+      <>
+        <Map
+          center={hamiltonMapCenter()}
+          zoom={13}
+          theme="dark"
+          className={cn("h-[360px] w-full")}
+        >
+          <MapControls showZoom showCompass />
+          <>
+            <MapFitRoutes routes={routes} />
+            <MapGeoJSON<RouteFeatureProperties>
+              id="infringement-routes"
+              data={geojson}
+              promoteId="id"
+              fillPaint={false}
+              linePaint={{
+                "line-color": ["get", "color"],
+                "line-opacity": ["get", "opacity"],
+                "line-width": ["get", "width"],
+              }}
+              interactive
+              onClick={(event) => {
+                const { properties } = event.feature;
+                if (isRouteFeatureProperties(properties)) {
+                  onSelect(properties);
+                }
+              }}
+            />
+          </>
+        </Map>
+        <HeatLegend maxCount={maxCount} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="h-[360px] w-full bg-muted" />
+      <div className="pointer-events-none absolute inset-0 grid place-content-center bg-background/70 p-4 text-center">
+        <p className="text-sm text-foreground">
+          Road routes appear after streets are geocoded from OpenStreetMap.
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Run <code className="font-mono text-foreground">bun run geocode</code>{" "}
+          or wait for the hourly background job.
+        </p>
+      </div>
+    </>
+  );
+};
+
+export const LocationMap = ({
+  routes,
+  pendingGeocode,
+  isLoading,
+}: LocationMapProps) => {
   const [selected, setSelected] = useState<RouteFeatureProperties | null>(null);
 
   const maxCount = useMemo(
@@ -119,54 +197,14 @@ export const LocationMap = ({ routes, pendingGeocode }: LocationMapProps) => {
       </CardHeader>
 
       <CardContent className="relative p-0">
-        {hasRoutes ? (
-          <Map
-            center={hamiltonMapCenter()}
-            zoom={13}
-            theme="dark"
-            className={cn("h-[360px] w-full")}
-          >
-            <MapControls showZoom showCompass />
-            <>
-              <MapFitRoutes routes={routes} />
-              <MapGeoJSON<RouteFeatureProperties>
-                id="infringement-routes"
-                data={geojson}
-                promoteId="id"
-                fillPaint={false}
-                linePaint={{
-                  "line-color": ["get", "color"],
-                  "line-opacity": ["get", "opacity"],
-                  "line-width": ["get", "width"],
-                }}
-                interactive
-                onClick={(event) => {
-                  const { properties } = event.feature;
-                  if (isRouteFeatureProperties(properties)) {
-                    setSelected(properties);
-                  }
-                }}
-              />
-            </>
-          </Map>
-        ) : (
-          <div className="h-[360px] w-full bg-muted" />
-        )}
-
-        {hasRoutes ? <HeatLegend maxCount={maxCount} /> : null}
-
-        {hasRoutes ? null : (
-          <div className="pointer-events-none absolute inset-0 grid place-content-center bg-background/70 p-4 text-center">
-            <p className="text-sm text-foreground">
-              Road routes appear after streets are geocoded from OpenStreetMap.
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Run{" "}
-              <code className="font-mono text-foreground">bun run geocode</code>{" "}
-              or wait for the hourly background job.
-            </p>
-          </div>
-        )}
+        <MapContent
+          isLoading={isLoading}
+          hasRoutes={hasRoutes}
+          routes={routes}
+          geojson={geojson}
+          maxCount={maxCount}
+          onSelect={setSelected}
+        />
       </CardContent>
     </Card>
   );

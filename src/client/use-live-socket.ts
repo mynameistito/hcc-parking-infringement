@@ -105,21 +105,23 @@ const clearIdleCloseTimer = (): void => {
 const onSnapshot = (message: FullDashboardMessage): void => {
   const messageTime = getDashboardSnapshotTime(message);
   const messageWeight = getDashboardSnapshotWeight(message);
-  if (messageTime < store.lastSnapshotTime) {
-    return;
-  }
-  if (messageWeight === 0 && store.lastSnapshotWeight > 0) {
-    return;
+  const isStale = messageTime < store.lastSnapshotTime;
+  const isEmptyRegression =
+    messageWeight === 0 && store.lastSnapshotWeight > 0;
+
+  if (!isStale && !isEmptyRegression) {
+    if (store.queryClient !== null) {
+      applyDashboardSnapshot(store.queryClient, message);
+    }
+    persistDashboardSnapshot(message);
+    store.lastSnapshotTime = messageTime;
+    store.lastSnapshotWeight = messageWeight;
+    store.ready = true;
   }
 
-  if (store.queryClient !== null) {
-    applyDashboardSnapshot(store.queryClient, message);
-  }
-  persistDashboardSnapshot(message);
+  // Handshake complete: live socket delivered a snapshot (even if we kept newer
+  // cached data). Stop showing the cache→live "Updating..." handoff state.
   store.cached = false;
-  store.lastSnapshotTime = messageTime;
-  store.lastSnapshotWeight = messageWeight;
-  store.ready = true;
   emit();
 };
 
@@ -228,12 +230,17 @@ export const useLiveSocket = (): LiveTransportState => {
       if (cachedWeight === 0 && store.lastSnapshotWeight > 0) {
         return;
       }
+      // Live snapshot may arrive while IndexedDB is still loading; do not
+      // regress to cached state when the socket already delivered fresh data.
+      if (store.connected && cachedTime <= store.lastSnapshotTime) {
+        return;
+      }
 
       applyDashboardSnapshot(queryClient, cached);
-      store.cached = true;
       store.lastSnapshotTime = cachedTime;
       store.lastSnapshotWeight = cachedWeight;
       store.ready = true;
+      store.cached = !store.connected;
       emit();
     })();
     acquireLiveSocket(queryClient);

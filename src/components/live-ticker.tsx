@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+import { LiveTickerSkeleton } from "./data-skeletons";
+
 const useAnimatedNumber = (value: number, duration = 600): number => {
   const [display, setDisplay] = useState(value);
   const frameRef = useRef<number | null>(null);
@@ -75,6 +77,7 @@ export interface LiveStats {
 
 interface LiveTickerProps {
   stats: LiveStats;
+  isLoading?: boolean;
 }
 
 interface StatPillProps {
@@ -94,7 +97,7 @@ const StatPill = ({ label, value }: StatPillProps) => {
   );
 };
 
-export const LiveTicker = ({ stats }: LiveTickerProps) => {
+const LiveTickerContent = ({ stats }: { stats: LiveStats }) => {
   const animatedTotal = useAnimatedNumber(stats.allTimeTotal);
   const [pulse, setPulse] = useState(false);
   const prevTotalRef = useRef(stats.allTimeTotal);
@@ -169,4 +172,12 @@ export const LiveTicker = ({ stats }: LiveTickerProps) => {
       </CardContent>
     </Card>
   );
+};
+
+export const LiveTicker = ({ stats, isLoading }: LiveTickerProps) => {
+  if (isLoading === true) {
+    return <LiveTickerSkeleton />;
+  }
+
+  return <LiveTickerContent stats={stats} />;
 };
