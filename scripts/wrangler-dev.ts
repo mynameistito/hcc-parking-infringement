@@ -1,11 +1,9 @@
 /**
  * Run wrangler dev with a built SPA so the dashboard + live WebSocket work.
  *
- * Usage:
- *   bun run dev:wrangler
- *   bun run dev:wrangler -- --port 8787
- *   bun run dev:wrangler -- --no-watch
- *   bun run dev:wrangler -- --build
+ * @example
+ * bun run dev:wrangler
+ * bun run scripts/wrangler-dev.ts -- --port=8787 --no-watch
  */
 
 import { spawn } from "node:child_process";
@@ -13,27 +11,15 @@ import { once } from "node:events";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+import { readArgValue, readFlag, scriptArgv } from "@scripts/lib/args.ts";
+
 const rootDir = path.resolve(import.meta.dirname, "..");
 const clientIndex = path.join(rootDir, "dist", "client", "index.html");
 
-const args = process.argv.slice(2);
-const getArg = (name: string): string | undefined => {
-  const match = args.find((arg) => arg.startsWith(`--${name}=`));
-  if (match !== undefined) {
-    return match.split("=")[1];
-  }
-
-  const flagIndex = args.indexOf(`--${name}`);
-  if (flagIndex === -1) {
-    return undefined;
-  }
-
-  return args[flagIndex + 1];
-};
-
-const port = getArg("port") ?? "8787";
-const watch = !args.includes("--no-watch");
-const forceBuild = args.includes("--build");
+const args = scriptArgv();
+const port = readArgValue(args, "port") ?? "8787";
+const watch = !readFlag(args, "no-watch");
+const forceBuild = readFlag(args, "build");
 
 const isCloseEvent = (event: unknown): event is [number | null] =>
   Array.isArray(event) && event.length > 0;

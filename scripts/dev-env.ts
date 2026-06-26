@@ -1,3 +1,8 @@
+/**
+ * Shared environment for CLI scripts: `.dev.vars`, worker URL resolution,
+ * and fetch helpers with timeouts and actionable error messages.
+ */
+
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -88,6 +93,7 @@ export const loadDevVars = (): void => {
   }
 };
 
+/** Worker base URL from `WORKER_URL` or the Vite dev default (`http://127.0.0.1:5173`). */
 export const getWorkerUrl = (): string =>
   (process.env.WORKER_URL ?? DEFAULT_WORKER_URL).replace(/\/$/u, "");
 
@@ -96,7 +102,10 @@ export const getHccClientEnv = (): Pick<Env, "HCC_API_BASE"> => ({
   HCC_API_BASE: process.env.HCC_API_BASE,
 });
 
+/** Default wrangler dev listen port (`8787`). */
 export const WRANGLER_DEV_PORT = "8787";
+
+/** Default wrangler dev base URL (`http://127.0.0.1:8787`). */
 export const WRANGLER_DEV_DEFAULT_URL = WRANGLER_DEV_URL;
 
 /** Resolve worker URL from CLI `--port` / `--port=`, then `WORKER_URL`, then default. */
@@ -121,6 +130,7 @@ export const resolveWorkerUrl = (args: string[] = []): string => {
   return getWorkerUrl().replace("://localhost", "://127.0.0.1");
 };
 
+/** `fetch` options with an optional per-request timeout override. */
 export interface FetchWithTimeoutInit extends RequestInit {
   timeoutMs?: number;
 }
@@ -211,6 +221,7 @@ const extractErrorMessage = (rawBody: unknown): string | undefined => {
   return undefined;
 };
 
+/** Format an HTTP error with hints for common worker misconfiguration (405, 401). */
 export const describeFetchFailure = (
   response: Response,
   rawBody: unknown,
@@ -247,6 +258,7 @@ const formatConnectionErrorReason = (error: unknown): string => {
   return formatErrorReason(error, DEFAULT_FETCH_TIMEOUT_MS);
 };
 
+/** Format a connection/timeout error with dev-server startup hints. */
 export const describeConnectionFailure = (
   error: unknown,
   method: string,

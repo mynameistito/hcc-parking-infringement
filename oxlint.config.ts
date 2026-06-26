@@ -12,4 +12,12 @@ export default defineConfig({
   options: {
     typeAware: true,
   },
+  overrides: [
+    {
+      files: ["scripts/**"],
+      rules: {
+        "eslint/no-await-in-loop": "off",
+      },
+    },
+  ],
 });

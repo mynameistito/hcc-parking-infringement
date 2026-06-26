@@ -49,6 +49,20 @@ DO types live under `src/durable-objects/types/` (sync, browse, stats, infringem
 
 Worker and sync helpers: `sync-window.ts`, `sync-backfill.ts`, `backfill-queue.ts`, `scheduled-tasks.ts`. Record cleaning: `clean-schema.ts`, `clean-normalize.ts`, `clean.ts`. Geocoding: `geocode-overpass.ts`. Constants: `lib/backfill-constants.ts`.
 
+## CLI scripts (`scripts/`)
+
+| Path                                                    | Role                                     |
+| ------------------------------------------------------- | ---------------------------------------- |
+| `backfill.ts`, `sync.ts`, `geocode.ts`, `import-csv.ts` | Worker API entrypoints                   |
+| `audit-*.ts`, `check-data.ts`                           | HCC vs ParkingStore audits               |
+| `lib/args.ts`, `lib/worker-client.ts`                   | Shared argv + authenticated worker calls |
+| `lib/backfill-*.ts`                                     | Backfill queue, progress UI, API schemas |
+| `lib/csv.ts`                                            | CSV parsing for import                   |
+| `lib/geocode-api.ts`                                    | Geocode worker API calls                 |
+| `dev-env.ts`                                            | `.dev.vars`, worker URL, fetch helpers   |
+
+New scripts should use `scriptArgv()`, `readArg` / `readArgValue`, and `createWorkerContext()`. Prefer `while` loops over recursive async. Reuse `src/lib` and `src/server/http/query` parsers. Document `scripts/lib` exports and entry script usage with TSDoc (module comment + `@example` on entrypoints); keep app `src/` code free of per-function JSDoc unless non-obvious.
+
 ## Time boundaries
 
 All calendar windows (today, month, pace trends) use **Pacific/Auckland** via `src/lib/auckland-time.ts`.

@@ -1,9 +1,9 @@
 /**
  * Compare stored ParkingStore counts against HCC Open Data API.
  *
- * Usage:
- *   bun run scripts/check-data.ts
- *   bun run scripts/check-data.ts -- --days=30
+ * @example
+ * bun run scripts/check-data.ts
+ * bun run scripts/check-data.ts -- --days=30
  */
 
 import {
@@ -12,36 +12,28 @@ import {
   getWorkerUrl,
   loadDevVars,
 } from "@scripts/dev-env.ts";
-import { formatInTimeZone } from "date-fns-tz";
-import { z } from "zod";
+import { readArg, scriptArgv } from "@scripts/lib/args.ts";
+import {
+  createWorkerContext,
+  fetchStoredInfringementCount,
+} from "@scripts/lib/worker-client.ts";
 
+import { todayInAuckland } from "@/lib/auckland-time.ts";
+import { addDays } from "@/lib/date-range.ts";
 import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { parsePositiveInt } from "@/server/http/query.ts";
 
 loadDevVars();
 
-const AUCKLAND_TZ = "Pacific/Auckland";
-const args = process.argv.slice(2);
-const daysArg = args.find((a) => a.startsWith("--days="));
-const sampleDays = daysArg === undefined ? 14 : Number(daysArg.split("=")[1]);
-
-const workerUrl = getWorkerUrl();
-const apiKey = process.env.API_KEY;
-
-const formatDateInAuckland = (date: Date): string =>
-  formatInTimeZone(date, AUCKLAND_TZ, "yyyy-MM-dd");
-
-const addDays = (dateStr: string, days: number): string => {
-  const date = new Date(`${dateStr}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-};
-
-const today = formatDateInAuckland(new Date());
+const args = scriptArgv();
+const sampleDays = parsePositiveInt(readArg(args, "days"), 14);
+const today = todayInAuckland();
 const rangeStart = addDays(today, -(sampleDays - 1));
 
 console.log("=== ParkingStore cache ===\n");
 
 const healthPaths = ["/api/v1/health", "/api/v1/cache"] as const;
+const workerUrl = getWorkerUrl();
 
 const fetchHealthPath = async (
   path: string
@@ -66,22 +58,13 @@ for (const { body, path } of healthResults) {
   console.log(`${path}:`, JSON.stringify(body, null, 2));
 }
 
-if (apiKey !== undefined && apiKey !== "") {
-  const listUrl = new URL(`${workerUrl}/api/v1/infringements`);
-  listUrl.searchParams.set("from", rangeStart);
-  listUrl.searchParams.set("to", today);
-  listUrl.searchParams.set("limit", "1");
-  listUrl.searchParams.set("page", "1");
-
-  const listResponse = await fetch(listUrl, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-
-  const listBodySchema = z.object({
-    total: z.number().optional(),
-  });
-  const listBody = listBodySchema.safeParse(await listResponse.json());
-  const storedTotal = listBody.success ? (listBody.data.total ?? 0) : 0;
+if (process.env.API_KEY !== undefined && process.env.API_KEY !== "") {
+  const ctx = createWorkerContext(workerUrl);
+  const storedTotal = await fetchStoredInfringementCount(
+    ctx,
+    rangeStart,
+    today
+  );
   console.log(
     `\nStored infringements (${rangeStart} → ${today}): ${storedTotal}`
   );

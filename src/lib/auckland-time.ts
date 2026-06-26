@@ -11,6 +11,9 @@ export const formatDateInAuckland = (date: Date): string =>
 export const todayInAuckland = (now = new Date()): string =>
   formatDateInAuckland(now);
 
+export const currentYearInAuckland = (now = new Date()): number =>
+  toZonedTime(now, AUCKLAND_TZ).getFullYear();
+
 /** Inclusive ISO bounds for a calendar day in Auckland (+12:00). */
 export const dateBounds = (
   dateStr: string

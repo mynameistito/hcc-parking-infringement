@@ -1,52 +1,38 @@
-import {
-  getHccClientEnv,
-  getWorkerUrl,
-  loadDevVars,
-} from "@scripts/dev-env.ts";
-import { z } from "zod";
+/**
+ * Compare HCC vs ParkingStore totals by decade (1990s through current).
+ *
+ * @example
+ * bun run scripts/audit-decades.ts
+ */
 
+import { getHccClientEnv, loadDevVars } from "@scripts/dev-env.ts";
+import {
+  createWorkerContext,
+  fetchStoredInfringementCount,
+} from "@scripts/lib/worker-client.ts";
+
+import { todayInAuckland } from "@/lib/auckland-time.ts";
+import { BACKFILL_EARLIEST } from "@/lib/backfill-constants.ts";
 import { fetchAllInWindow } from "@/server/hcc-client.ts";
 
 loadDevVars();
 
-const workerUrl = getWorkerUrl();
-const apiKey = process.env.API_KEY;
-
-if (apiKey === undefined || apiKey === "") {
-  console.error("Missing API_KEY");
-  process.exit(1);
-}
-
+const ctx = createWorkerContext();
 const env = getHccClientEnv();
-
-const storedTotalSchema = z.object({
-  total: z.number().optional(),
-});
-
-const fetchStored = async (from: string, to: string): Promise<number> => {
-  const url = new URL(`${workerUrl}/api/v1/infringements`);
-  url.searchParams.set("from", from);
-  url.searchParams.set("to", to);
-  url.searchParams.set("limit", "1");
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  const parsed = storedTotalSchema.safeParse(await response.json());
-  return parsed.success ? (parsed.data.total ?? 0) : 0;
-};
+const today = todayInAuckland();
 
 const decades = [
-  ["1990-01-01", "1999-12-31"],
+  [BACKFILL_EARLIEST, "1999-12-31"],
   ["2000-01-01", "2009-12-31"],
   ["2010-01-01", "2019-12-31"],
-  ["2020-01-01", "2026-06-26"],
+  ["2020-01-01", today],
 ] as const;
 
 const results = await Promise.all(
   decades.map(async ([from, to]) => {
     const [hcc, stored] = await Promise.all([
       fetchAllInWindow(env, from, to),
-      fetchStored(from, to),
+      fetchStoredInfringementCount(ctx, from, to),
     ]);
     return { from, hcc, stored, to };
   })

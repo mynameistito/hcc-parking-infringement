@@ -13,6 +13,17 @@ export const parsePositiveInt = (
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+export const parseNonNegativeInt = (
+  value: string | undefined,
+  fallback: number
+): number => {
+  if (value === undefined || value === "") {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
 /** Parse `YYYY-MM-DD` date query param; returns undefined when invalid. */
 export const parseDateParam = (
   value: string | undefined

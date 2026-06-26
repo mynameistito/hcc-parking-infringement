@@ -1,28 +1,24 @@
 /**
  * Trigger a manual sync (last 7 days) against your worker.
  *
- * Usage:
- *   bun run sync
- *   API_KEY=xxx WORKER_URL=https://your-worker.workers.dev bun run sync
+ * @example
+ * bun run sync
  */
 
 import {
   describeConnectionFailure,
   describeFetchFailure,
-  getWorkerUrl,
   loadDevVars,
 } from "@scripts/dev-env.ts";
+import {
+  bearerHeaders,
+  createWorkerContext,
+} from "@scripts/lib/worker-client.ts";
 import { z } from "zod";
 
 loadDevVars();
 
-const workerUrl = getWorkerUrl();
-const apiKey = process.env.API_KEY ?? process.env.CRON_SECRET;
-
-if (apiKey === undefined || apiKey === "") {
-  console.error("Missing API_KEY or CRON_SECRET (environment or `.dev.vars`).");
-  process.exit(1);
-}
+const { apiKey, workerUrl } = createWorkerContext();
 
 const syncResponseSchema = z.record(z.string(), z.unknown());
 const url = `${workerUrl}/api/v1/sync`;
@@ -31,10 +27,7 @@ let response: Response;
 
 try {
   response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: bearerHeaders(apiKey),
     method: "POST",
   });
 } catch (error) {

@@ -1,58 +1,30 @@
 /**
- * Compare yearly HCC totals vs ParkingStore.
+ * Compare yearly HCC totals vs ParkingStore (2020 through current year).
  *
- * Usage: bun run scripts/audit-years.ts
+ * @example
+ * bun run scripts/audit-years.ts
  */
 
+import { getHccClientEnv, loadDevVars } from "@scripts/dev-env.ts";
 import {
-  getHccClientEnv,
-  getWorkerUrl,
-  loadDevVars,
-} from "@scripts/dev-env.ts";
-import { formatInTimeZone } from "date-fns-tz";
+  createWorkerContext,
+  fetchStoredInfringementCount,
+} from "@scripts/lib/worker-client.ts";
 import { z } from "zod";
 
+import { currentYearInAuckland, todayInAuckland } from "@/lib/auckland-time.ts";
 import { fetchAllInWindow } from "@/server/hcc-client.ts";
 
 loadDevVars();
 
-const AUCKLAND_TZ = "Pacific/Auckland";
-const workerUrl = getWorkerUrl();
-const apiKey = process.env.API_KEY;
-
-if (apiKey === undefined || apiKey === "") {
-  console.error("Missing API_KEY");
-  process.exit(1);
-}
-
-const formatDateInAuckland = (date: Date): string =>
-  formatInTimeZone(date, AUCKLAND_TZ, "yyyy-MM-dd");
-
-const today = formatDateInAuckland(new Date());
+const ctx = createWorkerContext();
+const today = todayInAuckland();
 const env = getHccClientEnv();
-
-const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
-
-const storedTotalSchema = z.object({
-  total: z.number().optional(),
-});
-
-const fetchStoredCount = async (
-  start: string,
-  end: string
-): Promise<number> => {
-  const url = new URL(`${workerUrl}/api/v1/infringements`);
-  url.searchParams.set("from", start);
-  url.searchParams.set("to", end);
-  url.searchParams.set("limit", "1");
-  url.searchParams.set("page", "1");
-
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  const parsed = storedTotalSchema.safeParse(await response.json());
-  return parsed.success ? (parsed.data.total ?? 0) : 0;
-};
+const firstAuditYear = 2020;
+const years = Array.from(
+  { length: currentYearInAuckland() - firstAuditYear + 1 },
+  (_, index) => firstAuditYear + index
+);
 
 console.log("Year     HCC      Stored   Delta   Truncated");
 console.log("----     ---      ------   -----   ---------");
@@ -60,11 +32,11 @@ console.log("----     ---      ------   -----   ---------");
 const yearResults = await Promise.all(
   years.map(async (year) => {
     const start = `${year}-01-01`;
-    const end = year === 2026 ? today : `${year}-12-31`;
+    const end = year === currentYearInAuckland() ? today : `${year}-12-31`;
 
     const [hcc, stored] = await Promise.all([
       fetchAllInWindow(env, start, end),
-      fetchStoredCount(start, end),
+      fetchStoredInfringementCount(ctx, start, end),
     ]);
 
     return { hcc, stored, year };
@@ -94,7 +66,7 @@ const healthResponseSchema = z.object({
   totalRecords: z.number().optional(),
 });
 
-const health = await fetch(`${workerUrl}/api/v1/health`);
+const health = await fetch(`${ctx.workerUrl}/api/v1/health`);
 const healthBody = healthResponseSchema.safeParse(await health.json());
 console.log(
   `\nAll-time stored (health): ${healthBody.success ? (healthBody.data.totalRecords ?? "?") : "?"}`

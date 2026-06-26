@@ -1,103 +1,36 @@
 /**
  * Audit stored data vs HCC API by day (or week) windows.
  *
- * Usage:
- *   bun run scripts/audit-hcc.ts
- *   bun run scripts/audit-hcc.ts -- --from=2020-01-01 --granularity=day
- *   bun run scripts/audit-hcc.ts -- --from=2024-01-01 --granularity=week
+ * @example
+ * bun run scripts/audit-hcc.ts
+ * bun run scripts/audit-hcc.ts -- --granularity=day --from=2024-01-01
  */
 
+import { getHccClientEnv, loadDevVars } from "@scripts/dev-env.ts";
+import { readArgWithDefault, scriptArgv } from "@scripts/lib/args.ts";
 import {
-  getHccClientEnv,
-  getWorkerUrl,
-  loadDevVars,
-} from "@scripts/dev-env.ts";
-import { formatInTimeZone } from "date-fns-tz";
+  createWorkerContext,
+  fetchStoredInfringementCount,
+} from "@scripts/lib/worker-client.ts";
 import { z } from "zod";
 
+import { todayInAuckland } from "@/lib/auckland-time.ts";
 import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { splitDateRange } from "@/server/sync.ts";
 
 loadDevVars();
 
-const AUCKLAND_TZ = "Pacific/Auckland";
-const args = process.argv.slice(2);
-
+const args = scriptArgv();
 const granularitySchema = z.enum(["day", "week"]);
-
-const getArg = (name: string, fallback: string): string => {
-  const match = args.find((arg) => arg.startsWith(`--${name}=`));
-  if (match === undefined) {
-    return fallback;
-  }
-  return match.split("=")[1] ?? fallback;
-};
-
-const granularity = granularitySchema.parse(getArg("granularity", "week"));
-const fromDate = getArg("from", "2020-01-01");
-const workerUrl = getWorkerUrl();
-const apiKey = process.env.API_KEY;
-
-if (apiKey === undefined || apiKey === "") {
-  console.error("Missing API_KEY");
-  process.exit(1);
-}
-
-const formatDateInAuckland = (date: Date): string =>
-  formatInTimeZone(date, AUCKLAND_TZ, "yyyy-MM-dd");
-
-const addDays = (dateStr: string, days: number): string => {
-  const date = new Date(`${dateStr}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-};
-
-const today = formatDateInAuckland(new Date());
+const granularity = granularitySchema.parse(
+  readArgWithDefault(args, "granularity", "week")
+);
+const fromDate = readArgWithDefault(args, "from", "2020-01-01");
+const today = todayInAuckland();
+const ctx = createWorkerContext();
+const chunkDays = granularity === "day" ? 1 : 7;
+const windows = splitDateRange(fromDate, today, chunkDays);
 const env = getHccClientEnv();
-
-interface Window {
-  start: string;
-  end: string;
-}
-
-const buildWindows = (): Window[] => {
-  const windows: Window[] = [];
-  let cursor = fromDate;
-  const step = granularity === "day" ? 0 : 6;
-
-  while (cursor <= today) {
-    const end = addDays(cursor, step);
-    windows.push({
-      end: end > today ? today : end,
-      start: cursor,
-    });
-    cursor = addDays(end > today ? today : end, 1);
-  }
-
-  return windows;
-};
-
-const storedTotalSchema = z.object({
-  total: z.number().optional(),
-});
-
-const fetchStoredCount = async (
-  start: string,
-  end: string
-): Promise<number> => {
-  const url = new URL(`${workerUrl}/api/v1/infringements`);
-  url.searchParams.set("from", start);
-  url.searchParams.set("to", end);
-  url.searchParams.set("limit", "1");
-  url.searchParams.set("page", "1");
-
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  const parsed = storedTotalSchema.safeParse(await response.json());
-  return parsed.success ? (parsed.data.total ?? 0) : 0;
-};
-
-const windows = buildWindows();
 
 console.log(
   `Auditing ${windows.length} ${granularity} windows from ${fromDate} → ${today}\n`
@@ -107,7 +40,7 @@ const windowResults = await Promise.all(
   windows.map(async (window) => {
     const [hcc, stored] = await Promise.all([
       fetchAllInWindow(env, window.start, window.end),
-      fetchStoredCount(window.start, window.end),
+      fetchStoredInfringementCount(ctx, window.start, window.end),
     ]);
     return { hcc, stored, window };
   })
