@@ -54,7 +54,14 @@
   },
   "vars": {
     "HCC_API_BASE": "https://api.hcc.govt.nz/OpenData",
+    "PARKING_STORE_SEED_PREFIX": "parking-store/v1/",
   },
+  "r2_buckets": [
+    {
+      "binding": "PARKING_SEED",
+      "bucket_name": "hcc-parking-infringement-seed",
+    },
+  ],
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/client",

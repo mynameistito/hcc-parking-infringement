@@ -4,6 +4,7 @@
  *
  * @example
  * bun run push:local
+ * bun run push:local -- --from=http://localhost:5173 --to=https://your-worker.workers.dev
  * bun run push:local -- --from-port=8787 --to=https://hcc-parking-infringement.mynameistito.workers.dev
  * bun run push:local -- --start-after=12345678
  * bun run push:local -- --fresh
@@ -11,7 +12,11 @@
 
 import { setTimeout as delay } from "node:timers/promises";
 
-import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
+import {
+  assertWorkerReachable,
+  defaultLocalPushSourceUrl,
+  loadDevVars,
+} from "@scripts/dev-env.ts";
 import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
 import { formatNumber } from "@scripts/lib/backfill-progress.ts";
 import {
@@ -48,8 +53,12 @@ const resolveFromUrl = (): string => {
     return explicit.replace(/\/$/u, "");
   }
 
-  const fromPort = readArg(args, "from-port") ?? "8787";
-  return `http://127.0.0.1:${fromPort}`;
+  const fromPort = readArg(args, "from-port");
+  if (fromPort !== undefined) {
+    return `http://127.0.0.1:${fromPort}`;
+  }
+
+  return defaultLocalPushSourceUrl();
 };
 
 const resolveToUrl = (): string => {

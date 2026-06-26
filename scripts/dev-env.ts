@@ -11,6 +11,48 @@ const DEFAULT_WORKER_URL = "http://127.0.0.1:5173";
 const WRANGLER_DEV_URL = "http://127.0.0.1:8787";
 const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 
+/** Whether a worker URL targets a local dev server (not workers.dev). */
+export const isLocalWorkerUrl = (url: string): boolean => {
+  try {
+    const { hostname } = new URL(url);
+    return (
+      hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1"
+    );
+  } catch {
+    return false;
+  }
+};
+
+/** Vite often binds `localhost` only; wrangler uses `127.0.0.1`. Try both. */
+export const localWorkerUrlAlternates = (workerUrl: string): string[] => {
+  try {
+    const parsed = new URL(workerUrl);
+    const alternates: string[] = [];
+
+    if (parsed.hostname === "127.0.0.1") {
+      parsed.hostname = "localhost";
+      alternates.push(parsed.toString().replace(/\/$/u, ""));
+    } else if (parsed.hostname === "localhost") {
+      parsed.hostname = "127.0.0.1";
+      alternates.push(parsed.toString().replace(/\/$/u, ""));
+    }
+
+    return alternates;
+  } catch {
+    return [];
+  }
+};
+
+/** Default export source when `--from` / `--from-port` are not set. */
+export const defaultLocalPushSourceUrl = (): string => {
+  const workerUrl = process.env.WORKER_URL;
+  if (workerUrl !== undefined && isLocalWorkerUrl(workerUrl)) {
+    return workerUrl.replace(/\/$/u, "");
+  }
+
+  return "http://localhost:5173";
+};
+
 let devVarsLoaded = false;
 
 /** Keep local worker requests off HTTP proxies (e.g. Socket Firewall). */
@@ -179,30 +221,36 @@ export const assertWorkerReachable = async (
     "/api/v1/health",
   ].filter((healthPath, index, all) => all.indexOf(healthPath) === index);
 
+  const baseUrls = [baseUrl, ...localWorkerUrlAlternates(baseUrl)].filter(
+    (candidate, index, all) => all.indexOf(candidate) === index
+  );
+
   let lastError: Error | undefined;
 
-  for (const healthPath of paths) {
-    const url = `${baseUrl}${healthPath}`;
+  for (const candidateBase of baseUrls) {
+    for (const healthPath of paths) {
+      const url = `${candidateBase}${healthPath}`;
 
-    try {
-      const response = await fetchWithTimeout(url, {
-        timeoutMs: options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
-      });
+      try {
+        const response = await fetchWithTimeout(url, {
+          timeoutMs: options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
+        });
 
-      if (response.ok) {
-        return;
+        if (response.ok) {
+          return;
+        }
+
+        if (response.status === 404 && healthPath !== paths.at(-1)) {
+          continue;
+        }
+
+        throw new Error(`GET ${url} returned HTTP ${response.status}`);
+      } catch (error) {
+        lastError =
+          error instanceof Error
+            ? error
+            : new Error(String(error), { cause: error });
       }
-
-      if (response.status === 404 && healthPath !== paths.at(-1)) {
-        continue;
-      }
-
-      throw new Error(`GET ${url} returned HTTP ${response.status}`);
-    } catch (error) {
-      lastError =
-        error instanceof Error
-          ? error
-          : new Error(String(error), { cause: error });
     }
   }
 
@@ -211,14 +259,21 @@ export const assertWorkerReachable = async (
     options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
   );
 
+  const hints = isLocalWorkerUrl(workerUrl)
+    ? [
+        "Start a local worker first:",
+        "  bun run dev              (Vite + DO, http://localhost:5173)",
+        "  bun run dev:wrangler     (wrangler only, http://127.0.0.1:8787)",
+        "Then push with an explicit source if needed:",
+        "  bun run push:local -- --from=http://localhost:5173",
+      ]
+    : [
+        "Check the worker URL and that the deployment is up.",
+        "If you set WORKER_URL to production, pass --to= explicitly and use --from= for local.",
+      ];
+
   throw new Error(
-    [
-      `Worker not reachable at ${workerUrl} (${reason}).`,
-      "Check the port shown in your wrangler dev terminal, e.g.:",
-      "  bun run backfill -- --port=8787",
-      "Or set WORKER_URL in `.dev.vars` to match (use 127.0.0.1, not localhost).",
-      "If you use Socket Firewall, keep it running but scripts clear HTTP_PROXY for local calls.",
-    ].join("\n"),
+    [`Worker not reachable at ${workerUrl} (${reason}).`, ...hints].join("\n"),
     { cause: lastError }
   );
 };

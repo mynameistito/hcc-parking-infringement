@@ -26,9 +26,19 @@ import {
   exportStoredInfringements,
   exportStoredWatermarks,
   finalizeStoredImport,
+  importSnapshotBatch,
   importStoredInfringements,
   importStoredWatermarks,
 } from "@/server/replication.ts";
+import {
+  importSeedInfringementChunk,
+  importSeedWatermarks,
+  readSeedManifest,
+} from "@/server/seed-import.ts";
+import {
+  seedChunkRequestSchema,
+  seedPrefixRequestSchema,
+} from "@/server/seed-request.ts";
 import { listInfringements } from "@/server/stats.ts";
 import {
   BACKFILL_EARLIEST,
@@ -214,6 +224,74 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         totalMode
       );
       return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/import/snapshot", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const result = await importSnapshotBatch(c.env, await c.req.json());
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.get("/import/seed/manifest", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const { manifest, prefix } = await readSeedManifest(c.env);
+      return c.json({ ok: true, prefix, ...manifest });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/import/seed/chunk", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const body = seedChunkRequestSchema.parse(await c.req.json());
+      const result = await importSeedInfringementChunk(c.env, {
+        chunk: body.chunk,
+        prefixOverride: body.prefix,
+      });
+
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/import/seed/watermarks", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const body = seedPrefixRequestSchema.parse(
+        await c.req.json().catch(() => ({}))
+      );
+      const result = await importSeedWatermarks(c.env, body.prefix);
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/import/seed/finalize", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      await finalizeStoredImport(c.env);
+      return c.json({ ok: true, recomputed: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return jsonError(500, message);

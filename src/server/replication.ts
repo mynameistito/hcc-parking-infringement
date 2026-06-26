@@ -26,6 +26,10 @@ const importWatermarksSchema = z.object({
     .max(5000),
 });
 
+const importSnapshotBatchSchema = z.object({
+  infringements: z.array(cleanInfringementSchema).max(5000),
+});
+
 export const exportStoredInfringements = async (
   env: Env,
   after: number,
@@ -67,6 +71,25 @@ export const importStoredInfringements = async (
     recordsReceived: payload.records.length,
     recordsUpserted,
     totalRecords,
+  };
+};
+
+export const importSnapshotBatch = async (
+  env: Env,
+  body: unknown
+): Promise<{
+  recordsReceived: number;
+  recordsUpserted: number;
+}> => {
+  const payload = importSnapshotBatchSchema.parse(body);
+  const result = await importStoredInfringements(env, {
+    final: false,
+    records: payload.infringements,
+  });
+
+  return {
+    recordsReceived: result.recordsReceived,
+    recordsUpserted: result.recordsUpserted,
   };
 };
 

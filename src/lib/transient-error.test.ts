@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isRetryableError } from "./transient-error.ts";
+import {
+  isDoSqliteQuotaError,
+  isDoSqliteQuotaResponse,
+  isRetryableError,
+} from "./transient-error.ts";
 
 describe("isRetryableError", () => {
   it("treats durable object and network failures as retryable", () => {
@@ -28,5 +32,12 @@ describe("isRetryableError", () => {
     expect(
       isRetryableError(new Error("HCC API response missing Paging metadata"))
     ).toBe(false);
+  });
+
+  it("treats DO SQLite free-tier quota as non-retryable", () => {
+    const message = "Exceeded allowed rows read in Durable Objects free tier.";
+    expect(isRetryableError(new Error(message))).toBe(false);
+    expect(isDoSqliteQuotaError(new Error(message))).toBe(true);
+    expect(isDoSqliteQuotaResponse({ error: message })).toBe(true);
   });
 });

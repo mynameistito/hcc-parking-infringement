@@ -8,6 +8,8 @@ dist/
 .dev.vars
 *.local
 data/*.csv
+data/parking-store-export.json
+data/seed/
 .push-local.checkpoint.json
 worker-startup.cpuprofile
 .wrangler-dry-run/

@@ -11,7 +11,12 @@ import type { WorkerScriptContext } from "@scripts/lib/worker-client.ts";
 import { bearerHeaders } from "@scripts/lib/worker-client.ts";
 import { z } from "zod";
 
-import { isRetryableError } from "@/lib/transient-error.ts";
+import {
+  describeDoSqliteQuotaError,
+  extractHttpErrorMessage,
+  isDoSqliteQuotaResponse,
+  isRetryableError,
+} from "@/lib/transient-error.ts";
 import { cleanInfringementSchema } from "@/server/clean-schema.ts";
 
 const exportInfringementsSchema = z.object({
@@ -35,6 +40,13 @@ const exportWatermarksSchema = z.object({
   ),
 });
 
+const importSnapshotSchema = z.object({
+  ok: z.boolean().optional(),
+  recordsReceived: z.number(),
+  recordsUpserted: z.number(),
+  totalRecords: z.number().optional(),
+});
+
 const importStoredSchema = z.object({
   ok: z.boolean().optional(),
   recordsReceived: z.number(),
@@ -45,6 +57,16 @@ const importStoredSchema = z.object({
 const REPLICATION_MAX_ATTEMPTS = 5;
 
 const replicationRetryDelayMs = (attempt: number): number => attempt * 2000;
+
+const throwIfDoQuotaResponse = (rawBody: unknown): void => {
+  if (!isDoSqliteQuotaResponse(rawBody)) {
+    return;
+  }
+
+  const message =
+    extractHttpErrorMessage(rawBody) ?? "DO SQLite quota exceeded";
+  throw new Error(`${message}\n\n${describeDoSqliteQuotaError()}`);
+};
 
 const fetchReplicationWithRetry = async (
   label: string,
@@ -62,6 +84,7 @@ const fetchReplicationWithRetry = async (
     try {
       const response = await run();
       const rawBody: unknown = await response.json().catch(() => null);
+      throwIfDoQuotaResponse(rawBody);
       const result = isSuccess(response, rawBody);
 
       if (result.ok) {
@@ -119,6 +142,49 @@ export const fetchExportInfringements = async (
   if (!response.ok || !parsed.success) {
     throw new Error(
       describeFetchFailure(response, rawBody, "GET", url.toString())
+    );
+  }
+
+  return parsed.data;
+};
+
+export const postImportSnapshot = async (
+  ctx: WorkerScriptContext,
+  infringements: z.infer<typeof cleanInfringementSchema>[]
+) => {
+  const url = new URL("/api/v1/import/snapshot", ctx.workerUrl);
+  const { rawBody, response } = await fetchReplicationWithRetry(
+    `POST ${url.pathname}`,
+    url.toString(),
+    "POST",
+    async () =>
+      await fetchWithTimeout(url.toString(), {
+        body: JSON.stringify({ infringements }),
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${ctx.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        timeoutMs: 180_000,
+      }),
+    (res, body) => {
+      const parsed = importSnapshotSchema.safeParse(body);
+      if (res.ok && parsed.success) {
+        return { ok: true };
+      }
+
+      return {
+        fatal: res.status !== 429 && res.status < 500,
+        ok: false,
+      };
+    }
+  );
+  const parsed = importSnapshotSchema.safeParse(rawBody);
+
+  if (!response.ok || !parsed.success) {
+    throw new Error(
+      describeFetchFailure(response, rawBody, "POST", url.toString())
     );
   }
 
