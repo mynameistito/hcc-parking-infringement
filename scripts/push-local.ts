@@ -5,11 +5,20 @@
  * @example
  * bun run push:local
  * bun run push:local -- --from-port=8787 --to=https://hcc-parking-infringement.mynameistito.workers.dev
+ * bun run push:local -- --start-after=12345678
+ * bun run push:local -- --fresh
  */
+
+import { setTimeout as delay } from "node:timers/promises";
 
 import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
 import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
 import { formatNumber } from "@scripts/lib/backfill-progress.ts";
+import {
+  clearPushCheckpoint,
+  loadPushCheckpoint,
+  savePushCheckpoint,
+} from "@scripts/lib/push-checkpoint.ts";
 import {
   fetchExportInfringements,
   fetchExportWatermarks,
@@ -19,14 +28,19 @@ import {
 } from "@scripts/lib/replication-api.ts";
 import { requireApiKey } from "@scripts/lib/worker-client.ts";
 
+import { parseNonNegativeInt, parsePositiveInt } from "@/server/http/query.ts";
+
 loadDevVars();
 
 const args = scriptArgv();
 const skipWatermarks = readFlag(args, "skip-watermarks");
+const fresh = readFlag(args, "fresh");
 const batchSize = Math.min(
-  Number.parseInt(readArg(args, "batch-size") ?? "2000", 10),
+  parsePositiveInt(readArg(args, "batch-size"), 1000),
   5000
 );
+const pauseMs = parseNonNegativeInt(readArg(args, "pause-ms"), 500);
+const explicitStartAfter = readArg(args, "start-after");
 
 const resolveFromUrl = (): string => {
   const explicit = readArg(args, "from");
@@ -67,6 +81,9 @@ const source = { apiKey, workerUrl: fromUrl };
 const destination = { apiKey, workerUrl: toUrl };
 
 console.log(`[push] ${fromUrl} → ${toUrl}`);
+if (pauseMs > 0) {
+  console.log(`[push] pausing ${pauseMs}ms between batches`);
+}
 
 try {
   await assertWorkerReachable(fromUrl);
@@ -76,36 +93,117 @@ try {
   process.exit(1);
 }
 
-let cursor = 0;
-let pushed = 0;
+let infringementCursor = parseNonNegativeInt(explicitStartAfter, 0);
+let infringementPushed = 0;
+let watermarkOffset = 0;
+let watermarkImported = 0;
+let startPhase: "infringements" | "watermarks" = "infringements";
+
+if (fresh) {
+  await clearPushCheckpoint();
+  console.log("[push] ignoring any saved checkpoint (--fresh)");
+} else if (explicitStartAfter === undefined) {
+  const checkpoint = await loadPushCheckpoint();
+  if (
+    checkpoint !== null &&
+    checkpoint.fromUrl === fromUrl &&
+    checkpoint.toUrl === toUrl
+  ) {
+    const {
+      infringementCursor: checkpointCursor,
+      infringementPushed: checkpointPushed,
+      phase,
+      updatedAt: checkpointUpdatedAt,
+      watermarkImported: checkpointWatermarkImported,
+      watermarkOffset: checkpointWatermarkOffset,
+    } = checkpoint;
+    infringementCursor = checkpointCursor;
+    infringementPushed = checkpointPushed;
+    startPhase = phase;
+    watermarkImported = checkpointWatermarkImported;
+    watermarkOffset = checkpointWatermarkOffset;
+    console.log(
+      `[push] resuming from checkpoint (${startPhase}, updated ${checkpointUpdatedAt})`
+    );
+  }
+} else {
+  console.log(
+    `[push] resuming infringements after #${formatNumber(infringementCursor)}`
+  );
+}
+
+const pauseBetweenBatches = async (): Promise<void> => {
+  if (pauseMs > 0) {
+    await delay(pauseMs);
+  }
+};
+
 let total = 0;
 
-while (true) {
-  const exported = await fetchExportInfringements(source, cursor, batchSize);
-  ({ total } = exported);
+if (startPhase === "infringements") {
+  let cursor = infringementCursor;
+  let pushed = infringementPushed;
 
-  if (exported.records.length === 0) {
-    break;
+  while (true) {
+    const exported = await fetchExportInfringements(
+      source,
+      cursor,
+      batchSize,
+      total === 0 ? "scan" : "cached"
+    );
+    ({ total } = exported);
+
+    if (exported.records.length === 0) {
+      break;
+    }
+
+    const result = await postImportStored(destination, exported.records, false);
+    pushed += result.recordsUpserted;
+    cursor = exported.nextCursor ?? cursor;
+
+    await savePushCheckpoint({
+      fromUrl,
+      infringementCursor: cursor,
+      infringementPushed: pushed,
+      phase: "infringements",
+      toUrl,
+      updatedAt: new Date().toISOString(),
+      watermarkImported,
+      watermarkOffset,
+    });
+
+    console.log(
+      `[push] infringements ${formatNumber(pushed)}/${formatNumber(total)} (cursor=${formatNumber(cursor)})`
+    );
+
+    if (exported.nextCursor === null) {
+      break;
+    }
+
+    cursor = exported.nextCursor;
+    await pauseBetweenBatches();
   }
 
-  const result = await postImportStored(destination, exported.records, false);
-  pushed += result.recordsUpserted;
-  cursor = exported.nextCursor ?? cursor;
-
-  console.log(
-    `[push] infringements ${formatNumber(pushed)}/${formatNumber(total)}`
-  );
-
-  if (exported.nextCursor === null) {
-    break;
-  }
-
-  cursor = exported.nextCursor;
+  infringementCursor = cursor;
+  infringementPushed = pushed;
 }
 
 if (!skipWatermarks) {
-  let offset = 0;
-  let importedWatermarks = 0;
+  if (startPhase === "infringements") {
+    await savePushCheckpoint({
+      fromUrl,
+      infringementCursor,
+      infringementPushed,
+      phase: "watermarks",
+      toUrl,
+      updatedAt: new Date().toISOString(),
+      watermarkImported: 0,
+      watermarkOffset: 0,
+    });
+  }
+
+  let offset = watermarkOffset;
+  let importedWatermarks = watermarkImported;
   let watermarkTotal = 0;
 
   while (true) {
@@ -120,6 +218,17 @@ if (!skipWatermarks) {
     importedWatermarks += exported.watermarks.length;
     offset = exported.nextOffset ?? offset;
 
+    await savePushCheckpoint({
+      fromUrl,
+      infringementCursor,
+      infringementPushed,
+      phase: "watermarks",
+      toUrl,
+      updatedAt: new Date().toISOString(),
+      watermarkImported: importedWatermarks,
+      watermarkOffset: offset,
+    });
+
     console.log(
       `[push] watermarks ${formatNumber(importedWatermarks)}/${formatNumber(watermarkTotal)}`
     );
@@ -129,11 +238,13 @@ if (!skipWatermarks) {
     }
 
     offset = exported.nextOffset;
+    await pauseBetweenBatches();
   }
 }
 
 await postFinalizeStoredImport(destination);
+await clearPushCheckpoint();
 
 console.log(
-  `[push] complete — ${formatNumber(pushed)} infringements uploaded to ${toUrl}`
+  `[push] complete — ${formatNumber(infringementPushed)} infringements uploaded to ${toUrl}`
 );

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type {
   ExportInfringementsResult,
+  ExportTotalMode,
   ExportWatermarksResult,
 } from "@/durable-objects/parking-store/replication.ts";
 import { cleanInfringementSchema } from "@/server/clean-schema.ts";
@@ -28,9 +29,10 @@ const importWatermarksSchema = z.object({
 export const exportStoredInfringements = async (
   env: Env,
   after: number,
-  limit: number
+  limit: number,
+  totalMode: ExportTotalMode = "cached"
 ): Promise<ExportInfringementsResult> =>
-  await getParkingStore(env).exportInfringements(after, limit);
+  await getParkingStore(env).exportInfringements(after, limit, totalMode);
 
 export const importStoredInfringements = async (
   env: Env,
@@ -40,7 +42,7 @@ export const importStoredInfringements = async (
   recordsReceived: number;
   recordsUpserted: number;
   recomputed: boolean;
-  totalRecords: number;
+  totalRecords?: number;
 }> => {
   const payload = importStoredBatchSchema.parse(body);
   const store = getParkingStore(env);
@@ -54,7 +56,10 @@ export const importStoredInfringements = async (
     recomputed = true;
   }
 
-  const totalRecords = await store.countInfringements();
+  let totalRecords: number | undefined;
+  if (payload.final) {
+    totalRecords = await store.countInfringements();
+  }
 
   return {
     final: payload.final,

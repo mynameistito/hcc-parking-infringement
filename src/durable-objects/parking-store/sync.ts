@@ -44,6 +44,67 @@ export const finishSyncRun = (
   );
 };
 
+const UPSERT_COLUMNS = `infringement_number, occurred_at, closed_at, amount_cents,
+  additional_costs_cents, street, suburb, town, post_code,
+  offence_code, offence_description, offence_category,
+  infringement_type, court_serve_method,
+  vehicle_colour, vehicle_make, vehicle_model, vehicle_type,
+  is_towed, first_seen_at, updated_at`;
+
+const UPSERT_ROW_PLACEHOLDERS =
+  "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+const UPSERT_ON_CONFLICT = `ON CONFLICT(infringement_number) DO UPDATE SET
+  occurred_at = excluded.occurred_at,
+  closed_at = excluded.closed_at,
+  amount_cents = excluded.amount_cents,
+  additional_costs_cents = excluded.additional_costs_cents,
+  street = excluded.street,
+  suburb = excluded.suburb,
+  town = excluded.town,
+  post_code = excluded.post_code,
+  offence_code = excluded.offence_code,
+  offence_description = excluded.offence_description,
+  offence_category = excluded.offence_category,
+  infringement_type = excluded.infringement_type,
+  court_serve_method = excluded.court_serve_method,
+  vehicle_colour = excluded.vehicle_colour,
+  vehicle_make = excluded.vehicle_make,
+  vehicle_model = excluded.vehicle_model,
+  vehicle_type = excluded.vehicle_type,
+  is_towed = excluded.is_towed,
+  updated_at = excluded.updated_at`;
+
+/** Rows per INSERT to balance statement size vs. DO SQLite exec overhead. */
+const UPSERT_BATCH_SIZE = 50;
+
+const infringementToUpsertParams = (
+  record: CleanInfringement,
+  now: string
+): SqlStorageValue[] => [
+  record.infringementNumber,
+  record.occurredAt,
+  record.closedAt,
+  record.amountCents,
+  record.additionalCostsCents,
+  record.street,
+  record.suburb,
+  record.town,
+  record.postCode,
+  record.offenceCode,
+  record.offenceDescription,
+  record.offenceCategory,
+  record.infringementType,
+  record.courtServeMethod,
+  record.vehicleColour,
+  record.vehicleMake,
+  record.vehicleModel,
+  record.vehicleType,
+  record.isTowed ? 1 : 0,
+  now,
+  now,
+];
+
 export const upsertInfringements = (
   sql: SqlStorage,
   records: CleanInfringement[]
@@ -54,57 +115,17 @@ export const upsertInfringements = (
 
   const now = isoNow();
 
-  for (const record of records) {
+  for (let offset = 0; offset < records.length; offset += UPSERT_BATCH_SIZE) {
+    const batch = records.slice(offset, offset + UPSERT_BATCH_SIZE);
+    const placeholders = batch.map(() => UPSERT_ROW_PLACEHOLDERS).join(", ");
+    const params = batch.flatMap((record) =>
+      infringementToUpsertParams(record, now)
+    );
+
     sql.exec(
-      `INSERT INTO infringements (
-        infringement_number, occurred_at, closed_at, amount_cents,
-        additional_costs_cents, street, suburb, town, post_code,
-        offence_code, offence_description, offence_category,
-        infringement_type, court_serve_method,
-        vehicle_colour, vehicle_make, vehicle_model, vehicle_type,
-        is_towed, first_seen_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(infringement_number) DO UPDATE SET
-        occurred_at = excluded.occurred_at,
-        closed_at = excluded.closed_at,
-        amount_cents = excluded.amount_cents,
-        additional_costs_cents = excluded.additional_costs_cents,
-        street = excluded.street,
-        suburb = excluded.suburb,
-        town = excluded.town,
-        post_code = excluded.post_code,
-        offence_code = excluded.offence_code,
-        offence_description = excluded.offence_description,
-        offence_category = excluded.offence_category,
-        infringement_type = excluded.infringement_type,
-        court_serve_method = excluded.court_serve_method,
-        vehicle_colour = excluded.vehicle_colour,
-        vehicle_make = excluded.vehicle_make,
-        vehicle_model = excluded.vehicle_model,
-        vehicle_type = excluded.vehicle_type,
-        is_towed = excluded.is_towed,
-        updated_at = excluded.updated_at`,
-      record.infringementNumber,
-      record.occurredAt,
-      record.closedAt,
-      record.amountCents,
-      record.additionalCostsCents,
-      record.street,
-      record.suburb,
-      record.town,
-      record.postCode,
-      record.offenceCode,
-      record.offenceDescription,
-      record.offenceCategory,
-      record.infringementType,
-      record.courtServeMethod,
-      record.vehicleColour,
-      record.vehicleMake,
-      record.vehicleModel,
-      record.vehicleType,
-      record.isTowed ? 1 : 0,
-      now,
-      now
+      `INSERT INTO infringements (${UPSERT_COLUMNS}) VALUES ${placeholders}
+      ${UPSERT_ON_CONFLICT}`,
+      ...params
     );
   }
 

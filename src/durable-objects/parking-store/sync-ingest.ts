@@ -6,7 +6,10 @@ import type {
 } from "@/durable-objects/types.ts";
 
 import { isoNow } from "./constants.ts";
-import { countInfringements } from "./infringements.ts";
+import {
+  getCachedInfringementCount,
+  bumpCachedInfringementCount,
+} from "./infringement-count.ts";
 import {
   finishSyncRun,
   recordWatermark,
@@ -27,6 +30,7 @@ export const applySyncWindow = (
 
   try {
     const recordsUpserted = upsertInfringements(sql, payload.records);
+    bumpCachedInfringementCount(sql, recordsUpserted);
 
     if (payload.runType === "backfill") {
       hooks.markBackfillStatsDirty();
@@ -79,6 +83,7 @@ export const importInfringementBatch = (
   onFinalBatch: () => void
 ): ImportBatchResult => {
   const recordsUpserted = upsertInfringements(sql, payload.records);
+  bumpCachedInfringementCount(sql, recordsUpserted);
 
   if (payload.final) {
     onFinalBatch();
@@ -90,6 +95,6 @@ export const importInfringementBatch = (
     recordsReceived: payload.recordsReceived,
     recordsUpserted,
     skipped: payload.skipped,
-    totalRecords: countInfringements(sql),
+    totalRecords: getCachedInfringementCount(sql) ?? 0,
   };
 };

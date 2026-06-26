@@ -8,6 +8,13 @@ import type { AppEnv } from "@/server/http/response.ts";
 export const createV1HealthRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
+  routes.get("/health/live", (c) =>
+    c.json({
+      status: "ok",
+      timestamp: nowInAucklandIso(),
+    })
+  );
+
   routes.get("/health", async (c) => {
     const cache = await getCacheStatus(c.env);
     return c.json({

@@ -34,8 +34,11 @@ import {
   browseVehicles,
 } from "./browse-queries.ts";
 import {
+  getCachedInfringementCount,
+  recomputeCachedInfringementCount,
+} from "./infringement-count.ts";
+import {
   getDailyStats,
-  countInfringements,
   listInfringements as queryInfringements,
 } from "./infringements.ts";
 import type { LiveCoordinator } from "./live-coordinator.ts";
@@ -56,6 +59,7 @@ import {
 } from "./rankings.ts";
 import type {
   ExportInfringementsResult,
+  ExportTotalMode,
   ExportWatermarksResult,
   IngestWatermarkExport,
 } from "./replication.ts";
@@ -146,7 +150,8 @@ export interface ParkingStoreApi {
   ) => { end: string; ingestedAt: string; start: string } | null;
   exportInfringements: (
     after: number,
-    limit: number
+    limit: number,
+    totalMode?: ExportTotalMode
   ) => ExportInfringementsResult;
   importStoredInfringements: (records: CleanInfringement[]) => number;
   exportWatermarks: (offset: number, limit: number) => ExportWatermarksResult;
@@ -179,15 +184,15 @@ export const createParkingStoreApi = (
 
     browseVehicles: (query) => browseVehicles(sql(), query),
 
-    countInfringements: () => countInfringements(sql()),
+    countInfringements: () => getCachedInfringementCount(sql()) ?? 0,
 
     countIngestWatermarksInRange: (start, end, chunkDays) =>
       countIngestWatermarksInRange(sql(), start, end, chunkDays),
 
     countLocationsNeedingGeocode: () => countLocationsNeedingGeocode(sql()),
 
-    exportInfringements: (after, limit) =>
-      exportInfringements(sql(), after, limit),
+    exportInfringements: (after, limit, totalMode = "cached") =>
+      exportInfringements(sql(), after, limit, totalMode),
 
     exportWatermarks: (offset, limit) => exportWatermarks(sql(), offset, limit),
 
@@ -195,6 +200,14 @@ export const createParkingStoreApi = (
 
     finalizeStoredImport: () => {
       runFinalizeStoredImport(() => {
+        try {
+          recomputeCachedInfringementCount(sql());
+        } catch (error) {
+          console.error(
+            "[parking-store] infringement count refresh skipped",
+            error
+          );
+        }
         live.recomputeAndBroadcast();
       });
     },

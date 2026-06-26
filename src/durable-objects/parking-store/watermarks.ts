@@ -1,6 +1,7 @@
 import type { DateWindow } from "@/durable-objects/types.ts";
 
 import { STATS_LIVE_ID } from "./constants.ts";
+import { getCachedInfringementCount } from "./infringement-count.ts";
 import { hasWatermark } from "./sync.ts";
 
 export const countIngestWatermarksInRange = (
@@ -100,11 +101,7 @@ export const readTotalRecordsForProgress = (sql: SqlStorage): number => {
     return statsRow.all_time_total;
   }
 
-  const countRow = sql
-    .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
-    .one();
-
-  return countRow?.total ?? 0;
+  return getCachedInfringementCount(sql) ?? 0;
 };
 
 export const isWindowIngested = (

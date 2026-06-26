@@ -171,35 +171,56 @@ const formatErrorReason = (error: unknown, timeoutMs: number): string => {
 /** Fail fast when the worker port is wrong or unreachable. */
 export const assertWorkerReachable = async (
   workerUrl: string,
-  options?: { timeoutMs?: number }
+  options?: { path?: string; timeoutMs?: number }
 ): Promise<void> => {
-  const url = `${workerUrl.replace(/\/$/u, "")}/api/v1/health`;
+  const baseUrl = workerUrl.replace(/\/$/u, "");
+  const paths = [
+    options?.path ?? "/api/v1/health/live",
+    "/api/v1/health",
+  ].filter((healthPath, index, all) => all.indexOf(healthPath) === index);
 
-  try {
-    const response = await fetchWithTimeout(url, {
-      timeoutMs: options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
-    });
+  let lastError: Error | undefined;
 
-    if (!response.ok) {
+  for (const healthPath of paths) {
+    const url = `${baseUrl}${healthPath}`;
+
+    try {
+      const response = await fetchWithTimeout(url, {
+        timeoutMs: options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
+      });
+
+      if (response.ok) {
+        return;
+      }
+
+      if (response.status === 404 && healthPath !== paths.at(-1)) {
+        continue;
+      }
+
       throw new Error(`GET ${url} returned HTTP ${response.status}`);
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error
+          : new Error(String(error), { cause: error });
     }
-  } catch (error) {
-    const reason = formatErrorReason(
-      error,
-      options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
-    );
-
-    throw new Error(
-      [
-        `Worker not reachable at ${workerUrl} (${reason}).`,
-        "Check the port shown in your wrangler dev terminal, e.g.:",
-        "  bun run backfill -- --port=8787",
-        "Or set WORKER_URL in `.dev.vars` to match (use 127.0.0.1, not localhost).",
-        "If you use Socket Firewall, keep it running but scripts clear HTTP_PROXY for local calls.",
-      ].join("\n"),
-      { cause: error }
-    );
   }
+
+  const reason = formatErrorReason(
+    lastError,
+    options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
+  );
+
+  throw new Error(
+    [
+      `Worker not reachable at ${workerUrl} (${reason}).`,
+      "Check the port shown in your wrangler dev terminal, e.g.:",
+      "  bun run backfill -- --port=8787",
+      "Or set WORKER_URL in `.dev.vars` to match (use 127.0.0.1, not localhost).",
+      "If you use Socket Firewall, keep it running but scripts clear HTTP_PROXY for local calls.",
+    ].join("\n"),
+    { cause: lastError }
+  );
 };
 
 const extractErrorMessage = (rawBody: unknown): string | undefined => {

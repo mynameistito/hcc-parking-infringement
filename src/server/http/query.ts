@@ -13,6 +13,10 @@ export const parsePositiveInt = (
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+export const parseExportTotalMode = (
+  value: string | undefined
+): "cached" | "scan" => (value === "scan" ? "scan" : "cached");
+
 export const parseNonNegativeInt = (
   value: string | undefined,
   fallback: number

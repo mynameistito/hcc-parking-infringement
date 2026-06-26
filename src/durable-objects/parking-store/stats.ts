@@ -6,6 +6,7 @@ import {
 } from "@/lib/auckland-time.ts";
 
 import { STATS_LIVE_ID } from "./constants.ts";
+import { getCachedInfringementCount } from "./infringement-count.ts";
 import { aggregatePeriod } from "./stats-aggregates.ts";
 import { getSyncMeta } from "./sync.ts";
 
@@ -60,26 +61,35 @@ export const getLiveStats = (sql: SqlStorage): LiveStats => {
 };
 
 export const getCacheStatus = (sql: SqlStorage): CacheStatus => {
-  const totalRow = sql
-    .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
+  const statsRow = sql
+    .exec<{ all_time_total: number }>(
+      "SELECT all_time_total FROM stats_live WHERE id = ? LIMIT 1",
+      STATS_LIVE_ID
+    )
     .one();
 
   const watermarkRow = sql
     .exec<{ count: number }>("SELECT count(*) as count FROM ingest_watermarks")
     .one();
 
-  const statsRow = sql
+  const statsSyncedRow = sql
     .exec<{ last_synced_at: string | null }>(
       "SELECT last_synced_at FROM stats_live WHERE id = ? LIMIT 1",
       STATS_LIVE_ID
     )
     .one();
 
+  const cachedTotal = getCachedInfringementCount(sql);
+  const totalRecords =
+    statsRow !== undefined && statsRow.all_time_total > 0
+      ? statsRow.all_time_total
+      : (cachedTotal ?? 0);
+
   return {
     ingestWindows: watermarkRow?.count ?? 0,
     lastHccFetchAt: getSyncMeta(sql, "last_hcc_fetch_at"),
-    lastSyncedAt: statsRow?.last_synced_at ?? null,
+    lastSyncedAt: statsSyncedRow?.last_synced_at ?? null,
     source: "parking-store",
-    totalRecords: totalRow?.total ?? 0,
+    totalRecords,
   };
 };

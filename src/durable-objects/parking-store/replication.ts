@@ -1,7 +1,12 @@
 import type { CleanInfringement } from "@/server/clean-schema.ts";
 
-import { countInfringements } from "./infringements.ts";
+import {
+  bumpCachedInfringementCount,
+  resolveInfringementCount,
+} from "./infringement-count.ts";
 import { upsertInfringements } from "./sync.ts";
+
+export type ExportTotalMode = "cached" | "scan";
 
 export interface ExportInfringementsResult {
   nextCursor: number | null;
@@ -56,7 +61,8 @@ const mapStoredRow = (row: StoredInfringementRow): CleanInfringement => ({
 export const exportInfringements = (
   sql: SqlStorage,
   after: number,
-  limit: number
+  limit: number,
+  totalMode: ExportTotalMode = "cached"
 ): ExportInfringementsResult => {
   const rows = sql
     .exec<StoredInfringementRow>(
@@ -84,14 +90,18 @@ export const exportInfringements = (
         ? null
         : last.infringement_number,
     records: rows.map(mapStoredRow),
-    total: countInfringements(sql),
+    total: resolveInfringementCount(sql, totalMode),
   };
 };
 
 export const importStoredInfringements = (
   sql: SqlStorage,
   records: CleanInfringement[]
-): number => upsertInfringements(sql, records);
+): number => {
+  const upserted = upsertInfringements(sql, records);
+  bumpCachedInfringementCount(sql, upserted);
+  return upserted;
+};
 
 export interface IngestWatermarkExport {
   end: string;

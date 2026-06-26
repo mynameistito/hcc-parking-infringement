@@ -14,6 +14,7 @@ import {
   parseBackfillDateRange,
   parseBackfillDelivery,
   parseDateParam,
+  parseExportTotalMode,
   parseForceFlag,
   parseNonNegativeInt,
   parsePositiveInt,
@@ -203,9 +204,15 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     const after = parseNonNegativeInt(c.req.query("after"), 0);
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 2000), 5000);
+    const totalMode = parseExportTotalMode(c.req.query("total"));
 
     try {
-      const result = await exportStoredInfringements(c.env, after, limit);
+      const result = await exportStoredInfringements(
+        c.env,
+        after,
+        limit,
+        totalMode
+      );
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

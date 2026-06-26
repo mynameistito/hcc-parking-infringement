@@ -3,6 +3,7 @@ import { DurableObject } from "cloudflare:workers";
 import { LiveCoordinator } from "@/durable-objects/parking-store/live-coordinator.ts";
 import type {
   ExportInfringementsResult,
+  ExportTotalMode,
   ExportWatermarksResult,
   IngestWatermarkExport,
 } from "@/durable-objects/parking-store/replication.ts";
@@ -236,8 +237,12 @@ export class ParkingStore extends DurableObject<Env> {
     return this.api.getLatestIngestWatermarkInRange(start, end, chunkDays);
   }
 
-  exportInfringements(after: number, limit: number): ExportInfringementsResult {
-    return this.api.exportInfringements(after, limit);
+  exportInfringements(
+    after: number,
+    limit: number,
+    totalMode: ExportTotalMode = "cached"
+  ): ExportInfringementsResult {
+    return this.api.exportInfringements(after, limit, totalMode);
   }
 
   importStoredInfringements(records: CleanInfringement[]): number {
