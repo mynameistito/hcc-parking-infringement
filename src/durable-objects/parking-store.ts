@@ -1,21 +1,19 @@
 import { DurableObject } from "cloudflare:workers";
-import { subDays } from "date-fns";
 
 import {
   browseStreets as queryBrowseStreets,
   browseSuburbs as queryBrowseSuburbs,
   browseVehicles as queryBrowseVehicles,
 } from "@/durable-objects/parking-store/browse-queries.ts";
+import { isoNow } from "@/durable-objects/parking-store/constants.ts";
 import {
-  DASHBOARD_SNAPSHOT_CACHE_ID,
-  isoNow,
-  STATS_LIVE_ID,
-} from "@/durable-objects/parking-store/constants.ts";
-import {
+  assembleFullDashboardSnapshot,
   buildColdDashboardSnapshotPayload,
   buildFullDashboardSnapshotPayload,
   getDashboardSnapshotPayloadWeight,
+  readStoredDashboardSnapshotPayload,
   snapshotIsComplete,
+  writeDashboardSnapshotCache,
 } from "@/durable-objects/parking-store/dashboard-snapshot.ts";
 import {
   countInfringements as countStoredInfringements,
@@ -34,16 +32,12 @@ import {
   getTopStats as queryTopStats,
   getTopSuburbs as queryTopSuburbs,
   getTopVehicles as queryTopVehicles,
-  readTopGrouped,
-  readTopStreetsRanked,
-  readTopSuburbsRanked,
-  readTopVehicles,
 } from "@/durable-objects/parking-store/rankings.ts";
 import { runParkingStoreMigrations } from "@/durable-objects/parking-store/schema.ts";
 import {
-  aggregatePeriod,
   getCacheStatus as readCacheStatus,
-  mapPublicLiveStatsRow,
+  getLiveStats as readLiveStats,
+  readPublicLiveStats,
   recomputeStatsLive,
 } from "@/durable-objects/parking-store/stats.ts";
 import {
@@ -76,7 +70,6 @@ import type {
   LocationCacheInput,
   LocationMapPoint,
   LocationRankItem,
-  PublicDashboardSnapshot,
   PublicLiveStats,
   PublicTopItem,
   SyncRunRow,
@@ -87,13 +80,6 @@ import type {
   TopWindow,
   VehicleRankItem,
 } from "@/durable-objects/types.ts";
-import {
-  formatDateInAuckland,
-  monthBoundsInAuckland,
-  todayBounds,
-  yearBoundsInAuckland,
-} from "@/lib/auckland-time.ts";
-import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 
 export type {
   BackfillProgress,
@@ -267,69 +253,11 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   getPublicLiveStats(): PublicLiveStats {
-    return this.readPublicLiveStatsSync();
-  }
-
-  private readPublicLiveStatsSync(): PublicLiveStats {
-    const rows = this.sql
-      .exec<{
-        all_time_total: number;
-        all_time_amount_cents: number;
-        today: number;
-        last_24h: number;
-        last_7d: number;
-        last_30d: number;
-        last_365d: number;
-        this_month: number;
-        towed_today: number;
-        last_synced_at: string | null;
-        last_record_at: string | null;
-      }>("SELECT * FROM stats_live WHERE id = ? LIMIT 1", STATS_LIVE_ID)
-      .toArray();
-
-    return mapPublicLiveStatsRow(rows[0]);
+    return readPublicLiveStats(this.sql);
   }
 
   getLiveStats(): LiveStats {
-    const cached = this.sql
-      .exec<{ last_synced_at: string | null }>(
-        "SELECT last_synced_at FROM stats_live WHERE id = ? LIMIT 1",
-        STATS_LIVE_ID
-      )
-      .one();
-
-    const now = new Date();
-    const today = aggregatePeriod(
-      this.sql,
-      todayBounds(now).start,
-      todayBounds(now).end
-    );
-    const thisMonth = aggregatePeriod(
-      this.sql,
-      monthBoundsInAuckland(now).start,
-      monthBoundsInAuckland(now).end
-    );
-    const thisYear = aggregatePeriod(
-      this.sql,
-      yearBoundsInAuckland(now).start,
-      yearBoundsInAuckland(now).end
-    );
-    const allTime = this.sql
-      .exec<{ count: number; total_cents: number }>(
-        "SELECT count(*) as count, coalesce(sum(amount_cents), 0) as total_cents FROM infringements"
-      )
-      .one();
-
-    return {
-      allTime: {
-        count: allTime?.count ?? 0,
-        totalCents: allTime?.total_cents ?? 0,
-      },
-      thisMonth,
-      thisYear,
-      today,
-      updatedAt: cached?.last_synced_at ?? null,
-    };
+    return readLiveStats(this.sql);
   }
 
   getDailyStats(from: string, to: string): DailyStatRow[] {
@@ -486,35 +414,15 @@ export class ParkingStore extends DurableObject<Env> {
 
   private refreshDashboardSnapshotCache(): void {
     this.dashboardSnapshotPayload = buildFullDashboardSnapshotPayload(
-      this.buildFullDashboardSnapshotSync()
+      assembleFullDashboardSnapshot(this.sql)
     );
-    this.sql.exec(
-      `INSERT INTO dashboard_snapshot_cache (id, payload, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         payload = excluded.payload,
-         updated_at = excluded.updated_at`,
-      DASHBOARD_SNAPSHOT_CACHE_ID,
-      this.dashboardSnapshotPayload,
-      isoNow()
-    );
-  }
-
-  private readStoredDashboardSnapshotPayload(): string | null {
-    const rows = this.sql
-      .exec<{ payload: string }>(
-        "SELECT payload FROM dashboard_snapshot_cache WHERE id = ? LIMIT 1",
-        DASHBOARD_SNAPSHOT_CACHE_ID
-      )
-      .toArray();
-
-    return rows[0]?.payload ?? null;
+    writeDashboardSnapshotCache(this.sql, this.dashboardSnapshotPayload);
   }
 
   private getDashboardSnapshotPayload(): string {
     const payload =
       this.dashboardSnapshotPayload ??
-      this.readStoredDashboardSnapshotPayload();
+      readStoredDashboardSnapshotPayload(this.sql);
 
     if (
       payload !== null &&
@@ -529,7 +437,7 @@ export class ParkingStore extends DurableObject<Env> {
     return (
       this.dashboardSnapshotPayload ??
       buildColdDashboardSnapshotPayload(
-        this.readPublicLiveStatsSync(),
+        readPublicLiveStats(this.sql),
         readPaceTrends(this.sql),
         isoNow()
       )
@@ -563,32 +471,6 @@ export class ParkingStore extends DurableObject<Env> {
     } catch {
       // socket already closed
     }
-  }
-
-  private readDailyTrendSync(days = PACE_DAILY_TREND_DAYS): DailyStatRow[] {
-    const now = new Date();
-    const from = formatDateInAuckland(subDays(now, days - 1));
-    const to = formatDateInAuckland(now);
-    return queryDailyStats(this.sql, from, to);
-  }
-
-  private buildFullDashboardSnapshotSync(): PublicDashboardSnapshot {
-    return {
-      at: isoNow(),
-      dailyTrend: this.readDailyTrendSync(PACE_DAILY_TREND_DAYS),
-      live: this.readPublicLiveStatsSync(),
-      map: readMapPoints(this.sql, 50),
-      paceTrends: readPaceTrends(this.sql),
-      recentInfringements: queryInfringements(this.sql, {
-        limit: 15,
-        page: 1,
-      }).data,
-      streets: readTopStreetsRanked(this.sql, 10),
-      suburbs: readTopSuburbsRanked(this.sql, 10),
-      topOffences: readTopGrouped(this.sql, "offence", 5),
-      topStreets: readTopGrouped(this.sql, "street", 5),
-      vehicles: readTopVehicles(this.sql, 10),
-    };
   }
 
   private recomputeStats(): void {

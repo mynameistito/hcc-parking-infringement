@@ -1,10 +1,15 @@
 import { subDays } from "date-fns";
 
-import type { CacheStatus, PublicLiveStats } from "@/durable-objects/types.ts";
+import type {
+  CacheStatus,
+  LiveStats,
+  PublicLiveStats,
+} from "@/durable-objects/types.ts";
 import {
   dateBounds,
   formatDateInAuckland,
   monthBoundsInAuckland,
+  todayBounds,
   yearBoundsInAuckland,
 } from "@/lib/auckland-time.ts";
 
@@ -50,7 +55,7 @@ export const aggregatePeriod = (
   return { count: row.count, totalCents: row.amountCents };
 };
 
-interface StatsLiveRow {
+interface StatsLiveRow extends Record<string, SqlStorageValue> {
   all_time_total: number;
   all_time_amount_cents: number;
   today: number;
@@ -208,6 +213,59 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
       row.towed_count
     );
   }
+};
+
+export const readPublicLiveStats = (sql: SqlStorage): PublicLiveStats => {
+  const rows = sql
+    .exec<StatsLiveRow>(
+      "SELECT * FROM stats_live WHERE id = ? LIMIT 1",
+      STATS_LIVE_ID
+    )
+    .toArray();
+
+  return mapPublicLiveStatsRow(rows[0]);
+};
+
+export const getLiveStats = (sql: SqlStorage): LiveStats => {
+  const cached = sql
+    .exec<{ last_synced_at: string | null }>(
+      "SELECT last_synced_at FROM stats_live WHERE id = ? LIMIT 1",
+      STATS_LIVE_ID
+    )
+    .one();
+
+  const now = new Date();
+  const today = aggregatePeriod(
+    sql,
+    todayBounds(now).start,
+    todayBounds(now).end
+  );
+  const thisMonth = aggregatePeriod(
+    sql,
+    monthBoundsInAuckland(now).start,
+    monthBoundsInAuckland(now).end
+  );
+  const thisYear = aggregatePeriod(
+    sql,
+    yearBoundsInAuckland(now).start,
+    yearBoundsInAuckland(now).end
+  );
+  const allTime = sql
+    .exec<{ count: number; total_cents: number }>(
+      "SELECT count(*) as count, coalesce(sum(amount_cents), 0) as total_cents FROM infringements"
+    )
+    .one();
+
+  return {
+    allTime: {
+      count: allTime?.count ?? 0,
+      totalCents: allTime?.total_cents ?? 0,
+    },
+    thisMonth,
+    thisYear,
+    today,
+    updatedAt: cached?.last_synced_at ?? null,
+  };
 };
 
 export const getCacheStatus = (sql: SqlStorage): CacheStatus => {

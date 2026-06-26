@@ -1,8 +1,24 @@
+import { subDays } from "date-fns";
+
 import type {
   PublicDashboardSnapshot,
   PublicLiveStats,
   PublicPaceTrends,
 } from "@/durable-objects/types.ts";
+import { formatDateInAuckland } from "@/lib/auckland-time.ts";
+import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
+
+import { DASHBOARD_SNAPSHOT_CACHE_ID, isoNow } from "./constants.ts";
+import { getDailyStats, listInfringements } from "./infringements.ts";
+import { readMapPoints } from "./locations.ts";
+import { readPaceTrends } from "./pace-trends.ts";
+import {
+  readTopGrouped,
+  readTopStreetsRanked,
+  readTopSuburbsRanked,
+  readTopVehicles,
+} from "./rankings.ts";
+import { readPublicLiveStats } from "./stats.ts";
 
 export const getDashboardSnapshotPayloadWeight = (payload: string): number => {
   try {
@@ -83,3 +99,54 @@ export const buildColdDashboardSnapshotPayload = (
 export const buildFullDashboardSnapshotPayload = (
   snapshot: PublicDashboardSnapshot
 ): string => JSON.stringify({ type: "full", ...snapshot });
+
+export const readStoredDashboardSnapshotPayload = (
+  sql: SqlStorage
+): string | null => {
+  const rows = sql
+    .exec<{ payload: string }>(
+      "SELECT payload FROM dashboard_snapshot_cache WHERE id = ? LIMIT 1",
+      DASHBOARD_SNAPSHOT_CACHE_ID
+    )
+    .toArray();
+
+  return rows[0]?.payload ?? null;
+};
+
+export const writeDashboardSnapshotCache = (
+  sql: SqlStorage,
+  payload: string
+): void => {
+  sql.exec(
+    `INSERT INTO dashboard_snapshot_cache (id, payload, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       payload = excluded.payload,
+       updated_at = excluded.updated_at`,
+    DASHBOARD_SNAPSHOT_CACHE_ID,
+    payload,
+    isoNow()
+  );
+};
+
+export const assembleFullDashboardSnapshot = (
+  sql: SqlStorage
+): PublicDashboardSnapshot => {
+  const now = new Date();
+  const from = formatDateInAuckland(subDays(now, PACE_DAILY_TREND_DAYS - 1));
+  const to = formatDateInAuckland(now);
+
+  return {
+    at: isoNow(),
+    dailyTrend: getDailyStats(sql, from, to),
+    live: readPublicLiveStats(sql),
+    map: readMapPoints(sql, 50),
+    paceTrends: readPaceTrends(sql),
+    recentInfringements: listInfringements(sql, { limit: 15, page: 1 }).data,
+    streets: readTopStreetsRanked(sql, 10),
+    suburbs: readTopSuburbsRanked(sql, 10),
+    topOffences: readTopGrouped(sql, "offence", 5),
+    topStreets: readTopGrouped(sql, "street", 5),
+    vehicles: readTopVehicles(sql, 10),
+  };
+};
