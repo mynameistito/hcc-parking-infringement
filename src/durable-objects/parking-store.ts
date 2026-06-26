@@ -664,7 +664,13 @@ export class ParkingStore extends DurableObject<Env> {
 
     try {
       const recordsUpserted = this.upsertInfringements(payload.records);
-      this.recomputeStats();
+
+      if (payload.runType === "backfill") {
+        this.markBackfillStatsDirty();
+      } else {
+        this.recomputeStats();
+        this.broadcastLiveUpdate();
+      }
 
       this.finishSyncRun(runId, "success", {
         fetched: payload.recordsFetched,
@@ -673,7 +679,6 @@ export class ParkingStore extends DurableObject<Env> {
 
       this.recordWatermark(payload.start, payload.end, payload.recordsFetched);
       this.setSyncMeta("last_hcc_fetch_at", isoNow());
-      this.broadcastLiveUpdate();
 
       return {
         recordsFetched: payload.recordsFetched,
@@ -1478,6 +1483,38 @@ export class ParkingStore extends DurableObject<Env> {
     };
   }
 
+  getBackfillProgressSnapshot(
+    start: string,
+    end: string,
+    chunkDays: number
+  ): {
+    completed: number;
+    latestIngestedAt: string | null;
+    latestWindow: { end: string; start: string } | null;
+    totalRecords: number;
+  } {
+    const completed = this.countIngestWatermarksInRange(start, end, chunkDays);
+    const latest = this.getLatestIngestWatermarkInRange(start, end, chunkDays);
+
+    return {
+      completed,
+      latestIngestedAt: latest?.ingestedAt ?? null,
+      latestWindow: latest ? { end: latest.end, start: latest.start } : null,
+      totalRecords: this.readTotalRecordsForProgress(),
+    };
+  }
+
+  flushBackfillDerivedState(): { flushed: boolean } {
+    if (!this.isBackfillStatsDirty()) {
+      return { flushed: false };
+    }
+
+    this.recomputeStats();
+    this.broadcastLiveUpdate();
+    this.clearBackfillStatsDirty();
+    return { flushed: true };
+  }
+
   countIngestWatermarksInRange(
     start: string,
     end: string,
@@ -2184,6 +2221,41 @@ export class ParkingStore extends DurableObject<Env> {
       key,
       value
     );
+  }
+
+  private clearSyncMeta(key: string): void {
+    this.ctx.storage.sql.exec("DELETE FROM sync_meta WHERE key = ?", key);
+  }
+
+  private markBackfillStatsDirty(): void {
+    this.setSyncMeta("backfill_stats_dirty", "1");
+  }
+
+  private isBackfillStatsDirty(): boolean {
+    return this.getSyncMeta("backfill_stats_dirty") === "1";
+  }
+
+  private clearBackfillStatsDirty(): void {
+    this.clearSyncMeta("backfill_stats_dirty");
+  }
+
+  private readTotalRecordsForProgress(): number {
+    const statsRow = this.ctx.storage.sql
+      .exec<{ all_time_total: number }>(
+        "SELECT all_time_total FROM stats_live WHERE id = ? LIMIT 1",
+        STATS_LIVE_ID
+      )
+      .one();
+
+    if (statsRow !== undefined && statsRow.all_time_total > 0) {
+      return statsRow.all_time_total;
+    }
+
+    const countRow = this.ctx.storage.sql
+      .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
+      .one();
+
+    return countRow?.total ?? 0;
   }
 
   private getSyncMeta(key: string): string | null {

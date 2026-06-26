@@ -1,14 +1,12 @@
-/** Run async work over items with a fixed concurrency limit (no await-in-loop). */
-export const mapWithConcurrency = async <T, R>(
+const runWithConcurrency = async <T>(
   items: readonly T[],
   concurrency: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<R[]> => {
+  fn: (item: T, index: number) => Promise<void>
+): Promise<void> => {
   if (items.length === 0) {
-    return [];
+    return;
   }
 
-  const results = Array.from<R | undefined>({ length: items.length });
   const limit = Math.min(Math.max(1, concurrency), items.length);
 
   const runAt = async (index: number): Promise<void> => {
@@ -21,7 +19,7 @@ export const mapWithConcurrency = async <T, R>(
       return;
     }
 
-    results[index] = await fn(item, index);
+    await fn(item, index);
     await runAt(index + limit);
   };
 
@@ -30,11 +28,32 @@ export const mapWithConcurrency = async <T, R>(
       await runAt(startIndex);
     })
   );
+};
 
-  return results.map((value, index) => {
-    if (value === undefined) {
-      throw new Error(`mapWithConcurrency missing result at index ${index}`);
-    }
-    return value;
+/** Run async side-effect work over items with a fixed concurrency limit. */
+export const forEachWithConcurrency = async <T>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<void>
+): Promise<void> => {
+  await runWithConcurrency(items, concurrency, fn);
+};
+
+/** Run async work over items with a fixed concurrency limit (no await-in-loop). */
+export const mapWithConcurrency = async <T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> => {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const results = Array.from<R>({ length: items.length });
+
+  await runWithConcurrency(items, concurrency, async (item, index) => {
+    results[index] = await fn(item, index);
   });
+
+  return results;
 };

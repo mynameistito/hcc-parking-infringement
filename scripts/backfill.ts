@@ -312,20 +312,20 @@ const trackBackfill = async (
   if (enqueued === 0) {
     if (initialProgress.kind === "progress") {
       console.log(
-        `\nNothing queued — ${initialProgress.progress.completed}/${initialProgress.progress.total} windows already ingested.`
+        `\n[backfill] nothing queued — ${initialProgress.progress.completed}/${initialProgress.progress.total} windows already ingested.`
       );
       return;
     }
 
     console.log(
-      `\nNothing queued — worker skipped existing windows (progress API unavailable on this port).`,
+      `\n[backfill] nothing queued — existing windows skipped (progress API unavailable on this port).`,
       `Expected ~${formatNumber(expectedTotal)} ${granularity} windows for ${start} → ${end}.`
     );
     return;
   }
 
   if (initialProgress.kind === "progress") {
-    console.log("\nBackfill tracker (Ctrl+C to stop watching):\n");
+    console.log("\n[backfill] progress (Ctrl+C to stop):\n");
 
     const pollProgress = async (
       lastCompleted: number,
@@ -347,13 +347,13 @@ const trackBackfill = async (
       process.stdout.write(`\r\u001B[K${renderProgressLine(progress)}`);
 
       if (progress.completed >= progress.total) {
-        process.stdout.write("\n\nBackfill complete.\n");
+        process.stdout.write("\n\n[backfill] complete.\n");
         return;
       }
 
       if (nextIdlePolls >= 30) {
         process.stdout.write(
-          "\n\nTracker paused — no new windows in 60s. Queue may still be running; re-run to resume watching.\n"
+          "\n\n[backfill] tracker paused — no progress in 60s (queue may still be running).\n"
         );
         return;
       }
@@ -366,9 +366,7 @@ const trackBackfill = async (
     return;
   }
 
-  console.log(
-    "\nBackfill tracker (basic — progress API unavailable, polling /api/v1/status):\n"
-  );
+  console.log("\n[backfill] progress (basic — polling /api/v1/status):\n");
 
   const baseline = await fetchHealth();
   const baselineRecords = baseline.cache?.totalRecords ?? 0;
@@ -393,7 +391,7 @@ const trackBackfill = async (
 
     if (nextIdlePolls >= 30) {
       process.stdout.write(
-        "\n\nTracker paused — no new records in 60s. Queue may still be running.\n"
+        "\n\n[backfill] tracker paused — no new records in 60s (queue may still be running).\n"
       );
       return;
     }
@@ -515,18 +513,23 @@ const queueBackfillWaves = async (options: {
     const nextBodies = [...bodies, body ?? {}];
     const enqueued = body?.enqueued ?? 0;
     const nextTotalEnqueued = totalEnqueued + enqueued;
+    const skipped = body?.skipped ?? 0;
+    const remaining = body?.remaining ?? 0;
 
-    console.log("Backfill queued:", body);
+    console.log(
+      `[backfill] queued ${formatNumber(enqueued)} windows${
+        skipped > 0 ? ` · ${formatNumber(skipped)} skipped` : ""
+      }${remaining > 0 ? ` · ${formatNumber(remaining)} remaining` : ""}`
+    );
 
     const continueFrom = body?.continueFrom;
-    const remaining = body?.remaining ?? 0;
 
     if (continueFrom === undefined || continueFrom === null || remaining <= 0) {
       return { bodies: nextBodies, totalEnqueued: nextTotalEnqueued };
     }
 
     console.log(
-      `\n${formatNumber(remaining)} windows remaining — waiting for this wave to ingest before queuing more…`
+      `[backfill] waiting for wave to finish before queuing ${formatNumber(remaining)} more…`
     );
 
     const progressBefore = await fetchProgress(
@@ -567,8 +570,7 @@ const chunkDays = getArg("chunkDays");
 const from = getArg("from") ?? BACKFILL_EARLIEST;
 const to = getArg("to") ?? today();
 
-console.log(`Target worker: ${workerUrl}`);
-console.log(`Backfill range: ${from} → ${to} (${granularity})`);
+console.log(`[backfill] ${from} → ${to} (${granularity}) @ ${workerUrl}`);
 
 try {
   await assertWorkerReachable(workerUrl);
@@ -587,10 +589,9 @@ const { bodies, totalEnqueued } = await queueBackfillWaves({
 
 const body = bodies.at(-1) ?? null;
 
-console.log(`Worker: ${workerUrl}`);
 if (bodies.length > 1) {
   console.log(
-    `Queued ${formatNumber(totalEnqueued)} windows in ${bodies.length} waves.`
+    `[backfill] ${formatNumber(totalEnqueued)} windows queued in ${bodies.length} waves`
   );
 }
 

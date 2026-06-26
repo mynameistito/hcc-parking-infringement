@@ -12,25 +12,22 @@ export const getBackfillProgress = async (
   const chunkDays = options.chunkDays ?? BACKFILL_CHUNK_DAYS_DEFAULT;
   const store = getParkingStore(env);
   const total = splitDateRange(options.start, options.end, chunkDays).length;
-  const [completed, cache, latest] = await Promise.all([
-    store.countIngestWatermarksInRange(options.start, options.end, chunkDays),
-    store.getCacheStatus(),
-    store.getLatestIngestWatermarkInRange(
-      options.start,
-      options.end,
-      chunkDays
-    ),
-  ]);
+  const snapshot = await store.getBackfillProgressSnapshot(
+    options.start,
+    options.end,
+    chunkDays
+  );
 
   return {
     chunkDays,
-    completed,
+    completed: snapshot.completed,
     end: options.end,
-    latestIngestedAt: latest?.ingestedAt ?? null,
-    latestWindow: latest ? { end: latest.end, start: latest.start } : null,
-    percent: total > 0 ? Math.min(100, (completed / total) * 100) : 100,
+    latestIngestedAt: snapshot.latestIngestedAt,
+    latestWindow: snapshot.latestWindow,
+    percent:
+      total > 0 ? Math.min(100, (snapshot.completed / total) * 100) : 100,
     start: options.start,
     total,
-    totalRecords: cache.totalRecords,
+    totalRecords: snapshot.totalRecords,
   };
 };

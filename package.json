@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "dev:wrangler": "bun run scripts/wrangler-dev.ts",
+    "dev:wrangler": "bun wrangler dev",
     "deploy": "vite build && wrangler deploy -c dist/hcc_parking_infringement/wrangler.json",
     "build": "vite build",
     "typecheck": "tsgo --noEmit",
