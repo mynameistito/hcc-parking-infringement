@@ -13,6 +13,7 @@ import {
 import type { RouteFeatureProperties } from "@/components/map-routes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Map, MapControls, MapGeoJSON, useMap } from "@/components/ui/map";
+import { formatStreetSuburb } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface LocationMapProps {
@@ -184,10 +185,12 @@ export const LocationMap = ({
           ) : null}
           {!loading && selected !== null ? (
             <p className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
-              <span className="font-medium">{selected.street}</span>
-              {selected.suburb !== null && selected.suburb.length > 0
-                ? `, ${selected.suburb}`
-                : ""}
+              <span className="font-medium">
+                {formatStreetSuburb(
+                  selected.street,
+                  selected.suburb ?? undefined
+                )}
+              </span>
               <span className="ml-2 font-mono font-semibold tabular-nums">
                 {selected.count.toLocaleString("en-NZ")}
               </span>{" "}

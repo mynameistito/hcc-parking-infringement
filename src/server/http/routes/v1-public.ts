@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { toPublicInfringementList } from "@/contracts/projections.ts";
+import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants.ts";
 import { getTopVehicles } from "@/server/explore.ts";
 import { geocodeMissingLocations } from "@/server/geocode.ts";
 import { parsePositiveInt } from "@/server/http/query.ts";
@@ -49,7 +50,10 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
   });
 
   routes.get("/infringements/recent", async (c) => {
-    const limit = Math.min(parsePositiveInt(c.req.query("limit"), 15), 50);
+    const limit = Math.min(
+      parsePositiveInt(c.req.query("limit"), RECENT_INFRINGEMENTS_LIMIT),
+      RECENT_INFRINGEMENTS_LIMIT
+    );
     const result = await listInfringements(c.env, {
       limit,
       page: 1,

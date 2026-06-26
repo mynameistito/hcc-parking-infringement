@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 
-import { useDailyTrend } from "@/client/use-daily-trend";
 import { useLiveSocket } from "@/client/use-live-socket";
 import { Dashboard } from "@/components/dashboard";
 import type {
@@ -51,7 +50,7 @@ export const App = () => {
     "stats",
     "daily",
   ]);
-  const dailyTrend = useDailyTrend(dailyTrendData, ready);
+  const dailyTrend = dailyTrendData ?? [];
   const { data: paceTrendsData } = useDashboardCache<PaceTrends | undefined>([
     "public",
     "pace",

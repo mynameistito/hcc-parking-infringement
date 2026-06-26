@@ -7,7 +7,8 @@ import {
 } from "@/contracts/public-api";
 import type { InfringementRow } from "@/durable-objects/types";
 import { todayInAuckland } from "@/lib/auckland-time";
-import { formatVehicle } from "@/lib/format";
+import { formatStreetSuburb, formatVehicle } from "@/lib/format";
+import { resolveOffenceDescription } from "@/lib/offence-catalog";
 import { percentChange, toTrendResult } from "@/lib/trend";
 
 describe("liveStatsSchema", () => {
@@ -30,7 +31,103 @@ describe("liveStatsSchema", () => {
   });
 });
 
+describe("resolveOffenceDescription", () => {
+  it("expands truncated P546 labels from the council feed", () => {
+    expect(
+      resolveOffenceDescription(
+        "P546",
+        "Failed to correctly activate the"
+      )
+    ).toBe("Failed to correctly activate the parking machine");
+  });
+
+  it("expands when only the numeric HCC offence code is stored", () => {
+    expect(
+      resolveOffenceDescription(
+        "824",
+        "Failed to correctly activate the"
+      )
+    ).toBe("Failed to correctly activate the parking machine");
+  });
+
+  it("expands from truncated text without any offence code", () => {
+    expect(
+      resolveOffenceDescription(
+        undefined,
+        "Failed to correctly activate the"
+      )
+    ).toBe("Failed to correctly activate the parking machine");
+  });
+
+  it("collapses embedded newlines before resolving", () => {
+    expect(
+      resolveOffenceDescription(
+        undefined,
+        "Failed to correctly activate the\nparking machine"
+      )
+    ).toBe("Failed to correctly activate the parking machine");
+  });
+
+  it("keeps complete labels when already full", () => {
+    expect(
+      resolveOffenceDescription("P508", "Parked in a clearway")
+    ).toBe("Parked in a clearway");
+  });
+});
+
 describe("toPublicInfringement", () => {
+  it("resolves truncated offence descriptions for the public API", () => {
+    const row: InfringementRow = {
+      amountCents: 7000,
+      firstSeenAt: "2026-01-01",
+      infringementNumber: 99,
+      isTowed: false,
+      occurredAt: "2026-01-01T10:00:00+13:00",
+      offenceCategory: "Parking",
+      offenceCode: "P546",
+      offenceDescription: "Failed to correctly activate the",
+      postCode: "3204",
+      street: "Victoria St",
+      suburb: "Hamilton Central",
+      town: "Hamilton",
+      updatedAt: "2026-01-02",
+      vehicleColour: null,
+      vehicleMake: "Mazda",
+      vehicleModel: "RX7",
+      vehicleType: "Car",
+    };
+
+    expect(toPublicInfringement(row).offenceDescription).toBe(
+      "Failed to correctly activate the parking machine"
+    );
+  });
+
+  it("resolves truncated descriptions when the stored council code is numeric", () => {
+    const row: InfringementRow = {
+      amountCents: 7000,
+      firstSeenAt: "2026-01-01",
+      infringementNumber: 100,
+      isTowed: false,
+      occurredAt: "2026-01-01T10:00:00+13:00",
+      offenceCategory: "Parking",
+      offenceCode: "824",
+      offenceDescription: "Failed to correctly activate the",
+      postCode: "3204",
+      street: "Victoria St",
+      suburb: "Hamilton Central",
+      town: "Hamilton",
+      updatedAt: "2026-01-02",
+      vehicleColour: null,
+      vehicleMake: "Mazda",
+      vehicleModel: "RX7",
+      vehicleType: "Car",
+    };
+
+    expect(toPublicInfringement(row).offenceDescription).toBe(
+      "Failed to correctly activate the parking machine"
+    );
+  });
+
   it("strips internal row fields", () => {
     const row: InfringementRow = {
       amountCents: 6500,
@@ -59,6 +156,25 @@ describe("toPublicInfringement", () => {
 });
 
 describe("formatVehicle", () => {
+  it("joins make and model", () => {
+    expect(
+      formatVehicle({
+        amountCents: 0,
+        infringementNumber: 1,
+        isTowed: false,
+        occurredAt: "2026-01-01",
+        offenceDescription: "x",
+        street: "A",
+        suburb: null,
+        town: null,
+        vehicleColour: null,
+        vehicleMake: "Mazda",
+        vehicleModel: "RX7",
+        vehicleType: "Car",
+      })
+    ).toBe("Mazda RX7");
+  });
+
   it("falls back to vehicle type", () => {
     expect(
       formatVehicle({
@@ -76,6 +192,18 @@ describe("formatVehicle", () => {
         vehicleType: "Van",
       })
     ).toBe("Van");
+  });
+});
+
+describe("formatStreetSuburb", () => {
+  it("joins street and suburb", () => {
+    expect(formatStreetSuburb("Victoria St", "Hamilton Central")).toBe(
+      "Victoria St, Hamilton Central"
+    );
+  });
+
+  it("omits unknown suburbs", () => {
+    expect(formatStreetSuburb("Victoria St", "Unknown")).toBe("Victoria St");
   });
 });
 

@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LocationRankItem, VehicleRankItem } from "@/contracts/public-api";
-import { formatLocationSubtitle, numberFmt } from "@/lib/format";
+import { formatStreetSuburb, numberFmt } from "@/lib/format";
 
 const TABS = [
   "suburbs",
@@ -50,17 +50,13 @@ const getItemLabel = (item: ExploreItem): string => {
   if (isVehicleRankItem(item)) {
     return item.label;
   }
-  return item.street !== undefined && item.street.length > 0
-    ? item.street
-    : item.label;
+  if (item.street !== undefined && item.street.length > 0) {
+    return formatStreetSuburb(item.street, item.suburb);
+  }
+  return item.label;
 };
 
-const getItemSubtitle = (item: ExploreItem): string | undefined => {
-  if (isVehicleRankItem(item)) {
-    return `${item.make} / ${item.model || "Unknown model"}`;
-  }
-  return formatLocationSubtitle(item.suburb);
-};
+const getItemSubtitle = (_item: ExploreItem): string | undefined => undefined;
 
 const getItemKey = (item: ExploreItem, tab: ExploreTab): string => {
   if (isVehicleRankItem(item)) {

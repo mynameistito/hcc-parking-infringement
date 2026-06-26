@@ -1,3 +1,4 @@
+import type { PublicInfringement } from "@/contracts/public-api.ts";
 import type { TrendResult } from "@/lib/trend.ts";
 
 import type {
@@ -5,7 +6,6 @@ import type {
   PublicTopItem,
   VehicleRankItem,
 } from "./browse.ts";
-import type { InfringementRow } from "./infringements.ts";
 import type { LocationMapPoint } from "./locations.ts";
 import type { DailyStatRow, PublicLiveStats } from "./stats.ts";
 
@@ -20,7 +20,7 @@ export interface PublicDashboardSnapshot {
   live: PublicLiveStats;
   dailyTrend: DailyStatRow[];
   paceTrends: PublicPaceTrends;
-  recentInfringements: InfringementRow[];
+  recentInfringements: PublicInfringement[];
   topStreets: PublicTopItem[];
   topOffences: PublicTopItem[];
   streets: LocationRankItem[];

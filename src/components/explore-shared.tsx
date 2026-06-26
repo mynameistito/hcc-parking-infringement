@@ -19,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { BrowseSort, PublicInfringement } from "@/contracts/public-api";
 import {
   formatOccurrenceInstant,
+  formatStreetSuburb,
   formatVehicle,
   moneyFmt,
   numberFmt,
@@ -78,10 +79,10 @@ export const InfringementCards = ({
                   </p>
                 ) : null}
                 <p className="text-xs text-muted-foreground">
-                  {record.street}
-                  {record.suburb !== null && record.suburb.length > 0
-                    ? `, ${record.suburb}`
-                    : ""}
+                  {formatStreetSuburb(
+                    record.street,
+                    record.suburb ?? undefined
+                  )}
                 </p>
                 <p className="text-xs leading-relaxed">
                   {record.offenceDescription}

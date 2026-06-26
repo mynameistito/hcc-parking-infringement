@@ -12,11 +12,41 @@ import {
   formatDateInAuckland,
   startOfDayInAucklandIso,
 } from "@/lib/auckland-time.ts";
+import { formatStreetSuburb } from "@/lib/format.ts";
+import { resolveOffenceDescription } from "@/lib/offence-catalog.ts";
 
 import { browseStreets } from "./browse-queries.ts";
 
-const topGroupedColumn = (groupBy: "street" | "offence"): string =>
-  groupBy === "street" ? "street" : "offence_description";
+const STREET_SUBURB_EXPR = "coalesce(nullif(trim(suburb), ''), 'Unknown')";
+
+const toStreetLocationRankItem = (row: {
+  street: string;
+  suburb: string;
+  count: number;
+}): LocationRankItem => ({
+  count: row.count,
+  label: formatStreetSuburb(row.street, row.suburb),
+  street: row.street,
+  suburb: row.suburb === "Unknown" ? undefined : row.suburb,
+});
+
+const toStreetTopItem = (row: {
+  street: string;
+  suburb: string;
+  count: number;
+}): PublicTopItem => ({
+  count: row.count,
+  label: formatStreetSuburb(row.street, row.suburb),
+});
+
+const toOffenceTopItem = (row: {
+  code: string;
+  description: string;
+  count: number;
+}): PublicTopItem => ({
+  count: row.count,
+  label: resolveOffenceDescription(row.code, row.description),
+});
 
 export const getTopStats = (
   sql: SqlStorage,
@@ -24,43 +54,75 @@ export const getTopStats = (
   window: TopWindow,
   limit: number
 ): TopStatRow[] => {
-  const column = topGroupedColumn(groupBy);
   const startDate =
     window === "all"
       ? null
       : formatDateInAuckland(subDays(new Date(), window === "7d" ? 7 : 30));
 
-  const rows =
-    startDate === null
-      ? sql
-          .exec<{ key: string; count: number; total_cents: number }>(
-            `SELECT ${column} as key, count(*) as count, coalesce(sum(amount_cents), 0) as total_cents
-           FROM infringements
-           WHERE ${column} != ''
-           GROUP BY ${column}
-           ORDER BY count DESC
-           LIMIT ?`,
-            limit
-          )
-          .toArray()
-      : sql
-          .exec<{ key: string; count: number; total_cents: number }>(
-            `SELECT ${column} as key, count(*) as count, coalesce(sum(amount_cents), 0) as total_cents
-           FROM infringements
-           WHERE ${column} != '' AND occurred_at >= ?
-           GROUP BY ${column}
-           ORDER BY count DESC
-           LIMIT ?`,
-            startOfDayInAucklandIso(startDate),
-            limit
-          )
-          .toArray();
+  if (groupBy === "street") {
+    const rows =
+      startDate === null
+        ? sql
+            .exec<{
+              street: string;
+              suburb: string;
+              count: number;
+              total_cents: number;
+            }>(
+              `SELECT street,
+                      ${STREET_SUBURB_EXPR} as suburb,
+                      count(*) as count,
+                      coalesce(sum(amount_cents), 0) as total_cents
+               FROM infringements
+               WHERE street != '' AND street != 'Unknown'
+               GROUP BY street, ${STREET_SUBURB_EXPR}
+               ORDER BY count DESC
+               LIMIT ?`,
+              limit
+            )
+            .toArray()
+        : sql
+            .exec<{
+              street: string;
+              suburb: string;
+              count: number;
+              total_cents: number;
+            }>(
+              `SELECT street,
+                      ${STREET_SUBURB_EXPR} as suburb,
+                      count(*) as count,
+                      coalesce(sum(amount_cents), 0) as total_cents
+               FROM infringements
+               WHERE street != '' AND street != 'Unknown' AND occurred_at >= ?
+               GROUP BY street, ${STREET_SUBURB_EXPR}
+               ORDER BY count DESC
+               LIMIT ?`,
+              startOfDayInAucklandIso(startDate),
+              limit
+            )
+            .toArray();
 
-  return rows.map((row) => ({
-    count: row.count,
-    key: row.key,
-    totalCents: row.total_cents,
-  }));
+    return rows.map((row) => ({
+      count: row.count,
+      key: formatStreetSuburb(row.street, row.suburb),
+      totalCents: row.total_cents,
+    }));
+  }
+
+  if (groupBy === "offence") {
+    const rows =
+      startDate === null
+        ? readTopOffencesGrouped(sql, limit)
+        : readTopOffencesGrouped(sql, limit, startOfDayInAucklandIso(startDate));
+
+    return rows.map((row) => ({
+      count: row.count,
+      key: resolveOffenceDescription(row.code, row.description),
+      totalCents: row.total_cents,
+    }));
+  }
+
+  return [];
 };
 
 export const getTopSuburbs = (
@@ -117,21 +179,21 @@ export const getPublicTop = (
   sql: SqlStorage,
   groupBy: "street" | "offence",
   limit: number
-): PublicTopItem[] =>
-  getTopStats(sql, groupBy, "all", limit).map((row) => ({
+): PublicTopItem[] => {
+  if (groupBy === "street") {
+    return readTopStreetsGrouped(sql, limit).map(toStreetTopItem);
+  }
+
+  return getTopStats(sql, groupBy, "all", limit).map((row) => ({
     count: row.count,
     label: row.key.trim(),
   }));
+};
 
 export const getTopStreets = (
   sql: SqlStorage,
   limit: number
-): LocationRankItem[] =>
-  getTopStats(sql, "street", "all", limit).map((row) => ({
-    count: row.count,
-    label: row.key,
-    street: row.key,
-  }));
+): LocationRankItem[] => readTopStreetsGrouped(sql, limit).map(toStreetLocationRankItem);
 
 export const getStreetsInSuburb = (
   sql: SqlStorage,
@@ -145,39 +207,97 @@ export const getStreetsInSuburb = (
     suburb,
   }).items;
 
-export const readTopGrouped = (
+const readTopStreetsGrouped = (
   sql: SqlStorage,
-  groupBy: "street" | "offence",
   limit: number
-): PublicTopItem[] => {
-  const column = topGroupedColumn(groupBy);
-  const rows = sql
-    .exec<{ key: string; count: number }>(
-      `SELECT ${column} as key, count(*) as count
+): { street: string; suburb: string; count: number }[] =>
+  sql
+    .exec<{ street: string; suburb: string; count: number }>(
+      `SELECT street,
+              ${STREET_SUBURB_EXPR} as suburb,
+              count(*) as count
        FROM infringements
-       WHERE ${column} != ''
-       GROUP BY ${column}
+       WHERE street != '' AND street != 'Unknown'
+       GROUP BY street, ${STREET_SUBURB_EXPR}
        ORDER BY count DESC
        LIMIT ?`,
       limit
     )
     .toArray();
 
-  return rows.map((row) => ({
-    count: row.count,
-    label: row.key.trim(),
-  }));
+const readTopOffencesGrouped = (
+  sql: SqlStorage,
+  limit: number,
+  fromIso?: string
+): {
+  code: string;
+  description: string;
+  count: number;
+  total_cents: number;
+}[] => {
+  if (fromIso === undefined) {
+    return sql
+      .exec<{
+        code: string;
+        description: string;
+        count: number;
+        total_cents: number;
+      }>(
+        `SELECT offence_code as code,
+                min(offence_description) as description,
+                count(*) as count,
+                coalesce(sum(amount_cents), 0) as total_cents
+         FROM infringements
+         WHERE offence_code IS NOT NULL AND trim(offence_code) != ''
+         GROUP BY offence_code
+         ORDER BY count DESC
+         LIMIT ?`,
+        limit
+      )
+      .toArray();
+  }
+
+  return sql
+    .exec<{
+      code: string;
+      description: string;
+      count: number;
+      total_cents: number;
+    }>(
+      `SELECT offence_code as code,
+              min(offence_description) as description,
+              count(*) as count,
+              coalesce(sum(amount_cents), 0) as total_cents
+       FROM infringements
+       WHERE offence_code IS NOT NULL
+         AND trim(offence_code) != ''
+         AND occurred_at >= ?
+       GROUP BY offence_code
+       ORDER BY count DESC
+       LIMIT ?`,
+      fromIso,
+      limit
+    )
+    .toArray();
+};
+
+export const readTopGrouped = (
+  sql: SqlStorage,
+  groupBy: "street" | "offence",
+  limit: number
+): PublicTopItem[] => {
+  if (groupBy === "street") {
+    return readTopStreetsGrouped(sql, limit).map(toStreetTopItem);
+  }
+
+  return readTopOffencesGrouped(sql, limit).map(toOffenceTopItem);
 };
 
 export const readTopStreetsRanked = (
   sql: SqlStorage,
   limit: number
 ): LocationRankItem[] =>
-  readTopGrouped(sql, "street", limit).map((row) => ({
-    count: row.count,
-    label: row.label,
-    street: row.label,
-  }));
+  readTopStreetsGrouped(sql, limit).map(toStreetLocationRankItem);
 
 export const readTopSuburbsRanked = (
   sql: SqlStorage,

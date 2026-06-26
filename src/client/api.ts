@@ -1,5 +1,4 @@
 import {
-  dailyStatPointArraySchema,
   infringementListResponseSchema,
   liveStatsSchema,
   locationBrowseResponseSchema,
@@ -14,7 +13,6 @@ import type {
   BrowseParams,
   BrowseResponse,
   BrowseSort,
-  DailyStatPoint,
   ExploreInfringementsParams,
   FullDashboardMessage,
   InfringementListResponse,
@@ -27,13 +25,12 @@ import type {
   TopStatsResponse,
   VehicleRankItem,
 } from "@/contracts/public-api";
-import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
+import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants";
 
 export type {
   BrowseParams,
   BrowseResponse,
   BrowseSort,
-  DailyStatPoint,
   InfringementListResponse,
   LiveStats as LiveStatsResponse,
   LocationRankItem,
@@ -88,13 +85,6 @@ const hasNonEmptyString = (value: string | undefined): value is string =>
 export const fetchLiveStats = async (): Promise<LiveStats> =>
   liveStatsSchema.parse(await fetchEnvelopeData("/api/v1/stats/live"));
 
-export const fetchDailyTrend = async (
-  days = PACE_DAILY_TREND_DAYS
-): Promise<DailyStatPoint[]> =>
-  dailyStatPointArraySchema.parse(
-    await fetchEnvelopeData(`/api/v1/stats/daily?days=${days}`)
-  );
-
 export const fetchTopStats = async (
   groupBy: "street" | "offence",
   limit = 5
@@ -132,7 +122,7 @@ export const fetchTopVehicles = async (
   );
 
 export const fetchRecentInfringements = async (
-  limit = 15
+  limit = RECENT_INFRINGEMENTS_LIMIT
 ): Promise<InfringementListResponse> =>
   infringementListResponseSchema.parse(
     await fetchJson(`/api/v1/infringements/recent?limit=${limit}`)

@@ -4,6 +4,7 @@ import type {
   LocationRankItem,
   VehicleRankItem,
 } from "@/durable-objects/types.ts";
+import { formatStreetSuburb } from "@/lib/format.ts";
 
 const streetSuburbFilter = (
   suburb: string | undefined | null
@@ -139,8 +140,7 @@ export const browseStreets = (
   return {
     items: rows.map((row) => ({
       count: row.count,
-      label:
-        row.suburb === "Unknown" ? row.street : `${row.street} · ${row.suburb}`,
+      label: formatStreetSuburb(row.street, row.suburb),
       street: row.street,
       suburb: row.suburb,
     })),

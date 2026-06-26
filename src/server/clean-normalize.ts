@@ -1,4 +1,5 @@
 import { localDateTimeInAucklandIso } from "@/lib/auckland-time.ts";
+import { resolveOffenceDescription } from "@/lib/offence-catalog.ts";
 
 const STREET_SUFFIXES: Record<string, string> = {
   AVE: "Ave",
@@ -78,15 +79,20 @@ export const normalizeOffence = (
   );
 
   if (prefixMatch?.groups !== undefined) {
+    const code = prefixMatch.groups.code.toUpperCase();
+    const label = sentenceCase(prefixMatch.groups.description.trim());
     return {
-      code: prefixMatch.groups.code.toUpperCase(),
-      label: sentenceCase(prefixMatch.groups.description.trim()),
+      code,
+      label: resolveOffenceDescription(code, label),
     };
   }
 
   const code = offenceCode.trim() === "" ? "unknown" : offenceCode.trim();
   const label = trimmed === "" ? "Unknown offence" : sentenceCase(trimmed);
-  return { code, label };
+  return {
+    code,
+    label: resolveOffenceDescription(code, label),
+  };
 };
 
 export const normalizeCourtServeMethod = (raw: string): string | null => {

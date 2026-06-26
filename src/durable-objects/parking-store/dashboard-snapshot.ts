@@ -5,7 +5,9 @@ import type {
   PublicLiveStats,
   PublicPaceTrends,
 } from "@/durable-objects/types.ts";
+import { toPublicInfringementList } from "@/contracts/projections.ts";
 import { formatDateInAuckland } from "@/lib/auckland-time.ts";
+import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants.ts";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 
 import { DASHBOARD_SNAPSHOT_CACHE_ID, isoNow } from "./constants.ts";
@@ -142,7 +144,12 @@ export const assembleFullDashboardSnapshot = (
     live: readPublicLiveStats(sql),
     map: readMapPoints(sql, 50),
     paceTrends: readPaceTrends(sql),
-    recentInfringements: listInfringements(sql, { limit: 15, page: 1 }).data,
+    recentInfringements: toPublicInfringementList(
+      listInfringements(sql, {
+        limit: RECENT_INFRINGEMENTS_LIMIT,
+        page: 1,
+      }).data
+    ),
     streets: readTopStreetsRanked(sql, 10),
     suburbs: readTopSuburbsRanked(sql, 10),
     topOffences: readTopGrouped(sql, "offence", 5),
