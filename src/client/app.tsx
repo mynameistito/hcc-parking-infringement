@@ -4,9 +4,13 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { useLiveSocket } from "@/client/use-live-socket";
 import { Dashboard } from "@/components/dashboard";
 import type {
+  DashboardConnectionStatus,
+  DashboardDataStatus,
+} from "@/components/dashboard";
+import type {
   DailyStatPoint,
   InfringementListResponse,
-  LiveStats,
+  PublicLiveStats,
   LocationRankItem,
   MapResponse,
   TopStatsResponse,
@@ -14,7 +18,7 @@ import type {
 } from "@/contracts/public-api";
 import type { PaceTrends } from "@/lib/trend-window";
 
-const EMPTY_LIVE: LiveStats = {
+const EMPTY_LIVE: PublicLiveStats = {
   allTimeAmountCents: 0,
   allTimeTotal: 0,
   last24h: 0,
@@ -41,10 +45,40 @@ const useDashboardCache = <TData,>(
     staleTime: Number.POSITIVE_INFINITY,
   });
 
+const resolveConnectionStatus = (
+  connected: boolean,
+  cached: boolean
+): DashboardConnectionStatus => {
+  if (connected && !cached) {
+    return "live";
+  }
+  if (cached) {
+    return "cached";
+  }
+  return "connecting";
+};
+
+const resolveDataStatus = (
+  ready: boolean,
+  connected: boolean,
+  cached: boolean
+): DashboardDataStatus => {
+  if (!ready) {
+    return "loading";
+  }
+  if (connected && cached) {
+    return "updating";
+  }
+  return "ready";
+};
+
 export const App = () => {
   const { cached, connected, ready } = useLiveSocket();
 
-  const { data: liveData } = useDashboardCache<LiveStats>(["public", "live"]);
+  const { data: liveData } = useDashboardCache<PublicLiveStats>([
+    "public",
+    "live",
+  ]);
   const { data: dailyTrendData } = useDashboardCache<DailyStatPoint[]>([
     "public",
     "stats",
@@ -92,6 +126,9 @@ export const App = () => {
     "recent",
   ]);
 
+  const connectionStatus = resolveConnectionStatus(connected, cached);
+  const dataStatus = resolveDataStatus(ready, connected, cached);
+
   return (
     <Dashboard
       live={liveData ?? EMPTY_LIVE}
@@ -105,10 +142,8 @@ export const App = () => {
       recentInfringements={recentData?.data ?? []}
       mapRoutes={mapData?.routes ?? []}
       pendingGeocode={mapData?.pendingGeocode ?? 0}
-      isCached={cached}
-      isLive={connected && !cached}
-      isFetching={ready && connected && cached}
-      isLoading={!ready}
+      connectionStatus={connectionStatus}
+      dataStatus={dataStatus}
       error={null}
     />
   );

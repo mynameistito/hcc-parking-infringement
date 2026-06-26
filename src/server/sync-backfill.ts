@@ -18,9 +18,9 @@ import {
 } from "@/lib/backfill-constants.ts";
 import { addDays } from "@/lib/date-range.ts";
 import { mapWithConcurrency } from "@/lib/map-with-concurrency.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 import { flushBackfillDerivedStateSafely } from "@/server/backfill-flush.ts";
-import { fetchAllInWindow } from "@/server/hcc-client.ts";
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
+import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
 import {
@@ -49,7 +49,7 @@ const toBackfillWindows = (chunks: readonly DateWindow[]): BackfillWindow[] =>
   }));
 
 const sendBackfillMessages = async (
-  env: Env,
+  scope: AppScope,
   messages: BackfillMessage[]
 ): Promise<void> => {
   const batches: BackfillMessage[][] = [];
@@ -60,7 +60,9 @@ const sendBackfillMessages = async (
   await Promise.all(
     batches.map(
       async (batch) =>
-        await env.BACKFILL_QUEUE.sendBatch(batch.map((body) => ({ body })))
+        await scope.env.BACKFILL_QUEUE.sendBatch(
+          batch.map((body) => ({ body }))
+        )
     )
   );
 };
@@ -89,7 +91,7 @@ const listDailyWindows = (
 };
 
 const enqueueDailyWindows = async (
-  env: Env,
+  scope: AppScope,
   startDate: string,
   endDate: string,
   force?: boolean
@@ -102,11 +104,11 @@ const enqueueDailyWindows = async (
       windowsPerMessage: BACKFILL_QUEUE_WINDOWS_PER_MESSAGE,
     }
   );
-  await sendBackfillMessages(env, messages);
+  await sendBackfillMessages(scope, messages);
 };
 
 const processDailyWindowsDirect = async (
-  env: Env,
+  scope: AppScope,
   startDate: string,
   endDate: string,
   runWindow: (
@@ -124,7 +126,7 @@ const processDailyWindowsDirect = async (
 };
 
 export const processBackfillMessage = async (
-  env: Env,
+  scope: AppScope,
   message: BackfillWindowJob
 ): Promise<{
   error?: string;
@@ -133,11 +135,11 @@ export const processBackfillMessage = async (
   skipped?: boolean;
   result?: SyncWindowResult;
 }> => {
-  if (readsParkingStoreFromSeed(env)) {
+  if (scope.isSeedMode) {
     return { skipped: true, split: false };
   }
 
-  const store = getParkingStore(env);
+  const store = getParkingStore(scope.env);
   const delivery = message.delivery ?? "queue";
 
   const recordFailure = async (error: string): Promise<void> => {
@@ -159,11 +161,18 @@ export const processBackfillMessage = async (
       }
     }
 
-    const fetched = await fetchAllInWindow(
-      env,
+    const fetchedResult = await fetchAllInWindow(
+      scope.env,
       message.startDate,
       message.endDate
     );
+    if (!fetchedResult.ok) {
+      const errorMessage = formatHccFetchError(fetchedResult.error);
+      await recordFailure(errorMessage);
+      return { error: errorMessage, failed: true, split: false };
+    }
+
+    const fetched = fetchedResult.value;
 
     const isTruncated =
       fetched.possiblyTruncated ||
@@ -175,11 +184,11 @@ export const processBackfillMessage = async (
       if (!isSingleDay) {
         await (delivery === "direct"
           ? processDailyWindowsDirect(
-              env,
+              scope,
               message.startDate,
               message.endDate,
               async (window, windowDelivery) =>
-                await processBackfillMessage(env, {
+                await processBackfillMessage(scope, {
                   delivery: windowDelivery,
                   endDate: window.endDate,
                   force: message.force,
@@ -187,7 +196,7 @@ export const processBackfillMessage = async (
                 })
             )
           : enqueueDailyWindows(
-              env,
+              scope,
               message.startDate,
               message.endDate,
               message.force
@@ -203,7 +212,7 @@ export const processBackfillMessage = async (
     }
 
     const result = await syncWindow(
-      env,
+      scope,
       {
         end: message.endDate,
         force: message.force,
@@ -222,7 +231,7 @@ export const processBackfillMessage = async (
 };
 
 export const runBackfillWaveDirect = async (
-  env: Env,
+  scope: AppScope,
   windows: readonly BackfillWindow[],
   force?: boolean
 ): Promise<void> => {
@@ -234,7 +243,7 @@ export const runBackfillWaveDirect = async (
     windows,
     BACKFILL_QUEUE_CONCURRENCY,
     async (window) => {
-      await processBackfillMessage(env, {
+      await processBackfillMessage(scope, {
         delivery: "direct",
         endDate: window.endDate,
         force,
@@ -242,11 +251,11 @@ export const runBackfillWaveDirect = async (
       });
     }
   );
-  await flushBackfillDerivedStateSafely(env);
+  await flushBackfillDerivedStateSafely(scope.env);
 };
 
 export const startBackfill = async (
-  env: Env,
+  scope: AppScope,
   options?: StartBackfillOptions
 ): Promise<{
   chunkDays: number;
@@ -260,14 +269,14 @@ export const startBackfill = async (
   start: string;
   total: number;
 }> => {
-  assertParkingStoreWritable(env);
+  assertParkingStoreWritable(scope);
   const delivery = options?.delivery ?? "queue";
   const today = formatDateInAuckland(new Date());
   const start = options?.start ?? BACKFILL_EARLIEST;
   const end = options?.end ?? today;
   const chunkDays = options?.chunkDays ?? BACKFILL_CHUNK_DAYS_DEFAULT;
   const chunks = splitDateRange(start, end, chunkDays);
-  const store = getParkingStore(env);
+  const store = getParkingStore(scope.env);
 
   const pending =
     options?.force === true ? chunks : await store.filterPendingChunks(chunks);
@@ -277,7 +286,7 @@ export const startBackfill = async (
   let queueMessages = 0;
 
   if (delivery === "direct") {
-    await runBackfillWaveDirect(env, backfillWindows, options?.force);
+    await runBackfillWaveDirect(scope, backfillWindows, options?.force);
   } else {
     const packedMessages = packBackfillQueueMessages(backfillWindows, {
       delivery: "queue",
@@ -285,7 +294,7 @@ export const startBackfill = async (
       windowsPerMessage: BACKFILL_QUEUE_WINDOWS_PER_MESSAGE,
     });
     queueMessages = packedMessages.length;
-    await sendBackfillMessages(env, packedMessages);
+    await sendBackfillMessages(scope, packedMessages);
   }
 
   return {

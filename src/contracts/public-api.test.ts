@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { toPublicInfringement } from "@/contracts/projections";
 import {
-  liveStatsSchema,
+  publicLiveStatsSchema,
   publicInfringementSchema,
 } from "@/contracts/public-api";
 import type { InfringementRow } from "@/durable-objects/types";
@@ -11,9 +11,9 @@ import { formatStreetSuburb, formatVehicle } from "@/lib/format";
 import { resolveOffenceDescription } from "@/lib/offence-catalog";
 import { percentChange, toTrendResult } from "@/lib/trend";
 
-describe("liveStatsSchema", () => {
+describe("publicLiveStatsSchema", () => {
   it("parses public live stats", () => {
-    const parsed = liveStatsSchema.parse({
+    const parsed = publicLiveStatsSchema.parse({
       allTimeAmountCents: 100,
       allTimeTotal: 2,
       last24h: 1,

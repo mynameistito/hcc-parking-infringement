@@ -9,11 +9,11 @@ import { getHccClientEnv, loadDevVars } from "@scripts/dev-env.ts";
 import {
   createWorkerContext,
   fetchStoredInfringementCount,
-} from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/worker/client.ts";
 
 import { todayInAuckland } from "@/lib/auckland-time.ts";
 import { BACKFILL_EARLIEST } from "@/lib/backfill-constants.ts";
-import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { fetchAllInWindowOrThrow } from "@/server/hcc-client.ts";
 
 loadDevVars();
 
@@ -31,7 +31,7 @@ const decades = [
 const results = await Promise.all(
   decades.map(async ([from, to]) => {
     const [hcc, stored] = await Promise.all([
-      fetchAllInWindow(env, from, to),
+      fetchAllInWindowOrThrow(env, from, to),
       fetchStoredInfringementCount(ctx, from, to),
     ]);
     return { from, hcc, stored, to };

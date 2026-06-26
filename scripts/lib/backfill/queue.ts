@@ -5,13 +5,57 @@ import { setTimeout as sleep } from "node:timers/promises";
 import {
   fetchBackfillProgress,
   postBackfillWave,
-} from "@scripts/lib/backfill-api.ts";
-import { formatNumber } from "@scripts/lib/backfill-progress.ts";
-import type { BackfillResponse } from "@scripts/lib/backfill-schemas.ts";
-import type { WorkerScriptContext } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/backfill/api.ts";
+import { formatNumber } from "@scripts/lib/backfill/progress.ts";
+import type { BackfillResponse } from "@scripts/lib/backfill/schemas.ts";
+import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
 
 const WAVE_DRAIN_POLL_MS = 5000;
 const WAVE_DRAIN_TIMEOUT_MS = 10 * 60 * 1000;
+
+const pollWaveDrain = async (
+  ctx: WorkerScriptContext,
+  start: string,
+  end: string,
+  granularity: string,
+  chunkDays: string | undefined,
+  baselineCompleted: number,
+  targetDelta: number,
+  deadline: number
+): Promise<void> => {
+  if (Date.now() >= deadline) {
+    console.warn(
+      "\nWave pause timed out — continuing to enqueue next wave anyway."
+    );
+    return;
+  }
+
+  const result = await fetchBackfillProgress(
+    ctx,
+    start,
+    end,
+    granularity,
+    chunkDays
+  );
+  if (
+    result.kind === "progress" &&
+    result.progress.completed - baselineCompleted >= targetDelta
+  ) {
+    return;
+  }
+
+  await sleep(WAVE_DRAIN_POLL_MS);
+  await pollWaveDrain(
+    ctx,
+    start,
+    end,
+    granularity,
+    chunkDays,
+    baselineCompleted,
+    targetDelta,
+    deadline
+  );
+};
 
 const waitForWaveDrain = async (
   ctx: WorkerScriptContext,
@@ -22,28 +66,15 @@ const waitForWaveDrain = async (
   baselineCompleted: number,
   targetDelta: number
 ): Promise<void> => {
-  const deadline = Date.now() + WAVE_DRAIN_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    const result = await fetchBackfillProgress(
-      ctx,
-      start,
-      end,
-      granularity,
-      chunkDays
-    );
-    if (
-      result.kind === "progress" &&
-      result.progress.completed - baselineCompleted >= targetDelta
-    ) {
-      return;
-    }
-
-    await sleep(WAVE_DRAIN_POLL_MS);
-  }
-
-  console.warn(
-    "\nWave pause timed out — continuing to enqueue next wave anyway."
+  await pollWaveDrain(
+    ctx,
+    start,
+    end,
+    granularity,
+    chunkDays,
+    baselineCompleted,
+    targetDelta,
+    Date.now() + WAVE_DRAIN_TIMEOUT_MS
   );
 };
 

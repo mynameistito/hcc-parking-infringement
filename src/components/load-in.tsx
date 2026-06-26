@@ -1,9 +1,8 @@
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
+import { LOAD_IN_EASE } from "@/lib/motion-ease";
 import { cn } from "@/lib/utils";
-
-export const LOAD_IN_EASE = [0.22, 1, 0.36, 1] as const;
 
 interface LoadInProps {
   children: ReactNode;
@@ -30,7 +29,7 @@ export const LoadIn = ({
   }
 
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: 1 }}
       className={cn(className)}
       initial={{ opacity: 0 }}
@@ -41,6 +40,6 @@ export const LoadIn = ({
       }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 };

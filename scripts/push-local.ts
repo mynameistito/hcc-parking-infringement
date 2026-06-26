@@ -17,21 +17,21 @@ import {
   defaultLocalPushSourceUrl,
   loadDevVars,
 } from "@scripts/dev-env.ts";
-import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
-import { formatNumber } from "@scripts/lib/backfill-progress.ts";
-import {
-  clearPushCheckpoint,
-  loadPushCheckpoint,
-  savePushCheckpoint,
-} from "@scripts/lib/push-checkpoint.ts";
+import { formatNumber } from "@scripts/lib/backfill/progress.ts";
+import { readArg, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
 import {
   fetchExportInfringements,
   fetchExportWatermarks,
   postFinalizeStoredImport,
   postImportStored,
   postImportWatermarks,
-} from "@scripts/lib/replication-api.ts";
-import { requireApiKey } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/replication/api.ts";
+import {
+  clearPushCheckpoint,
+  loadPushCheckpoint,
+  savePushCheckpoint,
+} from "@scripts/lib/replication/push-checkpoint.ts";
+import { requireApiKey } from "@scripts/lib/worker/client.ts";
 
 import { parseNonNegativeInt, parsePositiveInt } from "@/server/http/query.ts";
 

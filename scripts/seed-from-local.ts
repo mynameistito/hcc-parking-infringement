@@ -11,15 +11,15 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
-import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
+import { readArg, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
 import {
   resolveImportJsonTargetUrl,
   resolveReplicationSourceUrl,
-} from "@scripts/lib/replication-target.ts";
-import { applySeedOnRemote } from "@scripts/lib/seed-apply-remote.ts";
-import { exportSeedChunksFromWorker } from "@scripts/lib/seed-export.ts";
-import { uploadSeedDirectory } from "@scripts/lib/seed-upload.ts";
-import { requireApiKey } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/replication/target.ts";
+import { applySeedOnRemote } from "@scripts/lib/seed/apply-remote.ts";
+import { exportSeedChunksFromWorker } from "@scripts/lib/seed/export.ts";
+import { uploadSeedDirectory } from "@scripts/lib/seed/upload.ts";
+import { requireApiKey } from "@scripts/lib/worker/client.ts";
 
 import { parsePositiveInt } from "@/server/http/query.ts";
 import { parseSeedManifest } from "@/server/seed-manifest.ts";

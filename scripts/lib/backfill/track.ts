@@ -5,15 +5,15 @@ import { setTimeout as sleep } from "node:timers/promises";
 import {
   fetchBackfillHealth,
   fetchBackfillProgress,
-} from "@scripts/lib/backfill-api.ts";
+} from "@scripts/lib/backfill/api.ts";
 import {
   formatNumber,
   renderFallbackLine,
   renderProgressLine,
-} from "@scripts/lib/backfill-progress.ts";
-import type { BackfillResponse } from "@scripts/lib/backfill-schemas.ts";
-import { chunkDaysFor } from "@scripts/lib/backfill-schemas.ts";
-import type { WorkerScriptContext } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/backfill/progress.ts";
+import type { BackfillResponse } from "@scripts/lib/backfill/schemas.ts";
+import { chunkDaysFor } from "@scripts/lib/backfill/schemas.ts";
+import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
 
 import { BACKFILL_EARLIEST } from "@/lib/backfill-constants.ts";
 import { splitDateRange } from "@/server/sync.ts";
@@ -115,10 +115,10 @@ export const trackBackfill = async (
   if (initialProgress.kind === "progress") {
     console.log("\n[backfill] progress (Ctrl+C to stop):\n");
 
-    let lastCompleted = -1;
-    let idlePolls = 0;
-
-    while (true) {
+    const pollProgress = async (
+      lastCompleted: number,
+      idlePolls: number
+    ): Promise<void> => {
       const result = await fetchBackfillProgress(
         ctx,
         start,
@@ -138,10 +138,10 @@ export const trackBackfill = async (
         return;
       }
 
-      idlePolls = progress.completed === lastCompleted ? idlePolls + 1 : 0;
-      lastCompleted = progress.completed;
+      const nextIdlePolls =
+        progress.completed === lastCompleted ? idlePolls + 1 : 0;
 
-      if (idlePolls >= IDLE_POLL_LIMIT) {
+      if (nextIdlePolls >= IDLE_POLL_LIMIT) {
         process.stdout.write(
           "\n\n[backfill] tracker paused — no progress in 60s (queue may still be running).\n"
         );
@@ -149,7 +149,10 @@ export const trackBackfill = async (
       }
 
       await sleep(POLL_MS);
-    }
+      await pollProgress(progress.completed, nextIdlePolls);
+    };
+
+    await pollProgress(-1, 0);
   }
 
   console.log("\n[backfill] progress (basic — polling /api/v1/status):\n");
@@ -157,10 +160,11 @@ export const trackBackfill = async (
   const baseline = await fetchBackfillHealth(ctx);
   const baselineRecords = baseline.cache?.totalRecords ?? 0;
   const baselineWindows = baseline.cache?.ingestWindows ?? 0;
-  let lastRecords = baselineRecords;
-  let idlePolls = 0;
 
-  while (true) {
+  const pollHealth = async (
+    lastRecords: number,
+    idlePolls: number
+  ): Promise<void> => {
     const health = await fetchBackfillHealth(ctx);
     const records = health.cache?.totalRecords ?? 0;
 
@@ -173,10 +177,9 @@ export const trackBackfill = async (
       })}`
     );
 
-    idlePolls = records === lastRecords ? idlePolls + 1 : 0;
-    lastRecords = records;
+    const nextIdlePolls = records === lastRecords ? idlePolls + 1 : 0;
 
-    if (idlePolls >= IDLE_POLL_LIMIT) {
+    if (nextIdlePolls >= IDLE_POLL_LIMIT) {
       process.stdout.write(
         "\n\n[backfill] tracker paused — no new records in 60s (queue may still be running).\n"
       );
@@ -184,5 +187,8 @@ export const trackBackfill = async (
     }
 
     await sleep(POLL_MS);
-  }
+    await pollHealth(records, nextIdlePolls);
+  };
+
+  await pollHealth(baselineRecords, 0);
 };

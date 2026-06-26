@@ -4,7 +4,7 @@ import {
   defaultLocalPushSourceUrl,
   isLocalWorkerUrl,
 } from "@scripts/dev-env.ts";
-import { readArg } from "@scripts/lib/args.ts";
+import { readArg } from "@scripts/lib/cli/args.ts";
 
 export const resolveReplicationSourceUrl = (
   args: readonly string[]

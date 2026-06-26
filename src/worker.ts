@@ -1,6 +1,7 @@
 import { app } from "@/app.ts";
 import type { BackfillMessage, LegacyBackfillMessage } from "@/backfill.ts";
 import { ParkingStore } from "@/durable-objects/parking-store.ts";
+import { createAppScope } from "@/server/app-scope.ts";
 import { processBackfillQueueBatch } from "@/server/backfill-queue.ts";
 import { runScheduledMaintenance } from "@/server/scheduled-tasks.ts";
 
@@ -38,10 +39,11 @@ export default {
     env: Env,
     ctx: ExecutionContext
   ): void {
+    const scope = createAppScope(env);
     ctx.waitUntil(
       (async () => {
         try {
-          await runScheduledMaintenance(env);
+          await runScheduledMaintenance(scope);
         } catch (error: unknown) {
           console.error("hourly sync failed", error);
         }

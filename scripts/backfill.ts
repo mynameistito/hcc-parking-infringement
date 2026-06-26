@@ -13,13 +13,13 @@ import {
   loadDevVars,
   resolveWorkerUrl,
 } from "@scripts/dev-env.ts";
-import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
-import { queueBackfillWaves } from "@scripts/lib/backfill-queue.ts";
+import { queueBackfillWaves } from "@scripts/lib/backfill/queue.ts";
 import {
   trackBackfill,
   warnIfWorkerLooksOutdated,
-} from "@scripts/lib/backfill-track.ts";
-import { createWorkerContext } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/backfill/track.ts";
+import { readArg, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
+import { createWorkerContext } from "@scripts/lib/worker/client.ts";
 
 import { todayInAuckland } from "@/lib/auckland-time.ts";
 import { BACKFILL_EARLIEST } from "@/lib/backfill-constants.ts";

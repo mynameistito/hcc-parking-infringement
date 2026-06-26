@@ -5,6 +5,7 @@ import type {
   ExportTotalMode,
   ExportWatermarksResult,
 } from "@/durable-objects/parking-store/replication.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 import { cleanInfringementSchema } from "@/server/clean-schema.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
@@ -32,15 +33,15 @@ const importSnapshotBatchSchema = z.object({
 });
 
 export const exportStoredInfringements = async (
-  env: Env,
+  scope: AppScope,
   after: number,
   limit: number,
   totalMode: ExportTotalMode = "cached"
 ): Promise<ExportInfringementsResult> =>
-  await getParkingStore(env).exportInfringements(after, limit, totalMode);
+  await scope.parking.exportInfringements(after, limit, totalMode);
 
 export const importStoredInfringements = async (
-  env: Env,
+  scope: AppScope,
   body: unknown
 ): Promise<{
   final: boolean;
@@ -49,9 +50,9 @@ export const importStoredInfringements = async (
   recomputed: boolean;
   totalRecords?: number;
 }> => {
-  assertParkingStoreWritable(env);
+  assertParkingStoreWritable(scope);
   const payload = importStoredBatchSchema.parse(body);
-  const store = getParkingStore(env);
+  const store = getParkingStore(scope.env);
   const recordsUpserted = await store.importStoredInfringements(
     payload.records
   );
@@ -77,14 +78,14 @@ export const importStoredInfringements = async (
 };
 
 export const importSnapshotBatch = async (
-  env: Env,
+  scope: AppScope,
   body: unknown
 ): Promise<{
   recordsReceived: number;
   recordsUpserted: number;
 }> => {
   const payload = importSnapshotBatchSchema.parse(body);
-  const result = await importStoredInfringements(env, {
+  const result = await importStoredInfringements(scope, {
     final: false,
     records: payload.infringements,
   });
@@ -96,21 +97,23 @@ export const importSnapshotBatch = async (
 };
 
 export const exportStoredWatermarks = async (
-  env: Env,
+  scope: AppScope,
   offset: number,
   limit: number
 ): Promise<ExportWatermarksResult> =>
-  await getParkingStore(env).exportWatermarks(offset, limit);
+  await scope.parking.exportWatermarks(offset, limit);
 
 export const importStoredWatermarks = async (
-  env: Env,
+  scope: AppScope,
   body: unknown
 ): Promise<{ imported: number; total: number }> => {
-  assertParkingStoreWritable(env);
+  assertParkingStoreWritable(scope);
   const payload = importWatermarksSchema.parse(body);
-  const store = getParkingStore(env);
-  const imported = await store.importWatermarks(payload.watermarks);
-  const exported = await store.exportWatermarks(0, 1);
+  const store = getParkingStore(scope.env);
+  const [imported, exported] = await Promise.all([
+    store.importWatermarks(payload.watermarks),
+    store.exportWatermarks(0, 1),
+  ]);
 
   return {
     imported,
@@ -119,9 +122,9 @@ export const importStoredWatermarks = async (
 };
 
 export const finalizeStoredImport = async (
-  env: Env
+  scope: AppScope
 ): Promise<{ recomputed: boolean }> => {
-  assertParkingStoreWritable(env);
-  await getParkingStore(env).finalizeStoredImport();
+  assertParkingStoreWritable(scope);
+  await getParkingStore(scope.env).finalizeStoredImport();
   return { recomputed: true };
 };

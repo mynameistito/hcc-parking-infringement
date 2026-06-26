@@ -9,14 +9,14 @@ import {
   backfillHealthSchema,
   backfillResponseSchema,
   progressResponseSchema,
-} from "@scripts/lib/backfill-schemas.ts";
+} from "@scripts/lib/backfill/schemas.ts";
 import type {
   BackfillHealth,
   BackfillProgress,
   BackfillResponse,
-} from "@scripts/lib/backfill-schemas.ts";
-import type { WorkerScriptContext } from "@scripts/lib/worker-client.ts";
-import { bearerHeaders } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/backfill/schemas.ts";
+import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
+import { bearerHeaders } from "@scripts/lib/worker/client.ts";
 
 /** Enqueue one backfill wave via `POST /api/v1/sync/backfill`. */
 export const postBackfillWave = async (

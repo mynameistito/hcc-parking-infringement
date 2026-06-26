@@ -1,4 +1,7 @@
-import { fullDashboardMessageSchema } from "@/contracts/public-api";
+import {
+  getDashboardSnapshotPayloadWeight,
+  parseFullDashboardMessage,
+} from "@/contracts/dashboard-snapshot";
 import type { FullDashboardMessage } from "@/contracts/public-api";
 import { nowInAucklandIso } from "@/lib/auckland-time";
 
@@ -60,16 +63,16 @@ const parseCachedSnapshot = (
     return null;
   }
 
-  try {
-    const snapshot = fullDashboardMessageSchema.parse(candidate.snapshot);
-    return {
-      savedAt: candidate.savedAt,
-      snapshot,
-      version: DASHBOARD_SNAPSHOT_CACHE_VERSION,
-    };
-  } catch {
+  const snapshot = parseFullDashboardMessage(candidate.snapshot);
+  if (snapshot === null) {
     return null;
   }
+
+  return {
+    savedAt: candidate.savedAt,
+    snapshot,
+    version: DASHBOARD_SNAPSHOT_CACHE_VERSION,
+  };
 };
 
 const readDashboardSnapshotFromIndexedDb =
@@ -146,16 +149,7 @@ const persistDashboardSnapshotToLocalStorage = (
   }
 };
 
-export const getDashboardSnapshotWeight = (
-  message: FullDashboardMessage
-): number =>
-  message.recentInfringements.length +
-  message.topStreets.length +
-  message.topOffences.length +
-  message.streets.length +
-  message.suburbs.length +
-  message.vehicles.length +
-  message.map.routes.length;
+export const getDashboardSnapshotWeight = getDashboardSnapshotPayloadWeight;
 
 export const readPersistedDashboardSnapshotSync =
   (): FullDashboardMessage | null => {

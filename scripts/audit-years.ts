@@ -9,11 +9,11 @@ import { getHccClientEnv, loadDevVars } from "@scripts/dev-env.ts";
 import {
   createWorkerContext,
   fetchStoredInfringementCount,
-} from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 import { currentYearInAuckland, todayInAuckland } from "@/lib/auckland-time.ts";
-import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { fetchAllInWindowOrThrow } from "@/server/hcc-client.ts";
 
 loadDevVars();
 
@@ -35,7 +35,7 @@ const yearResults = await Promise.all(
     const end = year === currentYearInAuckland() ? today : `${year}-12-31`;
 
     const [hcc, stored] = await Promise.all([
-      fetchAllInWindow(env, start, end),
+      fetchAllInWindowOrThrow(env, start, end),
       fetchStoredInfringementCount(ctx, start, end),
     ]);
 

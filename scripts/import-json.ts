@@ -11,16 +11,16 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
-import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
-import { formatNumber } from "@scripts/lib/backfill-progress.ts";
-import { readParkingStoreSnapshot } from "@scripts/lib/parking-store-snapshot.ts";
+import { formatNumber } from "@scripts/lib/backfill/progress.ts";
+import { readArg, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
 import {
   postFinalizeStoredImport,
   postImportSnapshot,
   postImportWatermarks,
-} from "@scripts/lib/replication-api.ts";
-import { resolveImportJsonTargetUrl } from "@scripts/lib/replication-target.ts";
-import { requireApiKey } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/replication/api.ts";
+import { readParkingStoreSnapshot } from "@scripts/lib/replication/snapshot.ts";
+import { resolveImportJsonTargetUrl } from "@scripts/lib/replication/target.ts";
+import { requireApiKey } from "@scripts/lib/worker/client.ts";
 
 import { parseNonNegativeInt, parsePositiveInt } from "@/server/http/query.ts";
 

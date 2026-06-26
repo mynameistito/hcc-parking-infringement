@@ -9,15 +9,15 @@
 import path from "node:path";
 
 import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
-import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
-import { formatNumber } from "@scripts/lib/backfill-progress.ts";
-import { createSnapshotWriter } from "@scripts/lib/parking-store-snapshot.ts";
+import { formatNumber } from "@scripts/lib/backfill/progress.ts";
+import { readArg, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
+import { createSnapshotWriter } from "@scripts/lib/replication/snapshot.ts";
+import { syncSnapshotBetweenWorkers } from "@scripts/lib/replication/sync.ts";
 import {
   resolveReplicationSourceUrl,
   resolveReplicationTargetUrl,
-} from "@scripts/lib/replication-target.ts";
-import { syncSnapshotBetweenWorkers } from "@scripts/lib/snapshot-sync.ts";
-import { requireApiKey } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/replication/target.ts";
+import { requireApiKey } from "@scripts/lib/worker/client.ts";
 
 import { parseNonNegativeInt, parsePositiveInt } from "@/server/http/query.ts";
 

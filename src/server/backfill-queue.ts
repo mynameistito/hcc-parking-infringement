@@ -3,6 +3,8 @@ import { expandBackfillMessage } from "@/backfill.ts";
 import { BACKFILL_QUEUE_CONCURRENCY } from "@/lib/backfill-constants.ts";
 import { mapWithConcurrency } from "@/lib/map-with-concurrency.ts";
 import { isRetryableError } from "@/lib/transient-error.ts";
+import type { AppScope } from "@/server/app-scope.ts";
+import { createAppScope } from "@/server/app-scope.ts";
 import { flushBackfillDerivedStateSafely } from "@/server/backfill-flush.ts";
 import { processBackfillMessage } from "@/server/sync-backfill.ts";
 
@@ -107,7 +109,7 @@ const mapProcessOutcome = (
 
 const handleBackfillQueueMessage = async (
   message: Message<BackfillMessage | LegacyBackfillMessage>,
-  env: Env
+  scope: AppScope
 ): Promise<BackfillMessageOutcome[]> => {
   const windows = expandBackfillMessage(message.body);
 
@@ -116,7 +118,7 @@ const handleBackfillQueueMessage = async (
       windows,
       BACKFILL_QUEUE_CONCURRENCY,
       async (window) => {
-        const outcome = await processBackfillMessage(env, {
+        const outcome = await processBackfillMessage(scope, {
           delivery: "queue",
           endDate: window.endDate,
           force: window.force,
@@ -224,12 +226,14 @@ export const processBackfillQueueBatch = async (
     return;
   }
 
+  const scope = createAppScope(env);
+
   const nestedOutcomes = await mapWithConcurrency(
     messages,
     BACKFILL_QUEUE_CONCURRENCY,
-    async (message) => await handleBackfillQueueMessage(message, env)
+    async (message) => await handleBackfillQueueMessage(message, scope)
   );
   const outcomes = nestedOutcomes.flat();
-  const { flushed } = await flushBackfillDerivedStateSafely(env);
+  const { flushed } = await flushBackfillDerivedStateSafely(scope.env);
   logBackfillBatchSummary(outcomes, flushed);
 };

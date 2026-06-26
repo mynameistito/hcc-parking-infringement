@@ -95,7 +95,7 @@ const MapContent = ({
           theme="dark"
           className={cn("h-[360px] w-full")}
         >
-          <MapControls showZoom showCompass />
+          <MapControls features={["zoom", "compass"]} />
           <>
             <MapFitRoutes routes={routes} />
             <MapGeoJSON<RouteFeatureProperties>

@@ -11,7 +11,7 @@ import { once } from "node:events";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { readArgValue, readFlag, scriptArgv } from "@scripts/lib/args.ts";
+import { readArgValue, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
 const clientIndex = path.join(rootDir, "dist", "client", "index.html");

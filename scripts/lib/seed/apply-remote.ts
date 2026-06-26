@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import { bearerHeaders } from "@scripts/lib/worker-client.ts";
+import { bearerHeaders } from "@scripts/lib/worker/client.ts";
 
 import { seedManifestResponseSchema } from "@/server/seed-request.ts";
 
@@ -49,7 +49,12 @@ export const applySeedOnRemote = async (options: {
     throw new Error(`Unknown start-after-chunk: ${options.startAfterChunk}`);
   }
 
-  for (const chunk of infringementChunks.slice(startIndex)) {
+  const applyChunks = async (chunks: string[]): Promise<void> => {
+    const [chunk, ...rest] = chunks;
+    if (chunk === undefined) {
+      return;
+    }
+
     const response = await fetch(`${options.toUrl}/api/v1/import/seed/chunk`, {
       body: JSON.stringify({
         chunk,
@@ -71,7 +76,11 @@ export const applySeedOnRemote = async (options: {
     if (options.pauseMs > 0) {
       await delay(options.pauseMs);
     }
-  }
+
+    await applyChunks(rest);
+  };
+
+  await applyChunks(infringementChunks.slice(startIndex));
 
   const watermarksResponse = await fetch(
     `${options.toUrl}/api/v1/import/seed/watermarks`,

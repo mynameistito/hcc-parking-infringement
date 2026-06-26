@@ -28,6 +28,12 @@ const compactFmt = new Intl.NumberFormat("en-NZ", {
   notation: "compact",
 });
 
+const currencyFmt = new Intl.NumberFormat("en-NZ", {
+  currency: "NZD",
+  maximumFractionDigits: 0,
+  style: "currency",
+});
+
 export const formatChartValue = (
   value: number,
   style: "number" | "currency"
@@ -36,11 +42,7 @@ export const formatChartValue = (
     if (value >= 1000) {
       return `$${compactFmt.format(value).toLowerCase()}`;
     }
-    return new Intl.NumberFormat("en-NZ", {
-      currency: "NZD",
-      maximumFractionDigits: 0,
-      style: "currency",
-    }).format(value);
+    return currencyFmt.format(value);
   }
 
   if (value >= 1000) {

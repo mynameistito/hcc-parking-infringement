@@ -1,8 +1,13 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import type { AppScope } from "@/server/app-scope.ts";
+
 interface AppEnv {
   Bindings: Env;
+  Variables: {
+    scope: AppScope;
+  };
 }
 
 export const STORED_HEADERS = {
@@ -18,5 +23,7 @@ export const storedJson = (
 
 export const jsonError = (status: number, message: string) =>
   Response.json({ error: message }, { status });
+
+export const scopeFromContext = (c: Context<AppEnv>): AppScope => c.var.scope;
 
 export type { AppEnv };

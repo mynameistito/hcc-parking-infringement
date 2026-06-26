@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { fullDashboardMessageSchema } from "@/contracts/public-api";
+import { parseFullDashboardMessageJson } from "@/contracts/dashboard-snapshot.ts";
 import type { FullDashboardMessage } from "@/contracts/public-api";
 import { parseAucklandInstant } from "@/lib/auckland-time";
 import { resolveOffenceDescription } from "@/lib/offence-catalog";
@@ -11,18 +11,7 @@ export type { FullDashboardMessage };
 
 export const parseDashboardMessage = (
   data: string
-): FullDashboardMessage | null => {
-  try {
-    const parsed: unknown = JSON.parse(data);
-    const message = fullDashboardMessageSchema.parse(parsed);
-    return {
-      ...message,
-      dailyTrend: message.dailyTrend ?? [],
-    };
-  } catch {
-    return null;
-  }
-};
+): FullDashboardMessage | null => parseFullDashboardMessageJson(data);
 
 export const getDashboardSnapshotTime = (
   message: FullDashboardMessage

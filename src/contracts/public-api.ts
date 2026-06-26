@@ -9,8 +9,8 @@ import type {
   VehicleRankItem,
 } from "@/contracts/store-shapes.ts";
 
-/** Public live dashboard aggregate stats. */
-export const liveStatsSchema = z.object({
+/** Public live dashboard aggregate stats (flat counts for the dashboard). */
+export const publicLiveStatsSchema = z.object({
   allTimeAmountCents: z.number(),
   allTimeTotal: z.number(),
   last24h: z.number(),
@@ -24,7 +24,13 @@ export const liveStatsSchema = z.object({
   towedToday: z.number(),
 });
 
-export type LiveStats = z.infer<typeof liveStatsSchema>;
+export type PublicLiveStats = z.infer<typeof publicLiveStatsSchema>;
+
+/** @deprecated Use `publicLiveStatsSchema`. */
+export const liveStatsSchema = publicLiveStatsSchema;
+
+/** @deprecated Use `PublicLiveStats`. */
+export type LiveStats = PublicLiveStats;
 
 /** Daily time-series point for charts and pace panels. */
 export const dailyStatPointSchema = z.object({
@@ -192,7 +198,7 @@ export type PaceTrends = z.infer<typeof paceTrendsSchema>;
 export const fullDashboardMessageSchema = z.object({
   at: z.string(),
   dailyTrend: dailyStatPointArraySchema.optional(),
-  live: liveStatsSchema,
+  live: publicLiveStatsSchema,
   map: mapResponseSchema,
   paceTrends: paceTrendsSchema.optional(),
   recentInfringements: z.array(publicInfringementSchema),
@@ -207,7 +213,7 @@ export const fullDashboardMessageSchema = z.object({
 export interface FullDashboardMessage {
   readonly at: string;
   readonly dailyTrend?: DailyStatPoint[];
-  readonly live: LiveStats;
+  readonly live: PublicLiveStats;
   readonly map: MapResponse;
   readonly paceTrends?: PaceTrends;
   readonly recentInfringements: PublicInfringement[];

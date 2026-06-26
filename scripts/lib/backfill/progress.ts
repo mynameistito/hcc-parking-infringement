@@ -3,7 +3,7 @@
 import type {
   BackfillHealth,
   BackfillProgress,
-} from "@scripts/lib/backfill-schemas.ts";
+} from "@scripts/lib/backfill/schemas.ts";
 
 const formatWindowLabel = (
   start: string | undefined,

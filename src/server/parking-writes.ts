@@ -1,4 +1,4 @@
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 
 export class ParkingStoreWriteBlockedError extends Error {
   constructor() {
@@ -9,8 +9,8 @@ export class ParkingStoreWriteBlockedError extends Error {
   }
 }
 
-export const assertParkingStoreWritable = (env: Env): void => {
-  if (readsParkingStoreFromSeed(env)) {
+export const assertParkingStoreWritable = (scope: AppScope): void => {
+  if (scope.isSeedMode) {
     throw new ParkingStoreWriteBlockedError();
   }
 };

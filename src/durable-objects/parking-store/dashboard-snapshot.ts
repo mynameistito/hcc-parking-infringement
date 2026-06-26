@@ -1,5 +1,9 @@
 import { subDays } from "date-fns";
 
+import {
+  dashboardSnapshotIsCompleteJson,
+  getDashboardSnapshotPayloadWeightJson,
+} from "@/contracts/dashboard-snapshot.ts";
 import { toPublicInfringementList } from "@/contracts/projections.ts";
 import type {
   PublicDashboardSnapshot,
@@ -22,58 +26,10 @@ import {
 } from "./rankings.ts";
 import { readPublicLiveStats } from "./stats.ts";
 
-export const getDashboardSnapshotPayloadWeight = (payload: string): number => {
-  try {
-    const parsed: unknown = JSON.parse(payload);
-    if (typeof parsed !== "object" || parsed === null) {
-      return 0;
-    }
+export const getDashboardSnapshotPayloadWeight =
+  getDashboardSnapshotPayloadWeightJson;
 
-    const snapshot = parsed as {
-      map?: { routes?: unknown[] };
-      recentInfringements?: unknown[];
-      streets?: unknown[];
-      suburbs?: unknown[];
-      topOffences?: unknown[];
-      topStreets?: unknown[];
-      vehicles?: unknown[];
-    };
-
-    return (
-      (snapshot.recentInfringements?.length ?? 0) +
-      (snapshot.topStreets?.length ?? 0) +
-      (snapshot.topOffences?.length ?? 0) +
-      (snapshot.streets?.length ?? 0) +
-      (snapshot.suburbs?.length ?? 0) +
-      (snapshot.vehicles?.length ?? 0) +
-      (snapshot.map?.routes?.length ?? 0)
-    );
-  } catch {
-    return 0;
-  }
-};
-
-export const snapshotIsComplete = (payload: string): boolean => {
-  try {
-    const parsed: unknown = JSON.parse(payload);
-    if (typeof parsed !== "object" || parsed === null) {
-      return false;
-    }
-    const dailyTrend: unknown = Reflect.get(parsed, "dailyTrend");
-    const paceTrends: unknown = Reflect.get(parsed, "paceTrends");
-    return (
-      Array.isArray(dailyTrend) &&
-      dailyTrend.length > 0 &&
-      typeof paceTrends === "object" &&
-      paceTrends !== null &&
-      Reflect.get(paceTrends, "last7d") !== undefined &&
-      Reflect.get(paceTrends, "last30d") !== undefined &&
-      Reflect.get(paceTrends, "last365d") !== undefined
-    );
-  } catch {
-    return false;
-  }
-};
+export const snapshotIsComplete = dashboardSnapshotIsCompleteJson;
 
 export const buildColdDashboardSnapshotPayload = (
   live: PublicLiveStats,

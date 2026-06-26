@@ -1,11 +1,11 @@
 import { handleWebSocketUpgrade } from "@/durable-objects/parking-store/websocket.ts";
-import { readSeedDashboardSnapshotPayload } from "@/server/seed-read.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 
 export const handleSeedDashboardWebSocket = async (
   request: Request,
-  env: Env
+  scope: AppScope
 ): Promise<Response> => {
-  const payload = await readSeedDashboardSnapshotPayload(env);
+  const payload = await scope.parking.readDashboardSnapshotPayload();
 
   return handleWebSocketUpgrade(
     request,

@@ -1,12 +1,23 @@
 # HCC Parking Infringement — domain vocabulary
 
+## Worker composition (`src/server/`)
+
+| Term / module        | Meaning                                                       |
+| -------------------- | ------------------------------------------------------------- |
+| `AppScope`           | Per-request capabilities: `env`, `parking` reader, seed cache |
+| `ParkingStoreReader` | Unified read facade (`durable_object` or `seed` adapter)      |
+| `parking-reader/`    | `DurableObjectParkingStoreReader`, `SeedParkingStoreReader`   |
+| `app-scope.ts`       | Composition seam: `createAppScope(env)`                       |
+
+Seed deploy mode (`PARKING_STORE_READ_SOURCE=seed`) serves dashboard reads from R2; browse/explore SQL is unavailable (`supportsBrowse: false`).
+
 ## Public API contracts (`src/contracts/`)
 
 Shared Zod schemas and TypeScript types for HTTP and WebSocket payloads consumed by the dashboard.
 
 | Term                   | Meaning                                                         |
 | ---------------------- | --------------------------------------------------------------- |
-| `LiveStats`            | Public aggregate counts (today, 7d, 30d, all-time, fines total) |
+| `PublicLiveStats`      | Public aggregate counts (today, 7d, 30d, all-time, fines total) |
 | `PublicInfringement`   | Infringement row without internal sync metadata                 |
 | `TopItem`              | Ranked label + count (streets or offences)                      |
 | `FullDashboardMessage` | WebSocket `type: "full"` snapshot pushed after sync             |
@@ -51,17 +62,20 @@ Worker and sync helpers: `sync-window.ts`, `sync-backfill.ts`, `backfill-queue.t
 
 ## CLI scripts (`scripts/`)
 
-| Path                                                    | Role                                     |
-| ------------------------------------------------------- | ---------------------------------------- |
-| `backfill.ts`, `sync.ts`, `geocode.ts`, `import-csv.ts` | Worker API entrypoints                   |
-| `audit-*.ts`, `check-data.ts`                           | HCC vs ParkingStore audits               |
-| `lib/args.ts`, `lib/worker-client.ts`                   | Shared argv + authenticated worker calls |
-| `lib/backfill-*.ts`                                     | Backfill queue, progress UI, API schemas |
-| `lib/csv.ts`                                            | CSV parsing for import                   |
-| `lib/geocode-api.ts`                                    | Geocode worker API calls                 |
-| `dev-env.ts`                                            | `.dev.vars`, worker URL, fetch helpers   |
+| Path                                                    | Role                                                  |
+| ------------------------------------------------------- | ----------------------------------------------------- |
+| `backfill.ts`, `sync.ts`, `geocode.ts`, `import-csv.ts` | Worker API entrypoints                                |
+| `audit-*.ts`, `check-data.ts`                           | HCC vs ParkingStore audits                            |
+| `lib/cli/args.ts`                                       | Shared argv parsing                                   |
+| `lib/worker/client.ts`                                  | Authenticated worker HTTP client                      |
+| `lib/backfill/`                                         | Backfill queue, progress UI, API schemas              |
+| `lib/replication/`                                      | ParkingStore snapshot export/import, push checkpoints |
+| `lib/seed/`                                             | Seed bundle export, upload, remote apply              |
+| `lib/csv.ts`                                            | CSV parsing for import                                |
+| `lib/geocode-api.ts`                                    | Geocode worker API calls                              |
+| `dev-env.ts`                                            | `.dev.vars`, worker URL, fetch helpers                |
 
-New scripts should use `scriptArgv()`, `readArg` / `readArgValue`, and `createWorkerContext()`. Prefer `while` loops over recursive async. Reuse `src/lib` and `src/server/http/query` parsers. Document `scripts/lib` exports and entry script usage with TSDoc (module comment + `@example` on entrypoints); keep app `src/` code free of per-function JSDoc unless non-obvious.
+New scripts should use `scriptArgv()`, `readArg` / `readArgValue`, and `createWorkerContext()`. Prefer `while` loops over recursive async. Reuse `src/lib` and `src/server/http/query` parsers.
 
 ## Time boundaries
 

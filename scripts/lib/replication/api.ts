@@ -7,8 +7,8 @@ import {
   describeFetchFailure,
   fetchWithTimeout,
 } from "@scripts/dev-env.ts";
-import type { WorkerScriptContext } from "@scripts/lib/worker-client.ts";
-import { bearerHeaders } from "@scripts/lib/worker-client.ts";
+import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
+import { bearerHeaders } from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 import {
@@ -78,9 +78,10 @@ const fetchReplicationWithRetry = async (
     rawBody: unknown
   ) => { ok: true } | { ok: false; fatal: boolean }
 ): Promise<{ rawBody: unknown; response: Response }> => {
-  let lastError: Error | undefined;
-
-  for (let attempt = 1; attempt <= REPLICATION_MAX_ATTEMPTS; attempt += 1) {
+  const attemptFetch = async (
+    attempt: number,
+    lastError?: Error
+  ): Promise<{ rawBody: unknown; response: Response }> => {
     try {
       const response = await run();
       const rawBody: unknown = await response.json().catch(() => null);
@@ -96,29 +97,29 @@ const fetchReplicationWithRetry = async (
           `[push] ${label} failed (${response.status}), retrying in ${replicationRetryDelayMs(attempt)}ms (attempt ${attempt}/${REPLICATION_MAX_ATTEMPTS})`
         );
         await delay(replicationRetryDelayMs(attempt));
-        continue;
+        return await attemptFetch(attempt + 1);
       }
 
       throw new Error(describeFetchFailure(response, rawBody, method, url));
     } catch (error) {
-      lastError =
+      const nextError =
         error instanceof Error
           ? error
           : new Error(String(error), { cause: error });
 
-      if (attempt < REPLICATION_MAX_ATTEMPTS && isRetryableError(lastError)) {
+      if (attempt < REPLICATION_MAX_ATTEMPTS && isRetryableError(nextError)) {
         console.warn(
-          `[push] ${label} error, retrying in ${replicationRetryDelayMs(attempt)}ms (attempt ${attempt}/${REPLICATION_MAX_ATTEMPTS}): ${lastError.message}`
+          `[push] ${label} error, retrying in ${replicationRetryDelayMs(attempt)}ms (attempt ${attempt}/${REPLICATION_MAX_ATTEMPTS}): ${nextError.message}`
         );
         await delay(replicationRetryDelayMs(attempt));
-        continue;
+        return await attemptFetch(attempt + 1, nextError);
       }
 
-      throw lastError ?? new Error(`${label} failed`);
+      throw nextError ?? lastError ?? new Error(`${label} failed`);
     }
-  }
+  };
 
-  throw lastError ?? new Error(`${label} failed after retries`);
+  return await attemptFetch(1);
 };
 
 export const fetchExportInfringements = async (

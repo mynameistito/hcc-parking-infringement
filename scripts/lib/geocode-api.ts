@@ -1,6 +1,6 @@
 /** Worker API client for the geocode CLI script. */
 
-import { bearerHeaders } from "@scripts/lib/worker-client.ts";
+import { bearerHeaders } from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 /** Response from `POST /api/v1/geocode/run`. */

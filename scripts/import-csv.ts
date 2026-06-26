@@ -10,9 +10,9 @@ import { readFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { loadDevVars } from "@scripts/dev-env.ts";
-import { readArg, scriptArgv } from "@scripts/lib/args.ts";
+import { readArg, scriptArgv } from "@scripts/lib/cli/args.ts";
 import { parseCsvLine, toRawInfringementRecord } from "@scripts/lib/csv.ts";
-import { createWorkerContext } from "@scripts/lib/worker-client.ts";
+import { createWorkerContext } from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 import { parseNonNegativeInt, parsePositiveInt } from "@/server/http/query.ts";

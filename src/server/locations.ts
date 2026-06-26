@@ -3,57 +3,28 @@ import type {
   LocationMapPoint,
   LocationRankItem,
 } from "@/durable-objects/types.ts";
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
-import {
-  getSeedMapPoints,
-  getSeedTopStreets,
-  getSeedTopSuburbs,
-} from "@/server/seed-read.ts";
-import { getParkingStore } from "@/server/store.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 
 export type { LocationMapPoint, LocationRankItem };
 
 export const getTopStreets = async (
-  env: Env,
+  scope: AppScope,
   limit = 10
-): Promise<LocationRankItem[]> => {
-  if (readsParkingStoreFromSeed(env)) {
-    return await getSeedTopStreets(env, limit);
-  }
-
-  return await getParkingStore(env).getTopStreets(limit);
-};
+): Promise<LocationRankItem[]> => await scope.parking.getTopStreets(limit);
 
 export const getTopSuburbs = async (
-  env: Env,
+  scope: AppScope,
   limit = 10
-): Promise<LocationRankItem[]> => {
-  if (readsParkingStoreFromSeed(env)) {
-    return await getSeedTopSuburbs(env, limit);
-  }
-
-  return await getParkingStore(env).getTopSuburbs(limit);
-};
+): Promise<LocationRankItem[]> => await scope.parking.getTopSuburbs(limit);
 
 export const getMapPoints = async (
-  env: Env,
+  scope: AppScope,
   limit = 50
 ): Promise<{
   routes: LocationMapPoint[];
   pendingGeocode: number;
 }> => {
-  if (readsParkingStoreFromSeed(env)) {
-    const result = await getSeedMapPoints(env, limit);
-    return {
-      pendingGeocode: result.pendingGeocode,
-      routes: result.routes.map((route) => ({
-        ...route,
-        geometry: normalizeLocationGeometry(route.geometry),
-      })),
-    };
-  }
-
-  const result = await getParkingStore(env).getMapPoints(limit);
+  const result = await scope.parking.getMapPoints(limit);
   return {
     pendingGeocode: result.pendingGeocode,
     routes: result.routes.map((route) => ({

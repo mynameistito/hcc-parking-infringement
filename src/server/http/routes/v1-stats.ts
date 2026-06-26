@@ -11,7 +11,6 @@ import {
 } from "@/server/http/query.ts";
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 import {
   getPublicDailyTrend,
   getPublicLiveStats,
@@ -26,13 +25,15 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
   routes.get("/stats/live", async (c) => {
+    const { scope } = c.var;
+
     if (verifyApiKey(c.req.raw, c.env)) {
-      const stats = await getLiveStats(c.env);
+      const stats = await getLiveStats(scope);
       return storedJson(c, { meta: { source: "stored" }, ...stats });
     }
 
     try {
-      const data = await getPublicLiveStats(c.env);
+      const data = await getPublicLiveStats(scope);
       return storedJson(c, {
         data,
         meta: { source: "stored" },
@@ -44,6 +45,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
   });
 
   routes.get("/stats/daily", async (c) => {
+    const { scope } = c.var;
     const from = parseDateParam(c.req.query("from"));
     const to = parseDateParam(c.req.query("to"));
 
@@ -54,7 +56,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
         return jsonError(400, "from and to query params required (YYYY-MM-DD)");
       }
 
-      const stats = await getDailyStats(c.env, from, to);
+      const stats = await getDailyStats(scope, from, to);
       return storedJson(c, {
         data: stats,
         from,
@@ -69,7 +71,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
     );
 
     try {
-      const data = await getPublicDailyTrend(c.env, days);
+      const data = await getPublicDailyTrend(scope, days);
       return storedJson(c, {
         data,
         meta: { days, source: "stored" },
@@ -81,8 +83,10 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
   });
 
   routes.get("/live/ws", async (c) => {
-    if (readsParkingStoreFromSeed(c.env)) {
-      return await handleSeedDashboardWebSocket(c.req.raw, c.env);
+    const { scope } = c.var;
+
+    if (scope.isSeedMode) {
+      return await handleSeedDashboardWebSocket(c.req.raw, scope);
     }
 
     const stub = getParkingStore(c.env);
@@ -90,6 +94,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
   });
 
   routes.get("/stats/top", async (c) => {
+    const { scope } = c.var;
     const groupByParam = c.req.query("groupBy") ?? "street";
     const windowParam = c.req.query("window");
     const limit = Math.min(
@@ -110,7 +115,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
         return jsonError(400, "window must be all, 7d, or 30d");
       }
 
-      const data = await getTopStats(c.env, groupByParam, windowParam, limit);
+      const data = await getTopStats(scope, groupByParam, windowParam, limit);
       return storedJson(c, {
         data,
         groupBy: groupByParam,
@@ -127,8 +132,8 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
     try {
       const items =
         groupByParam === "street"
-          ? await getPublicTopStreets(c.env, limit)
-          : await getPublicTopOffences(c.env, limit);
+          ? await getPublicTopStreets(scope, limit)
+          : await getPublicTopOffences(scope, limit);
 
       return storedJson(c, {
         data: { groupBy: groupByParam, items },

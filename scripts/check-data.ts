@@ -12,15 +12,15 @@ import {
   getWorkerUrl,
   loadDevVars,
 } from "@scripts/dev-env.ts";
-import { readArg, scriptArgv } from "@scripts/lib/args.ts";
+import { readArg, scriptArgv } from "@scripts/lib/cli/args.ts";
 import {
   createWorkerContext,
   fetchStoredInfringementCount,
-} from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/worker/client.ts";
 
 import { todayInAuckland } from "@/lib/auckland-time.ts";
 import { addDays } from "@/lib/date-range.ts";
-import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { fetchAllInWindowOrThrow } from "@/server/hcc-client.ts";
 import { parsePositiveInt } from "@/server/http/query.ts";
 
 loadDevVars();
@@ -72,7 +72,7 @@ if (process.env.API_KEY !== undefined && process.env.API_KEY !== "") {
   console.log("\n=== HCC API (direct fetch) ===\n");
 
   const env = getHccClientEnv();
-  const hcc = await fetchAllInWindow(env, rangeStart, today);
+  const hcc = await fetchAllInWindowOrThrow(env, rangeStart, today);
   console.log(`HCC ${rangeStart} → ${today}:`, {
     lastPageRecords: hcc.lastPageRecords,
     pageCount: hcc.pageCount,

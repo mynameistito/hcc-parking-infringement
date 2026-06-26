@@ -1,11 +1,11 @@
 import { setTimeout as delay } from "node:timers/promises";
 
+import type { AppScope } from "@/server/app-scope.ts";
 import {
   centroidFromGeometry,
   isRealRoadGeometry,
   overpassBatchRoadGeometry,
 } from "@/server/geocode-overpass.ts";
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 import { getParkingStore } from "@/server/store.ts";
 
 const OVERPASS_BATCH_SIZE = 15;
@@ -16,10 +16,10 @@ const sleep = async (ms: number): Promise<void> => {
 };
 
 const processGeocodeBatch = async (
-  env: Env,
+  scope: AppScope,
   batch: { street: string; suburb: string | null; town: string }[]
 ): Promise<{ geocoded: number; failed: number }> => {
-  const store = getParkingStore(env);
+  const store = getParkingStore(scope.env);
   const geometries = await overpassBatchRoadGeometry(
     batch.map((location) => location.street)
   );
@@ -63,50 +63,33 @@ const processGeocodeBatch = async (
 };
 
 export const geocodeMissingLocations = async (
-  env: Env,
+  scope: AppScope,
   limit = 50
 ): Promise<{ geocoded: number; failed: number; pending: number }> => {
-  if (readsParkingStoreFromSeed(env)) {
+  if (scope.isSeedMode) {
     return { failed: 0, geocoded: 0, pending: 0 };
   }
 
-  const store = getParkingStore(env);
+  const store = getParkingStore(scope.env);
   const missing = await store.getLocationsNeedingGeocode(limit);
   let geocoded = 0;
   let failed = 0;
 
-  const batchStarts: number[] = [];
   for (let index = 0; index < missing.length; index += OVERPASS_BATCH_SIZE) {
-    batchStarts.push(index);
-  }
-
-  const processBatchAt = async (batchIndex: number): Promise<void> => {
-    if (batchIndex >= batchStarts.length) {
-      return;
-    }
-
-    const index = batchStarts[batchIndex];
-    if (index === undefined) {
-      return;
-    }
-
     const batch = missing.slice(index, index + OVERPASS_BATCH_SIZE);
-    const result = await processGeocodeBatch(env, batch);
-    geocoded += result.geocoded;
-    failed += result.failed;
+    // Sequential batches respect Overpass rate limits.
+    // eslint-disable-next-line eslint/no-await-in-loop -- intentional pacing between geocode batches
+    const outcome = await processGeocodeBatch(scope, batch);
+    geocoded += outcome.geocoded;
+    failed += outcome.failed;
 
-    if (batchIndex < batchStarts.length - 1) {
+    if (index + OVERPASS_BATCH_SIZE < missing.length) {
+      // eslint-disable-next-line eslint/no-await-in-loop -- intentional pacing between geocode batches
       await sleep(OVERPASS_BATCH_DELAY_MS);
     }
-
-    await processBatchAt(batchIndex + 1);
-  };
-
-  await processBatchAt(0);
+  }
 
   const pending = await store.countLocationsNeedingGeocode();
 
   return { failed, geocoded, pending };
 };
-
-export type { GeocodeResult, RoadGeometry } from "@/server/geocode-overpass.ts";

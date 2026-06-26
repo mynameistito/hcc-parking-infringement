@@ -2,19 +2,19 @@
 
 import { setTimeout as delay } from "node:timers/promises";
 
-import { formatNumber } from "@scripts/lib/backfill-progress.ts";
-import type {
-  IngestWatermarkExport,
-  SnapshotWriteHandle,
-} from "@scripts/lib/parking-store-snapshot.ts";
+import { formatNumber } from "@scripts/lib/backfill/progress.ts";
 import {
   fetchExportInfringements,
   fetchExportWatermarks,
   postFinalizeStoredImport,
   postImportSnapshot,
   postImportWatermarks,
-} from "@scripts/lib/replication-api.ts";
-import type { WorkerScriptContext } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/replication/api.ts";
+import type {
+  IngestWatermarkExport,
+  SnapshotWriteHandle,
+} from "@scripts/lib/replication/snapshot.ts";
+import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
 
 export interface SnapshotSyncOptions {
   batchSize: number;

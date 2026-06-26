@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { PacePanel } from "@/components/pace-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { DailyStatPoint, LiveStats } from "@/contracts/public-api";
+import type { DailyStatPoint, PublicLiveStats } from "@/contracts/public-api";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { moneyFmt, numberFmt } from "@/lib/format";
 import type { PaceTrends } from "@/lib/trend-window";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 interface LiveTickerProps {
   stats: Pick<
-    LiveStats,
+    PublicLiveStats,
     "allTimeTotal" | "allTimeAmountCents" | "last7d" | "last30d" | "last365d"
   >;
   dailyTrend: DailyStatPoint[];

@@ -20,14 +20,14 @@ export const createV1BrowseRoutes = (): Hono<AppEnv> => {
 
   routes.get("/browse/suburbs", async (c) => {
     const result = await browseSuburbs(
-      c.env,
+      c.var.scope,
       parseBrowseQuery((key) => c.req.query(key))
     );
     return storedJson(c, { meta: { source: "stored" }, ...result });
   });
 
   routes.get("/browse/streets", async (c) => {
-    const result = await browseStreets(c.env, {
+    const result = await browseStreets(c.var.scope, {
       ...parseBrowseQuery((key) => c.req.query(key)),
       suburb: optionalTrimmedQuery(c.req.query("suburb")),
     });
@@ -36,7 +36,7 @@ export const createV1BrowseRoutes = (): Hono<AppEnv> => {
 
   routes.get("/browse/vehicles", async (c) => {
     const result = await browseVehicles(
-      c.env,
+      c.var.scope,
       parseBrowseQuery((key) => c.req.query(key))
     );
     return storedJson(c, { meta: { source: "stored" }, ...result });
@@ -47,7 +47,7 @@ export const createV1BrowseRoutes = (): Hono<AppEnv> => {
     if (suburb === "") {
       return jsonError(400, "suburb required");
     }
-    const result = await browseStreets(c.env, {
+    const result = await browseStreets(c.var.scope, {
       ...parseBrowseQuery((key) => c.req.query(key)),
       suburb,
     });
@@ -73,7 +73,7 @@ export const createV1BrowseRoutes = (): Hono<AppEnv> => {
       );
     }
 
-    const result = await exploreInfringements(c.env, {
+    const result = await exploreInfringements(c.var.scope, {
       limit,
       page,
       street,

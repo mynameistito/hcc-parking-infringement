@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "@/client/app";
 import { readPersistedDashboardSnapshotSync } from "@/client/dashboard-snapshot";
 import { restoreDashboardFromCache } from "@/client/use-live-socket";
+import { MotionProvider } from "@/components/motion-provider";
 
 if (import.meta.env.DEV) {
   void import("react-grab");
@@ -33,7 +34,9 @@ if (!root) {
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <MotionProvider>
+        <App />
+      </MotionProvider>
     </QueryClientProvider>
   </StrictMode>
 );

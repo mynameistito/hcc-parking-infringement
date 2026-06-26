@@ -19,20 +19,20 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
 
   routes.get("/locations/streets", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
-    const streets = await getTopStreets(c.env, limit);
+    const streets = await getTopStreets(c.var.scope, limit);
     return storedJson(c, { data: streets, meta: { source: "stored" } });
   });
 
   routes.get("/locations/suburbs", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
-    const suburbs = await getTopSuburbs(c.env, limit);
+    const suburbs = await getTopSuburbs(c.var.scope, limit);
     return storedJson(c, { data: suburbs, meta: { source: "stored" } });
   });
 
   routes.get("/locations/map", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 100);
-    c.executionCtx.waitUntil(geocodeMissingLocations(c.env, 25));
-    const map = await getMapPoints(c.env, limit);
+    c.executionCtx.waitUntil(geocodeMissingLocations(c.var.scope, 25));
+    const map = await getMapPoints(c.var.scope, limit);
     return storedJson(c, {
       data: map,
       meta: {
@@ -45,7 +45,7 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
 
   routes.get("/vehicles/top", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
-    const vehicles = await getTopVehicles(c.env, limit);
+    const vehicles = await getTopVehicles(c.var.scope, limit);
     return storedJson(c, { data: vehicles, meta: { source: "stored" } });
   });
 
@@ -54,7 +54,7 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
       parsePositiveInt(c.req.query("limit"), RECENT_INFRINGEMENTS_LIMIT),
       RECENT_INFRINGEMENTS_LIMIT
     );
-    const result = await listInfringements(c.env, {
+    const result = await listInfringements(c.var.scope, {
       limit,
       page: 1,
     });

@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   DailyStatPoint,
-  LiveStats,
+  PublicLiveStats,
   LocationRankItem,
   MapRouteItem,
   PublicInfringement,
@@ -34,8 +34,11 @@ const LocationMap = lazy(async () => {
   return { default: module.LocationMap };
 });
 
+export type DashboardConnectionStatus = "live" | "cached" | "connecting";
+export type DashboardDataStatus = "loading" | "ready" | "updating";
+
 interface DashboardProps {
-  live: LiveStats;
+  live: PublicLiveStats;
   dailyTrend: DailyStatPoint[];
   paceTrends?: PaceTrends;
   streets: TopItem[];
@@ -46,19 +49,17 @@ interface DashboardProps {
   recentInfringements: PublicInfringement[];
   mapRoutes: MapRouteItem[];
   pendingGeocode: number;
-  isCached?: boolean;
-  isLive?: boolean;
-  isFetching?: boolean;
-  isLoading?: boolean;
+  connectionStatus?: DashboardConnectionStatus;
+  dataStatus?: DashboardDataStatus;
   error?: string | null;
 }
 
 const LastUpdated = ({
   lastSyncedAt,
-  isLoading,
+  dataStatus,
 }: {
   lastSyncedAt: string | null;
-  isLoading?: boolean;
+  dataStatus?: DashboardDataStatus;
 }) => {
   const [, tick] = useState(0);
 
@@ -71,7 +72,7 @@ const LastUpdated = ({
     };
   }, []);
 
-  if (isLoading === true) {
+  if (dataStatus === "loading") {
     return (
       <Skeleton className="h-5 w-44" aria-label="Loading last updated time" />
     );
@@ -144,13 +145,11 @@ const ThemeToggle = () => {
 };
 
 const LiveStatusBadge = ({
-  isCached,
-  isLive,
+  connectionStatus = "connecting",
 }: {
-  isCached?: boolean;
-  isLive?: boolean;
+  connectionStatus?: DashboardConnectionStatus;
 }) => {
-  if (isLive === true) {
+  if (connectionStatus === "live") {
     return (
       <Badge
         variant="secondary"
@@ -162,7 +161,7 @@ const LiveStatusBadge = ({
     );
   }
 
-  if (isCached === true) {
+  if (connectionStatus === "cached") {
     return (
       <Badge variant="outline" className="gap-1.5 bg-background">
         <Database className="size-3" aria-hidden="true" />
@@ -191,10 +190,8 @@ export const Dashboard = ({
   recentInfringements,
   mapRoutes,
   pendingGeocode,
-  isCached,
-  isLive,
-  isFetching,
-  isLoading,
+  connectionStatus = "connecting",
+  dataStatus = "loading",
   error,
 }: DashboardProps) => (
   <div className="min-h-screen bg-background text-foreground">
@@ -216,8 +213,8 @@ export const Dashboard = ({
 
           <div className="flex flex-col items-start gap-3 lg:items-end">
             <div className="flex flex-wrap items-center gap-2">
-              <LiveStatusBadge isCached={isCached} isLive={isLive} />
-              {isFetching === true ? (
+              <LiveStatusBadge connectionStatus={connectionStatus} />
+              {dataStatus === "updating" ? (
                 <Badge variant="outline" className="bg-background">
                   Updating...
                 </Badge>
@@ -226,7 +223,7 @@ export const Dashboard = ({
             </div>
             <LastUpdated
               lastSyncedAt={live.lastSyncedAt}
-              isLoading={isLoading}
+              dataStatus={dataStatus}
             />
           </div>
         </div>
@@ -246,11 +243,11 @@ export const Dashboard = ({
             stats={live}
             dailyTrend={dailyTrend}
             paceTrends={paceTrends}
-            isLoading={isLoading}
+            isLoading={dataStatus === "loading"}
           />
           <LatestInstances
             recentInfringements={recentInfringements}
-            isLoading={isLoading}
+            isLoading={dataStatus === "loading"}
           />
         </div>
         <section className="min-w-0">
@@ -258,7 +255,7 @@ export const Dashboard = ({
             <LocationMap
               routes={mapRoutes}
               pendingGeocode={pendingGeocode}
-              isLoading={isLoading}
+              isLoading={dataStatus === "loading"}
             />
           </Suspense>
         </section>
@@ -267,7 +264,7 @@ export const Dashboard = ({
             streets={streets}
             offences={offences}
             layout="stack"
-            isLoading={isLoading}
+            isLoading={dataStatus === "loading"}
           />
         </aside>
         <div className="lg:col-span-2">
@@ -275,7 +272,7 @@ export const Dashboard = ({
             suburbs={topSuburbs}
             streets={topStreets}
             vehicles={topVehicles}
-            isLoading={isLoading}
+            isLoading={dataStatus === "loading"}
           />
         </div>
       </main>

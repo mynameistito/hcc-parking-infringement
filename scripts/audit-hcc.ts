@@ -7,15 +7,15 @@
  */
 
 import { getHccClientEnv, loadDevVars } from "@scripts/dev-env.ts";
-import { readArgWithDefault, scriptArgv } from "@scripts/lib/args.ts";
+import { readArgWithDefault, scriptArgv } from "@scripts/lib/cli/args.ts";
 import {
   createWorkerContext,
   fetchStoredInfringementCount,
-} from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 import { todayInAuckland } from "@/lib/auckland-time.ts";
-import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { fetchAllInWindowOrThrow } from "@/server/hcc-client.ts";
 import { splitDateRange } from "@/server/sync.ts";
 
 loadDevVars();
@@ -39,7 +39,7 @@ console.log(
 const windowResults = await Promise.all(
   windows.map(async (window) => {
     const [hcc, stored] = await Promise.all([
-      fetchAllInWindow(env, window.start, window.end),
+      fetchAllInWindowOrThrow(env, window.start, window.end),
       fetchStoredInfringementCount(ctx, window.start, window.end),
     ]);
     return { hcc, stored, window };

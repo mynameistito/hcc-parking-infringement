@@ -1,6 +1,6 @@
 import {
   infringementListResponseSchema,
-  liveStatsSchema,
+  publicLiveStatsSchema,
   locationBrowseResponseSchema,
   locationRankItemArraySchema,
   mapResponseSchema,
@@ -16,7 +16,7 @@ import type {
   ExploreInfringementsParams,
   FullDashboardMessage,
   InfringementListResponse,
-  LiveStats,
+  PublicLiveStats,
   LocationRankItem,
   MapResponse,
   MapRouteItem,
@@ -32,7 +32,7 @@ export type {
   BrowseResponse,
   BrowseSort,
   InfringementListResponse,
-  LiveStats as LiveStatsResponse,
+  PublicLiveStats as PublicLiveStatsResponse,
   LocationRankItem,
   MapResponse,
   MapRouteItem,
@@ -82,8 +82,8 @@ const fetchJson = async (url: string): Promise<unknown> => {
 const hasNonEmptyString = (value: string | undefined): value is string =>
   value !== undefined && value.length > 0;
 
-export const fetchLiveStats = async (): Promise<LiveStats> =>
-  liveStatsSchema.parse(await fetchEnvelopeData("/api/v1/stats/live"));
+export const fetchLiveStats = async (): Promise<PublicLiveStats> =>
+  publicLiveStatsSchema.parse(await fetchEnvelopeData("/api/v1/stats/live"));
 
 export const fetchTopStats = async (
   groupBy: "street" | "offence",

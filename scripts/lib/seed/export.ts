@@ -3,14 +3,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { formatNumber } from "@scripts/lib/backfill-progress.ts";
-import type { IngestWatermarkExport } from "@scripts/lib/parking-store-snapshot.ts";
+import { formatNumber } from "@scripts/lib/backfill/progress.ts";
 import {
   fetchDashboardSnapshot,
   fetchExportInfringements,
   fetchExportWatermarks,
-} from "@scripts/lib/replication-api.ts";
-import type { WorkerScriptContext } from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/replication/api.ts";
+import type { IngestWatermarkExport } from "@scripts/lib/replication/snapshot.ts";
+import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
 
 import type { SeedManifest } from "@/server/seed-manifest.ts";
 import {
@@ -144,6 +144,23 @@ export const exportSeedChunksFromWorker = async (
     chunkIndex += 1;
   };
 
+  const appendRecords = async (
+    records: Awaited<ReturnType<typeof fetchExportInfringements>>["records"],
+    index = 0
+  ): Promise<void> => {
+    if (index >= records.length) {
+      return;
+    }
+
+    pendingLines.push(JSON.stringify(records[index]));
+
+    if (pendingLines.length >= options.chunkRecords) {
+      await flushChunk();
+    }
+
+    await appendRecords(records, index + 1);
+  };
+
   while (true) {
     const page = await fetchExportInfringements(
       options.source,
@@ -157,13 +174,7 @@ export const exportSeedChunksFromWorker = async (
       break;
     }
 
-    for (const record of page.records) {
-      pendingLines.push(JSON.stringify(record));
-
-      if (pendingLines.length >= options.chunkRecords) {
-        await flushChunk();
-      }
-    }
+    await appendRecords(page.records);
 
     exported += page.records.length;
     cursor = page.nextCursor ?? cursor;

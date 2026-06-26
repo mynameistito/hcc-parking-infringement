@@ -13,7 +13,7 @@ import {
 import {
   bearerHeaders,
   createWorkerContext,
-} from "@scripts/lib/worker-client.ts";
+} from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 loadDevVars();

@@ -2,10 +2,10 @@ import type { DateWindow, SyncRunType } from "@/durable-objects/types.ts";
 import { formatDateInAuckland } from "@/lib/auckland-time.ts";
 import { BACKFILL_CHUNK_DAYS_DEFAULT } from "@/lib/backfill-constants.ts";
 import { addDays } from "@/lib/date-range.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 import { cleanInfringements } from "@/server/clean.ts";
-import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
 import type { FetchAllResult } from "@/server/hcc-client.ts";
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
 
@@ -30,11 +30,11 @@ export interface SyncWindowResult {
 }
 
 export const syncWindow = async (
-  env: Env,
+  scope: AppScope,
   options: SyncWindowOptions,
   prefetched?: FetchAllResult
 ): Promise<SyncWindowResult> => {
-  if (readsParkingStoreFromSeed(env)) {
+  if (scope.isSeedMode) {
     return {
       hccSkipped: true,
       possiblyTruncated: false,
@@ -45,8 +45,8 @@ export const syncWindow = async (
     };
   }
 
-  assertParkingStoreWritable(env);
-  const store = getParkingStore(env);
+  assertParkingStoreWritable(scope);
+  const store = getParkingStore(scope.env);
 
   if (options.force !== true && prefetched === undefined) {
     const alreadyIngested = await store.isWindowIngested(
@@ -65,8 +65,26 @@ export const syncWindow = async (
     }
   }
 
-  const { records, possiblyTruncated } =
-    prefetched ?? (await fetchAllInWindow(env, options.start, options.end));
+  let records: Record<string, unknown>[];
+  let possiblyTruncated: boolean;
+
+  if (prefetched === undefined) {
+    const fetchResult = await fetchAllInWindow(
+      scope.env,
+      options.start,
+      options.end
+    );
+    if (fetchResult.ok) {
+      ({ records } = fetchResult.value);
+      ({ possiblyTruncated } = fetchResult.value);
+    } else {
+      throw new Error(formatHccFetchError(fetchResult.error));
+    }
+  } else {
+    ({ records } = prefetched);
+    ({ possiblyTruncated } = prefetched);
+  }
+
   const { cleaned, skipped } = cleanInfringements(records);
 
   const result = await store.applySyncWindow({
@@ -86,12 +104,12 @@ export const syncWindow = async (
 };
 
 export const hourlySync = async (
-  env: Env,
+  scope: AppScope,
   runType: SyncRunType = "hourly"
 ): Promise<SyncWindowResult> => {
   const today = formatDateInAuckland(new Date());
   const start = addDays(today, -HOURLY_OVERLAP_DAYS);
-  return await syncWindow(env, { end: today, force: true, runType, start });
+  return await syncWindow(scope, { end: today, force: true, runType, start });
 };
 
 export const DEFAULT_BACKFILL_CHUNK_DAYS = BACKFILL_CHUNK_DAYS_DEFAULT;

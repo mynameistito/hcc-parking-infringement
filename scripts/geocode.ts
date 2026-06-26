@@ -7,9 +7,9 @@
  */
 
 import { loadDevVars } from "@scripts/dev-env.ts";
-import { readArg, readFlag, scriptArgv } from "@scripts/lib/args.ts";
+import { readArg, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
 import { fetchMapSnapshot, runGeocodeBatch } from "@scripts/lib/geocode-api.ts";
-import { createWorkerContext } from "@scripts/lib/worker-client.ts";
+import { createWorkerContext } from "@scripts/lib/worker/client.ts";
 
 import { parsePositiveInt } from "@/server/http/query.ts";
 

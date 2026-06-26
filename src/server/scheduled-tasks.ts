@@ -1,12 +1,14 @@
+import type { AppScope } from "@/server/app-scope.ts";
 import { geocodeMissingLocations } from "@/server/geocode.ts";
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 import { hourlySync } from "@/server/sync.ts";
 
-export const runScheduledMaintenance = async (env: Env): Promise<void> => {
-  if (readsParkingStoreFromSeed(env)) {
+export const runScheduledMaintenance = async (
+  scope: AppScope
+): Promise<void> => {
+  if (scope.isSeedMode) {
     return;
   }
 
-  await hourlySync(env);
-  await geocodeMissingLocations(env, 25);
+  await hourlySync(scope);
+  await geocodeMissingLocations(scope, 25);
 };

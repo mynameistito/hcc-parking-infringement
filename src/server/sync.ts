@@ -1,5 +1,4 @@
-import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
-import { getParkingStore } from "@/server/store.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 
 export type {
   SyncRunType,
@@ -20,10 +19,10 @@ export {
   startBackfill,
 } from "@/server/sync-backfill.ts";
 
-export const getLatestSyncRun = async (env: Env) => {
-  if (readsParkingStoreFromSeed(env)) {
+export const getLatestSyncRun = async (scope: AppScope) => {
+  if (scope.isSeedMode) {
     return null;
   }
 
-  return await getParkingStore(env).getLatestSyncRun();
+  return await scope.parking.getLatestSyncRun();
 };

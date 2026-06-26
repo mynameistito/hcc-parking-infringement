@@ -6,10 +6,10 @@
  */
 
 import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
-import { readArg, scriptArgv } from "@scripts/lib/args.ts";
-import { resolveImportJsonTargetUrl } from "@scripts/lib/replication-target.ts";
-import { applySeedOnRemote } from "@scripts/lib/seed-apply-remote.ts";
-import { requireApiKey } from "@scripts/lib/worker-client.ts";
+import { readArg, scriptArgv } from "@scripts/lib/cli/args.ts";
+import { resolveImportJsonTargetUrl } from "@scripts/lib/replication/target.ts";
+import { applySeedOnRemote } from "@scripts/lib/seed/apply-remote.ts";
+import { requireApiKey } from "@scripts/lib/worker/client.ts";
 
 loadDevVars();
 

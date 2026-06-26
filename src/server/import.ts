@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ImportBatchResult } from "@/durable-objects/types.ts";
+import type { AppScope } from "@/server/app-scope.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
@@ -15,13 +16,13 @@ export interface ImportInfringementsResult extends ImportBatchResult {
 }
 
 export const importInfringements = async (
-  env: Env,
+  scope: AppScope,
   body: unknown
 ): Promise<ImportInfringementsResult> => {
-  assertParkingStoreWritable(env);
+  assertParkingStoreWritable(scope);
   const payload = importBatchSchema.parse(body);
   const { cleaned, skipped } = cleanInfringements(payload.records);
-  const result = await getParkingStore(env).importInfringementBatch({
+  const result = await getParkingStore(scope.env).importInfringementBatch({
     final: payload.final,
     records: cleaned,
     recordsReceived: payload.records.length,

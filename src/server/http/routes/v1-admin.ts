@@ -41,7 +41,6 @@ import {
   seedPrefixRequestSchema,
 } from "@/server/seed-request.ts";
 import { listInfringements } from "@/server/stats.ts";
-import { getParkingStore } from "@/server/store.ts";
 import {
   BACKFILL_EARLIEST,
   getLatestSyncRun,
@@ -54,7 +53,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
   routes.get("/cache/status", async (c) => {
     assertApiKey(c.req.raw, c.env);
-    const cache = await getCacheStatus(c.env);
+    const cache = await getCacheStatus(c.var.scope);
     return storedJson(c, {
       ...cache,
       hccFetchPolicy: {
@@ -77,7 +76,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     const vehicleMake = optionalTrimmedQuery(c.req.query("vehicleMake"));
     const vehicleModel = optionalTrimmedQuery(c.req.query("vehicleModel"));
 
-    const result = await listInfringements(c.env, {
+    const result = await listInfringements(c.var.scope, {
       from,
       limit,
       page,
@@ -94,8 +93,8 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
   routes.get("/status", async (c) => {
     assertApiKey(c.req.raw, c.env);
     const [latestRun, cache] = await Promise.all([
-      getLatestSyncRun(c.env),
-      getCacheStatus(c.env),
+      getLatestSyncRun(c.var.scope),
+      getCacheStatus(c.var.scope),
     ]);
 
     return storedJson(c, {
@@ -122,7 +121,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKeyOrCronSecret(c.req.raw, c.env);
 
     try {
-      const result = await hourlySync(c.env, "manual");
+      const result = await hourlySync(c.var.scope, "manual");
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -150,7 +149,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     }
 
     try {
-      const progress = await getBackfillProgress(c.env, {
+      const progress = await getBackfillProgress(c.var.scope, {
         chunkDays,
         end: to,
         start: from,
@@ -184,7 +183,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         return jsonError(400, rangeError);
       }
 
-      const result = await startBackfill(c.env, {
+      const result = await startBackfill(c.var.scope, {
         chunkDays,
         delivery,
         end: to,
@@ -203,7 +202,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const body: unknown = await c.req.json();
-      const result = await importInfringements(c.env, body);
+      const result = await importInfringements(c.var.scope, body);
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -216,7 +215,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const payload: unknown = JSON.parse(
-        await getParkingStore(c.env).exportDashboardSnapshotPayload()
+        await c.var.scope.parking.readDashboardSnapshotPayload()
       );
 
       return c.json({ ok: true, payload });
@@ -235,7 +234,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const result = await exportStoredInfringements(
-        c.env,
+        c.var.scope,
         after,
         limit,
         totalMode
@@ -251,7 +250,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKey(c.req.raw, c.env);
 
     try {
-      const result = await importSnapshotBatch(c.env, await c.req.json());
+      const result = await importSnapshotBatch(c.var.scope, await c.req.json());
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -319,7 +318,10 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKey(c.req.raw, c.env);
 
     try {
-      const result = await importStoredInfringements(c.env, await c.req.json());
+      const result = await importStoredInfringements(
+        c.var.scope,
+        await c.req.json()
+      );
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -334,7 +336,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 2000), 5000);
 
     try {
-      const result = await exportStoredWatermarks(c.env, offset, limit);
+      const result = await exportStoredWatermarks(c.var.scope, offset, limit);
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -346,7 +348,10 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKey(c.req.raw, c.env);
 
     try {
-      const result = await importStoredWatermarks(c.env, await c.req.json());
+      const result = await importStoredWatermarks(
+        c.var.scope,
+        await c.req.json()
+      );
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -358,7 +363,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKey(c.req.raw, c.env);
 
     try {
-      const result = await finalizeStoredImport(c.env);
+      const result = await finalizeStoredImport(c.var.scope);
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -369,7 +374,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
   routes.post("/geocode/run", async (c) => {
     assertApiKey(c.req.raw, c.env);
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 100);
-    const result = await geocodeMissingLocations(c.env, limit);
+    const result = await geocodeMissingLocations(c.var.scope, limit);
     return c.json({ ok: true, ...result });
   });
 
