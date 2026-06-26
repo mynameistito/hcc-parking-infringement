@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ImportBatchResult } from "@/durable-objects/parking-store.ts";
+import type { ImportBatchResult } from "@/durable-objects/types.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { getParkingStore } from "@/server/store.ts";
 

@@ -1,21 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 
+import { useDailyTrend } from "@/client/use-daily-trend";
+import { useLiveSocket } from "@/client/use-live-socket";
+import { Dashboard } from "@/components/dashboard";
 import type {
   DailyStatPoint,
   InfringementListResponse,
-  LiveStatsResponse,
+  LiveStats,
   LocationRankItem,
   MapResponse,
   TopStatsResponse,
   VehicleRankItem,
-} from "@/client/api";
-import { useDailyTrend } from "@/client/use-daily-trend";
-import { useLiveSocket } from "@/client/use-live-socket";
-import { Dashboard } from "@/components/dashboard";
+} from "@/contracts/public-api";
 import type { PaceTrends } from "@/lib/trend-window";
 
-const EMPTY_LIVE: LiveStatsResponse = {
+const EMPTY_LIVE: LiveStats = {
   allTimeAmountCents: 0,
   allTimeTotal: 0,
   last24h: 0,
@@ -45,10 +45,7 @@ const useDashboardCache = <TData,>(
 export const App = () => {
   const { cached, connected, ready } = useLiveSocket();
 
-  const { data: liveData } = useDashboardCache<LiveStatsResponse>([
-    "public",
-    "live",
-  ]);
+  const { data: liveData } = useDashboardCache<LiveStats>(["public", "live"]);
   const { data: dailyTrendData } = useDashboardCache<DailyStatPoint[]>([
     "public",
     "stats",

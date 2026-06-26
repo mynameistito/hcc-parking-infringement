@@ -1,278 +1,90 @@
 import { DurableObject } from "cloudflare:workers";
 import { parseISO, subDays } from "date-fns";
-import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
+import {
+  filterRoadGeometry,
+  parseGeometryJson,
+  toMapRouteRow,
+} from "@/durable-objects/geometry.ts";
+import type {
+  BrowseQuery,
+  BrowseResult,
+  CacheStatus,
+  DailyStatRow,
+  DateWindow,
+  ImportBatchPayload,
+  ImportBatchResult,
+  InfringementListResult,
+  InfringementQuery,
+  LiveStats,
+  LocationCacheInput,
+  LocationMapPoint,
+  LocationRankItem,
+  PublicDashboardSnapshot,
+  PublicLiveStats,
+  PublicPaceTrends,
+  PublicTopItem,
+  SyncRunRow,
+  SyncRunType,
+  SyncWindowPayload,
+  SyncWindowResult,
+  TopGroupBy,
+  TopStatRow,
+  TopWindow,
+  VehicleRankItem,
+} from "@/durable-objects/types.ts";
+import {
+  dateBounds,
+  formatDateInAuckland,
+  monthBoundsInAuckland,
+  todayBounds,
+  yearBoundsInAuckland,
+} from "@/lib/auckland-time.ts";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 import { toTrendResult } from "@/lib/trend.ts";
 import type { TrendResult } from "@/lib/trend.ts";
 import type { CleanInfringement } from "@/server/clean.ts";
 
-const AUCKLAND_TZ = "Pacific/Auckland";
+export type {
+  BackfillProgress,
+  BrowseQuery,
+  BrowseResult,
+  BrowseSort,
+  CacheStatus,
+  DailyStatRow,
+  DateWindow,
+  ImportBatchPayload,
+  ImportBatchResult,
+  InfringementListResult,
+  InfringementQuery,
+  InfringementRow,
+  LiveStats,
+  LocationCacheInput,
+  LocationMapPoint,
+  LocationRankItem,
+  PublicDashboardSnapshot,
+  PublicLiveStats,
+  PublicPaceTrends,
+  PublicTopItem,
+  SyncRunRow,
+  SyncRunType,
+  SyncWindowPayload,
+  SyncWindowResult,
+  TopGroupBy,
+  TopStatRow,
+  TopWindow,
+  VehicleRankItem,
+} from "@/durable-objects/types.ts";
+export {
+  normalizeLocationGeometry,
+  parseGeometryJson,
+  toMapRouteRow,
+} from "@/durable-objects/geometry.ts";
+
 const STATS_LIVE_ID = 1;
 const DASHBOARD_SNAPSHOT_CACHE_ID = 1;
 
-export type SyncRunType = "hourly" | "manual" | "backfill";
-
-export interface SyncWindowPayload {
-  runType: SyncRunType;
-  start: string;
-  end: string;
-  records: CleanInfringement[];
-  recordsFetched: number;
-  skipped: number;
-}
-
-export interface SyncWindowResult {
-  runId: number;
-  recordsFetched: number;
-  recordsUpserted: number;
-  skipped: number;
-}
-
-export interface ImportBatchPayload {
-  records: CleanInfringement[];
-  recordsReceived: number;
-  skipped: number;
-  final: boolean;
-}
-
-export interface ImportBatchResult {
-  recordsReceived: number;
-  recordsUpserted: number;
-  skipped: number;
-  recomputed: boolean;
-  totalRecords: number;
-}
-
-export interface PublicTopItem {
-  label: string;
-  count: number;
-}
-
-export interface LocationRankItem {
-  street?: string;
-  suburb?: string;
-  label: string;
-  count: number;
-}
-
-export interface VehicleRankItem {
-  make: string;
-  model: string;
-  label: string;
-  count: number;
-}
-
-export type BrowseSort = "count" | "name";
-
-export interface BrowseQuery {
-  q?: string;
-  page: number;
-  limit: number;
-  sort: BrowseSort;
-  suburb?: string;
-}
-
-export interface BrowseResult<T> {
-  items: T[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-export interface LocationMapPoint {
-  id: string;
-  street: string;
-  suburb: string | null;
-  town: string;
-  count: number;
-  geometry: [number, number][][];
-}
-
-export interface LocationCacheInput {
-  street: string;
-  suburb: string | null;
-  town: string;
-  lat: number;
-  lon: number;
-  displayName: string;
-  geometry: [number, number][][];
-}
-
-export interface PublicPaceTrends {
-  last7d: TrendResult;
-  last30d: TrendResult;
-  last365d: TrendResult;
-}
-
-export interface PublicDashboardSnapshot {
-  at: string;
-  live: PublicLiveStats;
-  dailyTrend: DailyStatRow[];
-  paceTrends: PublicPaceTrends;
-  recentInfringements: InfringementRow[];
-  topStreets: PublicTopItem[];
-  topOffences: PublicTopItem[];
-  streets: LocationRankItem[];
-  suburbs: LocationRankItem[];
-  vehicles: VehicleRankItem[];
-  map: {
-    routes: LocationMapPoint[];
-    pendingGeocode: number;
-  };
-}
-
-export interface PublicLiveStats {
-  allTimeTotal: number;
-  allTimeAmountCents: number;
-  today: number;
-  last24h: number;
-  last7d: number;
-  last30d: number;
-  last365d: number;
-  thisMonth: number;
-  towedToday: number;
-  lastSyncedAt: string | null;
-  lastRecordAt: string | null;
-}
-
-export interface LiveStats {
-  today: { count: number; totalCents: number };
-  thisMonth: { count: number; totalCents: number };
-  thisYear: { count: number; totalCents: number };
-  allTime: { count: number; totalCents: number };
-  updatedAt: string | null;
-}
-
-export interface DailyStatRow {
-  date: string;
-  count: number;
-  totalCents: number;
-}
-
-export type TopGroupBy = "street" | "offence";
-export type TopWindow = "all" | "7d" | "30d";
-
-export interface TopStatRow {
-  key: string;
-  count: number;
-  totalCents: number;
-}
-
-export interface InfringementRow {
-  infringementNumber: number;
-  occurredAt: string;
-  amountCents: number;
-  street: string;
-  suburb: string | null;
-  town: string | null;
-  postCode: string | null;
-  offenceCode: string | null;
-  offenceDescription: string;
-  offenceCategory: string | null;
-  vehicleMake: string | null;
-  vehicleModel: string | null;
-  vehicleColour: string | null;
-  vehicleType: string | null;
-  isTowed: boolean;
-  firstSeenAt: string;
-  updatedAt: string;
-}
-
-export interface InfringementQuery {
-  page: number;
-  limit: number;
-  from?: string;
-  to?: string;
-  street?: string;
-  suburb?: string;
-  vehicleMake?: string;
-  vehicleModel?: string;
-}
-
-export interface InfringementListResult {
-  data: InfringementRow[];
-  page: number;
-  limit: number;
-  total: number;
-}
-
-export interface SyncRunRow {
-  id: number;
-  runType: string;
-  windowStart: string;
-  windowEnd: string;
-  fetched: number;
-  inserted: number;
-  updated: number;
-  status: string;
-  error: string | null;
-  startedAt: string;
-  finishedAt: string | null;
-}
-
-export interface DateWindow {
-  start: string;
-  end: string;
-}
-
-export interface BackfillProgress {
-  chunkDays: number;
-  completed: number;
-  end: string;
-  latestIngestedAt: string | null;
-  latestWindow: { end: string; start: string } | null;
-  percent: number;
-  start: string;
-  total: number;
-  totalRecords: number;
-}
-
-export interface CacheStatus {
-  source: "parking-store";
-  totalRecords: number;
-  lastHccFetchAt: string | null;
-  lastSyncedAt: string | null;
-  ingestWindows: number;
-}
-
 const isoNow = (): string => new Date().toISOString();
-
-const isCoordinateRing = (value: unknown): value is [number, number][][] =>
-  Array.isArray(value) &&
-  value.every(
-    (line) =>
-      Array.isArray(line) &&
-      line.length >= 3 &&
-      line.every(
-        (point) =>
-          Array.isArray(point) &&
-          point.length === 2 &&
-          typeof point[0] === "number" &&
-          typeof point[1] === "number"
-      )
-  );
-
-const parseGeometryJson = (
-  raw: string | null | undefined
-): [number, number][][] => {
-  if (raw === null || raw === undefined || raw === "") {
-    return [];
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isCoordinateRing(parsed)) {
-      return [];
-    }
-    return parsed;
-  } catch {
-    return [];
-  }
-};
-
-const filterRoadGeometry = (
-  geometry: [number, number][][]
-): [number, number][][] => geometry.filter((line) => line.length >= 3);
 
 const HAMILTON_CENTER_LAT = -37.787;
 const HAMILTON_CENTER_LON = 175.279;
@@ -344,75 +156,6 @@ const filterGeocodeCandidates = (
   }
 
   return results;
-};
-
-export const normalizeLocationGeometry = (
-  geometry: number[][][]
-): [number, number][][] => {
-  if (!isCoordinateRing(geometry)) {
-    return [];
-  }
-  return filterRoadGeometry(geometry);
-};
-
-const toMapRouteRow = (row: {
-  street: string;
-  suburb: string | null;
-  town: string;
-  count: number;
-  geometry_json: string | null;
-}): LocationMapPoint | null => {
-  const geometry = filterRoadGeometry(parseGeometryJson(row.geometry_json));
-  if (geometry.length === 0) {
-    return null;
-  }
-
-  const suburbKey = row.suburb ?? "";
-  return {
-    count: row.count,
-    geometry,
-    id: `${row.street}|${suburbKey}`,
-    street: row.street,
-    suburb: row.suburb,
-    town: row.town,
-  };
-};
-
-const formatDateInAuckland = (date: Date): string =>
-  formatInTimeZone(date, AUCKLAND_TZ, "yyyy-MM-dd");
-
-const dateBounds = (dateStr: string): { start: string; end: string } => ({
-  end: `${dateStr}T23:59:59.999+12:00`,
-  start: `${dateStr}T00:00:00+12:00`,
-});
-
-const todayBounds = (now: Date): { start: string; end: string } => {
-  const today = formatInTimeZone(now, AUCKLAND_TZ, "yyyy-MM-dd");
-  return {
-    end: `${today}T23:59:59.999+12:00`,
-    start: `${today}T00:00:00+12:00`,
-  };
-};
-
-const monthBoundsInAuckland = (now: Date): { start: string; end: string } => {
-  const zoned = toZonedTime(now, AUCKLAND_TZ);
-  const year = zoned.getFullYear();
-  const month = zoned.getMonth() + 1;
-  const start = `${year}-${String(month).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  return {
-    end: `${end}T23:59:59.999+12:00`,
-    start: `${start}T00:00:00+12:00`,
-  };
-};
-
-const yearBoundsInAuckland = (now: Date): { start: string; end: string } => {
-  const year = toZonedTime(now, AUCKLAND_TZ).getFullYear();
-  return {
-    end: `${year}-12-31T23:59:59.999+12:00`,
-    start: `${year}-01-01T00:00:00+12:00`,
-  };
 };
 
 export class ParkingStore extends DurableObject<Env> {

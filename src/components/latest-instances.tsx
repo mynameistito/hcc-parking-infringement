@@ -1,22 +1,9 @@
 import { format } from "date-fns";
 
-import type { PublicInfringement } from "@/client/api";
 import { TableRowsSkeleton } from "@/components/data-skeletons";
 import { Card, CardContent } from "@/components/ui/card";
-
-const currencyFmt = new Intl.NumberFormat("en-NZ", {
-  currency: "NZD",
-  maximumFractionDigits: 0,
-  style: "currency",
-});
-
-const formatVehicle = (record: PublicInfringement): string => {
-  const parts = [record.vehicleMake, record.vehicleModel].filter(Boolean);
-  if (parts.length > 0) {
-    return parts.join(" ");
-  }
-  return record.vehicleType ?? "Unknown";
-};
+import type { PublicInfringement } from "@/contracts/public-api";
+import { formatVehicle, moneyFmt } from "@/lib/format";
 
 interface LatestInstancesProps {
   recentInfringements: PublicInfringement[];
@@ -81,7 +68,7 @@ export const LatestInstances = ({
                       {record.street}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right font-mono font-semibold tabular-nums">
-                      {currencyFmt.format(record.amountCents / 100)}
+                      {moneyFmt.format(record.amountCents / 100)}
                     </td>
                   </tr>
                 ))

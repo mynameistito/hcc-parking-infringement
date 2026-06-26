@@ -9,22 +9,23 @@ import {
 } from "lucide-react";
 import { useEffect, useState, lazy, Suspense } from "react";
 
-import type {
-  DailyStatPoint,
-  LocationRankItem,
-  MapRouteItem,
-  PublicInfringement,
-  VehicleRankItem,
-} from "@/client/api";
 import { MapAreaSkeleton } from "@/components/data-skeletons";
 import { ExplorePanel } from "@/components/explore-panel";
 import { LatestInstances } from "@/components/latest-instances";
 import { LiveTicker } from "@/components/live-ticker";
 import { TopLists } from "@/components/top-lists";
-import type { TopItem } from "@/components/top-lists";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import type {
+  DailyStatPoint,
+  LiveStats,
+  LocationRankItem,
+  MapRouteItem,
+  PublicInfringement,
+  TopItem,
+  VehicleRankItem,
+} from "@/contracts/public-api";
 import type { PaceTrends } from "@/lib/trend-window";
 
 const LocationMap = lazy(async () => {
@@ -32,22 +33,8 @@ const LocationMap = lazy(async () => {
   return { default: module.LocationMap };
 });
 
-export interface DashboardLiveStats {
-  allTimeTotal: number;
-  allTimeAmountCents: number;
-  today: number;
-  last24h: number;
-  last7d: number;
-  last30d: number;
-  last365d: number;
-  thisMonth: number;
-  towedToday: number;
-  lastSyncedAt: string | null;
-  lastRecordAt: string | null;
-}
-
 interface DashboardProps {
-  live: DashboardLiveStats;
+  live: LiveStats;
   dailyTrend: DailyStatPoint[];
   paceTrends?: PaceTrends;
   streets: TopItem[];

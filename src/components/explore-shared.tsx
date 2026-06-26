@@ -1,10 +1,10 @@
 import { format } from "date-fns";
-import { Car, ChevronRight } from "lucide-react";
+import { Car } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import type { BrowseSort, PublicInfringement } from "@/client/api";
 import { InfringementCardsSkeleton } from "@/components/data-skeletons";
-import { formatVehicle, moneyFmt, numberFmt } from "@/components/explore-utils";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RankedListRow } from "@/components/shared/ranked-list-row";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import type { BrowseSort, PublicInfringement } from "@/contracts/public-api";
+import { formatVehicle, moneyFmt, numberFmt } from "@/lib/format";
 
 export const useDebouncedValue = <T,>(value: T, delay = 300): T => {
   const [debounced, setDebounced] = useState(value);
@@ -206,35 +207,14 @@ export const ExploreListRow = ({
   onClick: () => void;
   className?: string;
 }) => (
-  <button
-    type="button"
-    className={cn(
-      "grid w-full grid-cols-[1.5rem_minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-border/50 px-4 py-2.5 text-left transition-colors hover:bg-muted/40",
-      "focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none",
-      className
-    )}
+  <RankedListRow
+    rank={rank}
+    label={label}
+    subtitle={subtitle}
+    count={count}
     onClick={onClick}
-  >
-    {rank === undefined ? (
-      <span />
-    ) : (
-      <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
-        {String(rank).padStart(2, "0")}
-      </span>
-    )}
-    <span className="min-w-0">
-      <span className="block truncate text-sm" title={label}>
-        {label}
-      </span>
-      {subtitle !== undefined && subtitle.length > 0 ? (
-        <span className="block truncate text-xs text-muted-foreground">
-          {subtitle}
-        </span>
-      ) : null}
-    </span>
-    <span className="font-mono text-xs font-semibold tabular-nums">
-      {numberFmt.format(count)}
-    </span>
-    <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
-  </button>
+    className={className}
+  />
 );
+
+export { EmptyState };

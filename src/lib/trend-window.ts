@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 
-import type { DailyStatPoint } from "@/client/api";
+import type { DailyStatPoint } from "@/contracts/public-api";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
 import {
   dailyTrendCoversDays,

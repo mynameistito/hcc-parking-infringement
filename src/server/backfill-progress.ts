@@ -1,4 +1,4 @@
-import type { BackfillProgress } from "@/durable-objects/parking-store.ts";
+import type { BackfillProgress } from "@/durable-objects/types.ts";
 import { BACKFILL_CHUNK_DAYS_DEFAULT } from "@/lib/backfill-constants.ts";
 import { getParkingStore } from "@/server/store.ts";
 import { splitDateRange } from "@/server/sync.ts";

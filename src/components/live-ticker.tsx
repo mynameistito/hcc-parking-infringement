@@ -1,34 +1,20 @@
 import { Banknote, Sigma } from "lucide-react";
 import { useRef, useState } from "react";
 
-import type { DailyStatPoint } from "@/client/api";
 import { PacePanel } from "@/components/pace-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { DailyStatPoint, LiveStats } from "@/contracts/public-api";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
+import { moneyFmt, numberFmt } from "@/lib/format";
 import type { PaceTrends } from "@/lib/trend-window";
 import { cn } from "@/lib/utils";
 
-const numberFmt = new Intl.NumberFormat("en-NZ");
-const currencyFmt = new Intl.NumberFormat("en-NZ", {
-  currency: "NZD",
-  maximumFractionDigits: 0,
-  style: "currency",
-});
-
-export interface LiveStats {
-  allTimeTotal: number;
-  allTimeAmountCents: number;
-  today: number;
-  last7d: number;
-  last30d: number;
-  last365d: number;
-  thisMonth: number;
-  towedToday: number;
-}
-
 interface LiveTickerProps {
-  stats: LiveStats;
+  stats: Pick<
+    LiveStats,
+    "allTimeTotal" | "allTimeAmountCents" | "last7d" | "last30d" | "last365d"
+  >;
   dailyTrend: DailyStatPoint[];
   paceTrends?: PaceTrends;
   isLoading?: boolean;
@@ -112,7 +98,7 @@ export const LiveTicker = ({
                   <Skeleton className="h-5 w-24 rounded-[4px]" />
                 ) : (
                   <strong className="font-mono font-semibold text-foreground tabular-nums">
-                    {currencyFmt.format(animatedFinesCents / 100)}
+                    {moneyFmt.format(animatedFinesCents / 100)}
                   </strong>
                 )}
               </div>

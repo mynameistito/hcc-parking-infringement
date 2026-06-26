@@ -1,7 +1,6 @@
 import { addDays, format, parseISO } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
 
-const AUCKLAND_TZ = "Pacific/Auckland";
+import { todayInAuckland } from "@/lib/auckland-time";
 
 export interface TrendResult {
   current: number;
@@ -51,9 +50,6 @@ export const compareTrailingWindows = (
 };
 
 const toDayKey = (date: Date): string => format(date, "yyyy-MM-dd");
-
-const todayInAuckland = (): string =>
-  formatInTimeZone(new Date(), AUCKLAND_TZ, "yyyy-MM-dd");
 
 export const fillDailySeries = (
   points: { date: string; count: number; totalCents: number }[],

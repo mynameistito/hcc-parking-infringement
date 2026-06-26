@@ -4,13 +4,10 @@ import type {
   LiveStats,
   TopGroupBy,
   TopWindow,
-} from "@/durable-objects/parking-store.ts";
+} from "@/durable-objects/types.ts";
 import { getParkingStore } from "@/server/store.ts";
 
-export type {
-  DailyStatRow,
-  TopStatRow,
-} from "@/durable-objects/parking-store.ts";
+export type { DailyStatRow, TopStatRow } from "@/durable-objects/types.ts";
 export type { LiveStats, TopGroupBy, TopWindow };
 
 export const getLiveStats = async (env: Env): Promise<LiveStats> =>

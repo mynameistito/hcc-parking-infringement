@@ -42,12 +42,11 @@ export const isRouteFeatureProperties = (
   );
 };
 
-export const isRealRoadLine = (line: [number, number][]): boolean =>
-  line.length >= 3;
+export const isRealRoadLine = (line: number[][]): boolean =>
+  line.length >= 3 && line.every((point) => point.length === 2);
 
-export const filterRoadGeometry = (
-  geometry: [number, number][][]
-): [number, number][][] => geometry.filter(isRealRoadLine);
+export const filterRoadGeometry = (geometry: number[][][]): number[][][] =>
+  geometry.filter(isRealRoadLine);
 
 export const buildRoutesGeoJSON = (
   routes: MapRouteItem[],
@@ -66,9 +65,11 @@ export const buildRoutesGeoJSON = (
         continue;
       }
 
+      const coordinates = line.map((point) => [point[1] ?? 0, point[0] ?? 0]);
+
       features.push({
         geometry: {
-          coordinates: line.map(([lat, lon]) => [lon, lat]),
+          coordinates,
           type: "LineString",
         },
         id: `${route.id}-${segmentIndex}`,

@@ -1,4 +1,6 @@
 import { TopListSkeleton } from "@/components/data-skeletons";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RankedListRow } from "@/components/shared/ranked-list-row";
 import {
   Card,
   CardContent,
@@ -6,13 +8,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { TopItem } from "@/contracts/public-api";
 
-const numberFmt = new Intl.NumberFormat("en-NZ");
-
-export interface TopItem {
-  label: string;
-  count: number;
-}
+export type { TopItem };
 
 interface TopListProps {
   title: string;
@@ -32,46 +30,29 @@ const TopListBody = ({
   }
 
   if (items.length === 0) {
-    return (
-      <div className="grid min-h-28 place-items-center px-4 py-6 text-center">
-        <div>
-          <p className="text-sm font-medium text-foreground">No rows yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Data will appear after the next sync.
-          </p>
-        </div>
-      </div>
-    );
+    return <EmptyState description="Data will appear after the next sync." />;
   }
+
+  const maxCount = Math.max(...items.map((entry) => entry.count), 1);
 
   return (
     <ol>
       {items.map((item, index) => {
-        const maxCount = Math.max(...items.map((entry) => entry.count), 1);
         const width = `${Math.max((item.count / maxCount) * 100, 4)}%`;
 
         return (
           <li
             key={`${item.label}-${index}`}
-            className="border-t border-border/70 px-4 py-3 first:border-t-0 hover:bg-muted"
+            className="border-t border-border/70 first:border-t-0 hover:bg-muted"
           >
-            <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span className="truncate text-sm font-medium" title={item.label}>
-                {item.label}
-              </span>
-              <span className="font-mono text-sm font-semibold tabular-nums">
-                {numberFmt.format(item.count)}
-              </span>
-            </div>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
-              <span
-                className="block h-full rounded-full bg-[var(--ring)]"
-                style={{ width }}
-              />
-            </div>
+            <RankedListRow
+              rank={index + 1}
+              label={item.label}
+              count={item.count}
+              showBar
+              barWidth={width}
+              countClassName="text-sm"
+            />
           </li>
         );
       })}

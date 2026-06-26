@@ -1,14 +1,12 @@
-import { formatInTimeZone } from "date-fns-tz";
-
 import type { BackfillMessage } from "@/backfill.ts";
-import type { DateWindow } from "@/durable-objects/parking-store.ts";
+import type { DateWindow } from "@/durable-objects/types.ts";
+import { formatDateInAuckland } from "@/lib/auckland-time.ts";
 import { BACKFILL_CHUNK_DAYS_DEFAULT } from "@/lib/backfill-constants.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { fetchAllInWindow } from "@/server/hcc-client.ts";
 import type { FetchAllResult } from "@/server/hcc-client.ts";
 import { getParkingStore } from "@/server/store.ts";
 
-const AUCKLAND_TZ = "Pacific/Auckland";
 const BACKFILL_EARLIEST = "1990-01-01";
 const DEFAULT_BACKFILL_CHUNK_DAYS = BACKFILL_CHUNK_DAYS_DEFAULT;
 /** Only re-fetch recent days from HCC; historical data lives in ParkingStore. */
@@ -35,9 +33,6 @@ export interface SyncWindowResult {
   possiblyTruncated: boolean;
   hccSkipped?: boolean;
 }
-
-const formatDateInAuckland = (date: Date): string =>
-  formatInTimeZone(date, AUCKLAND_TZ, "yyyy-MM-dd");
 
 const addDays = (dateStr: string, days: number): string => {
   const date = new Date(`${dateStr}T12:00:00Z`);

@@ -4,12 +4,12 @@ import { useEffect, useSyncExternalStore } from "react";
 import {
   applyDashboardSnapshot,
   getDashboardSnapshotTime,
-  getDashboardSnapshotWeight,
   parseDashboardMessage,
   persistDashboardSnapshot,
   readPersistedDashboardSnapshot,
 } from "@/client/dashboard-snapshot";
-import type { FullDashboardMessage } from "@/client/dashboard-snapshot";
+import { getDashboardSnapshotWeight } from "@/client/dashboard-snapshot-storage";
+import type { FullDashboardMessage } from "@/contracts/public-api";
 
 const RECONNECT_DELAY_MS = 3000;
 const PING_INTERVAL_MS = 30_000;

@@ -1,9 +1,10 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { lazy, Suspense, useMemo } from "react";
 
-import type { DailyStatPoint } from "@/client/api";
 import { StatPillLoading } from "@/components/data-skeletons";
+import type { DailyStatPoint } from "@/contracts/public-api";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
+import { numberFmt } from "@/lib/format";
 import type { TrendResult } from "@/lib/trend";
 import { buildPacePanelData } from "@/lib/trend-window";
 import type { PaceTrends } from "@/lib/trend-window";
@@ -13,8 +14,6 @@ const TrendChart = lazy(async () => {
   const module = await import("@/components/trend-chart");
   return { default: module.TrendChart };
 });
-
-const numberFmt = new Intl.NumberFormat("en-NZ");
 
 const formatTrendPercent = (percent: number | null): string => {
   if (percent === null) {

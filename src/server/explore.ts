@@ -5,7 +5,7 @@ import type {
   InfringementQuery,
   LocationRankItem,
   VehicleRankItem,
-} from "@/durable-objects/parking-store.ts";
+} from "@/durable-objects/types.ts";
 import { getParkingStore } from "@/server/store.ts";
 
 export type {

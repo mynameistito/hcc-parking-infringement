@@ -1,13 +1,14 @@
 import { Car, MapPinned, Search, SignalHigh } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type { LocationRankItem, VehicleRankItem } from "@/client/api";
 import {
   ExploreListSkeleton,
   InspectorSkeleton,
 } from "@/components/data-skeletons";
-import { formatLocationSubtitle, numberFmt } from "@/components/explore-utils";
-import type { ExploreTab } from "@/components/explore-utils";
+import type { ExploreTab } from "@/components/explore-constants";
+import { isExploreTab } from "@/components/explore-constants";
+import { EmptyState } from "@/components/shared/empty-state";
+import { RankedListRow } from "@/components/shared/ranked-list-row";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -18,13 +19,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { LocationRankItem, VehicleRankItem } from "@/contracts/public-api";
+import { formatLocationSubtitle, numberFmt } from "@/lib/format";
 
-const TABS = ["suburbs", "streets", "vehicles"] as const;
+const TABS = [
+  "suburbs",
+  "streets",
+  "vehicles",
+] as const satisfies readonly ExploreTab[];
 
 type ExploreItem = LocationRankItem | VehicleRankItem;
-
-const isExploreTab = (value: string): value is ExploreTab =>
-  TABS.some((tab) => tab === value);
 
 interface SelectedItem {
   item: ExploreItem;
@@ -90,12 +94,10 @@ const matchesSearch = (item: ExploreItem, search: string): boolean => {
 };
 
 const EmptyWorkbench = ({ label }: { label: string }) => (
-  <div className="grid min-h-56 place-items-center border-t border-border px-4 py-8 text-center">
-    <div>
-      <p className="text-sm font-medium text-foreground">No rows yet</p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-    </div>
-  </div>
+  <EmptyState
+    className="grid min-h-56 place-items-center border-t border-border px-4 py-8 text-center"
+    description={label}
+  />
 );
 
 const Inspector = ({
@@ -231,37 +233,20 @@ const ExploreListBody = ({
 
         return (
           <li key={getItemKey(item, activeTab)}>
-            <button
-              type="button"
-              className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/70 px-4 py-3 text-left transition-colors first:border-t-0 hover:bg-muted focus-visible:shadow-[inset_0_0_0_2px_var(--ring)] focus-visible:outline-none data-[selected=true]:bg-muted"
-              data-selected={isSelected}
+            <RankedListRow
+              rank={rank}
+              label={label}
+              subtitle={subtitle}
+              count={item.count}
+              showBar
+              barWidth={width}
+              selected={isSelected}
+              countClassName="text-sm"
+              className="grid-cols-[2rem_minmax(0,1fr)_auto] gap-3 border-border/70 px-4 py-3 first:border-t-0 hover:bg-muted"
               onClick={() => {
                 onSelect({ item, rank, tab: activeTab });
               }}
-            >
-              <span className="font-mono text-xs font-semibold text-muted-foreground tabular-nums">
-                {String(rank).padStart(2, "0")}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">
-                  {label}
-                </span>
-                {subtitle === undefined ? null : (
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {subtitle}
-                  </span>
-                )}
-                <span className="mt-2 block h-1 overflow-hidden rounded-full bg-muted">
-                  <span
-                    className="block h-full rounded-full bg-[var(--ring)]"
-                    style={{ width }}
-                  />
-                </span>
-              </span>
-              <span className="font-mono text-sm font-semibold tabular-nums">
-                {numberFmt.format(item.count)}
-              </span>
-            </button>
+            />
           </li>
         );
       })}
