@@ -65,7 +65,7 @@ export interface BackfillProgress {
 }
 
 export interface CacheStatus {
-  source: "parking-store";
+  source: "parking-store" | "parking-store-seed";
   totalRecords: number;
   lastHccFetchAt: string | null;
   lastSyncedAt: string | null;

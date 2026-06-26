@@ -1,5 +1,7 @@
 import type { BackfillProgress } from "@/durable-objects/types.ts";
 import { BACKFILL_CHUNK_DAYS_DEFAULT } from "@/lib/backfill-constants.ts";
+import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
+import { getSeedCacheStatus } from "@/server/seed-read.ts";
 import { getParkingStore } from "@/server/store.ts";
 import { splitDateRange } from "@/server/sync.ts";
 
@@ -10,6 +12,22 @@ export const getBackfillProgress = async (
   options: { chunkDays?: number; end: string; start: string }
 ): Promise<BackfillProgress> => {
   const chunkDays = options.chunkDays ?? BACKFILL_CHUNK_DAYS_DEFAULT;
+
+  if (readsParkingStoreFromSeed(env)) {
+    const cache = await getSeedCacheStatus(env);
+    return {
+      chunkDays,
+      completed: 0,
+      end: options.end,
+      latestIngestedAt: cache.lastSyncedAt,
+      latestWindow: null,
+      percent: 0,
+      start: options.start,
+      total: 0,
+      totalRecords: cache.totalRecords,
+    };
+  }
+
   const store = getParkingStore(env);
   const total = splitDateRange(options.start, options.end, chunkDays).length;
   const snapshot = await store.getBackfillProgressSnapshot(

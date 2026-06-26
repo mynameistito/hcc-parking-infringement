@@ -7,21 +7,10 @@ import {
   parseSeedWatermarkLine,
   seedObjectKey,
 } from "@/server/seed-manifest.ts";
+import { readSeedObjectText } from "@/server/seed-r2-client.ts";
 import { getParkingStore } from "@/server/store.ts";
 
 const INFRINGEMENT_UPSERT_BATCH = 500;
-
-const readR2Text = async (
-  bucket: R2Bucket,
-  key: string
-): Promise<string | null> => {
-  const object = await bucket.get(key);
-  if (object === null) {
-    return null;
-  }
-
-  return await object.text();
-};
 
 const readConfiguredSeedPrefix = (env: Env): string | undefined => {
   const value = env.PARKING_STORE_SEED_PREFIX;
@@ -41,23 +30,17 @@ const resolveSeedPrefix = (env: Env, override?: string): string => {
   return normalized;
 };
 
-const requireSeedBucket = (env: Env): R2Bucket => {
-  if (env.PARKING_SEED === undefined) {
-    throw new Error(
-      "PARKING_SEED R2 binding is not configured. Add an r2_buckets entry in wrangler.jsonc."
-    );
-  }
-
-  return env.PARKING_SEED;
-};
+export type SeedManifestContext = Awaited<ReturnType<typeof readSeedManifest>>;
 
 export const readSeedManifest = async (
   env: Env,
   prefixOverride?: string
-): Promise<{ bucket: R2Bucket; manifest: SeedManifest; prefix: string }> => {
-  const bucket = requireSeedBucket(env);
+): Promise<{ manifest: SeedManifest; prefix: string }> => {
   const prefix = resolveSeedPrefix(env, prefixOverride);
-  const raw = await readR2Text(bucket, seedObjectKey(prefix, MANIFEST_FILE));
+  const raw = await readSeedObjectText(
+    env,
+    seedObjectKey(prefix, MANIFEST_FILE)
+  );
 
   if (raw === null) {
     throw new Error(
@@ -66,7 +49,6 @@ export const readSeedManifest = async (
   }
 
   return {
-    bucket,
     manifest: parseSeedManifest(JSON.parse(raw)),
     prefix,
   };
@@ -102,7 +84,7 @@ export const importSeedInfringementChunk = async (
   chunk: string;
   recordsUpserted: number;
 }> => {
-  const { bucket, manifest, prefix } = await readSeedManifest(
+  const { manifest, prefix } = await readSeedManifest(
     env,
     options.prefixOverride
   );
@@ -111,7 +93,10 @@ export const importSeedInfringementChunk = async (
     throw new Error(`Unknown seed chunk "${options.chunk}"`);
   }
 
-  const raw = await readR2Text(bucket, seedObjectKey(prefix, options.chunk));
+  const raw = await readSeedObjectText(
+    env,
+    seedObjectKey(prefix, options.chunk)
+  );
   if (raw === null) {
     throw new Error(`Seed chunk not found: ${options.chunk}`);
   }
@@ -129,17 +114,14 @@ export const importSeedWatermarks = async (
   env: Env,
   prefixOverride?: string
 ): Promise<{ imported: number }> => {
-  const { bucket, manifest, prefix } = await readSeedManifest(
-    env,
-    prefixOverride
-  );
+  const { manifest, prefix } = await readSeedManifest(env, prefixOverride);
 
   if (manifest.watermarksKey === undefined) {
     return { imported: 0 };
   }
 
-  const raw = await readR2Text(
-    bucket,
+  const raw = await readSeedObjectText(
+    env,
     seedObjectKey(prefix, manifest.watermarksKey)
   );
 
@@ -154,4 +136,11 @@ export const importSeedWatermarks = async (
 
   const imported = await getParkingStore(env).importWatermarks(watermarks);
   return { imported };
+};
+
+export const finalizeSeedImport = async (
+  env: Env
+): Promise<{ recomputed: boolean }> => {
+  await getParkingStore(env).finalizeStoredImport();
+  return { recomputed: true };
 };

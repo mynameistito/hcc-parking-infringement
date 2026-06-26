@@ -1,3 +1,4 @@
+import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 import { getParkingStore } from "@/server/store.ts";
 
 export type {
@@ -19,5 +20,10 @@ export {
   startBackfill,
 } from "@/server/sync-backfill.ts";
 
-export const getLatestSyncRun = async (env: Env) =>
-  await getParkingStore(env).getLatestSyncRun();
+export const getLatestSyncRun = async (env: Env) => {
+  if (readsParkingStoreFromSeed(env)) {
+    return null;
+  }
+
+  return await getParkingStore(env).getLatestSyncRun();
+};

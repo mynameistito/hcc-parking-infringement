@@ -11,12 +11,14 @@ import {
 } from "@/server/http/query.ts";
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
+import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 import {
   getPublicDailyTrend,
   getPublicLiveStats,
   getPublicTopOffences,
   getPublicTopStreets,
 } from "@/server/public-stats.ts";
+import { handleSeedDashboardWebSocket } from "@/server/seed-websocket.ts";
 import { getDailyStats, getLiveStats, getTopStats } from "@/server/stats.ts";
 import { getParkingStore } from "@/server/store.ts";
 
@@ -79,6 +81,10 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
   });
 
   routes.get("/live/ws", async (c) => {
+    if (readsParkingStoreFromSeed(c.env)) {
+      return await handleSeedDashboardWebSocket(c.req.raw, c.env);
+    }
+
     const stub = getParkingStore(c.env);
     return await stub.fetch(c.req.raw);
   });

@@ -6,6 +6,7 @@ import type {
   ExportWatermarksResult,
 } from "@/durable-objects/parking-store/replication.ts";
 import { cleanInfringementSchema } from "@/server/clean-schema.ts";
+import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
 
 const importStoredBatchSchema = z.object({
@@ -48,6 +49,7 @@ export const importStoredInfringements = async (
   recomputed: boolean;
   totalRecords?: number;
 }> => {
+  assertParkingStoreWritable(env);
   const payload = importStoredBatchSchema.parse(body);
   const store = getParkingStore(env);
   const recordsUpserted = await store.importStoredInfringements(
@@ -104,6 +106,7 @@ export const importStoredWatermarks = async (
   env: Env,
   body: unknown
 ): Promise<{ imported: number; total: number }> => {
+  assertParkingStoreWritable(env);
   const payload = importWatermarksSchema.parse(body);
   const store = getParkingStore(env);
   const imported = await store.importWatermarks(payload.watermarks);
@@ -118,6 +121,7 @@ export const importStoredWatermarks = async (
 export const finalizeStoredImport = async (
   env: Env
 ): Promise<{ recomputed: boolean }> => {
+  assertParkingStoreWritable(env);
   await getParkingStore(env).finalizeStoredImport();
   return { recomputed: true };
 };

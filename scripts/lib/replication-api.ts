@@ -308,3 +308,31 @@ export const postFinalizeStoredImport = async (
     });
   }
 };
+
+export const fetchDashboardSnapshot = async (
+  source: WorkerScriptContext
+): Promise<string> => {
+  const url = new URL("/api/v1/export/dashboard-snapshot", source.workerUrl);
+
+  const response = await fetchWithTimeout(url.toString(), {
+    headers: bearerHeaders(source.apiKey),
+    timeoutMs: 120_000,
+  });
+  const rawBody: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      describeFetchFailure(response, rawBody, "GET", url.toString())
+    );
+  }
+
+  if (
+    typeof rawBody !== "object" ||
+    rawBody === null ||
+    !("payload" in rawBody)
+  ) {
+    throw new Error("Dashboard snapshot response missing payload");
+  }
+
+  return JSON.stringify(rawBody.payload);
+};

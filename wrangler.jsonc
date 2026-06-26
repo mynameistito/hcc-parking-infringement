@@ -54,14 +54,13 @@
   },
   "vars": {
     "HCC_API_BASE": "https://api.hcc.govt.nz/OpenData",
+    "PARKING_STORE_READ_SOURCE": "durable_object",
     "PARKING_STORE_SEED_PREFIX": "parking-store/v1/",
+    "PARKING_SEED_BUCKET": "hcc-parking-infringement-seed",
+    "R2_ACCOUNT_ID": "402722ab1f598e783cd6dcdedc37e1d0",
   },
-  "r2_buckets": [
-    {
-      "binding": "PARKING_SEED",
-      "bucket_name": "hcc-parking-infringement-seed",
-    },
-  ],
+  // Workers R2 bindings return error 10136 on this account; use R2 S3 API secrets instead.
+  // "r2_buckets": [{ "binding": "PARKING_SEED", "bucket_name": "hcc-parking-infringement-seed" }],
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/client",

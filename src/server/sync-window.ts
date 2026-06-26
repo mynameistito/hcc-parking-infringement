@@ -5,6 +5,8 @@ import { addDays } from "@/lib/date-range.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { fetchAllInWindow } from "@/server/hcc-client.ts";
 import type { FetchAllResult } from "@/server/hcc-client.ts";
+import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
+import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
 
 export type { SyncRunType };
@@ -32,6 +34,18 @@ export const syncWindow = async (
   options: SyncWindowOptions,
   prefetched?: FetchAllResult
 ): Promise<SyncWindowResult> => {
+  if (readsParkingStoreFromSeed(env)) {
+    return {
+      hccSkipped: true,
+      possiblyTruncated: false,
+      recordsFetched: 0,
+      recordsUpserted: 0,
+      runId: 0,
+      skipped: 0,
+    };
+  }
+
+  assertParkingStoreWritable(env);
   const store = getParkingStore(env);
 
   if (options.force !== true && prefetched === undefined) {

@@ -7,6 +7,7 @@ import { cleanInfringementSchema } from "@/server/clean-schema.ts";
 export const SEED_MANIFEST_VERSION = 1 as const;
 
 export const seedManifestSchema = z.object({
+  dashboardSnapshotKey: z.string().optional(),
   exportedAt: z.string(),
   infringementChunks: z.array(z.string()),
   source: z.string(),
@@ -50,3 +51,4 @@ export const seedObjectKey = (prefix: string, name: string): string =>
   `${normalizeSeedPrefix(prefix)}${name}`;
 
 export const MANIFEST_FILE = "manifest.json";
+export const DASHBOARD_SNAPSHOT_FILE = "dashboard-snapshot.json";

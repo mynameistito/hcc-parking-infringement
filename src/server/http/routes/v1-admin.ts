@@ -33,6 +33,7 @@ import {
 import {
   importSeedInfringementChunk,
   importSeedWatermarks,
+  finalizeSeedImport,
   readSeedManifest,
 } from "@/server/seed-import.ts";
 import {
@@ -40,6 +41,7 @@ import {
   seedPrefixRequestSchema,
 } from "@/server/seed-request.ts";
 import { listInfringements } from "@/server/stats.ts";
+import { getParkingStore } from "@/server/store.ts";
 import {
   BACKFILL_EARLIEST,
   getLatestSyncRun,
@@ -209,6 +211,21 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     }
   });
 
+  routes.get("/export/dashboard-snapshot", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const payload: unknown = JSON.parse(
+        await getParkingStore(c.env).exportDashboardSnapshotPayload()
+      );
+
+      return c.json({ ok: true, payload });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
   routes.get("/export/infringements", async (c) => {
     assertApiKey(c.req.raw, c.env);
 
@@ -290,7 +307,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKey(c.req.raw, c.env);
 
     try {
-      await finalizeStoredImport(c.env);
+      await finalizeSeedImport(c.env);
       return c.json({ ok: true, recomputed: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

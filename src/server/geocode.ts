@@ -5,6 +5,7 @@ import {
   isRealRoadGeometry,
   overpassBatchRoadGeometry,
 } from "@/server/geocode-overpass.ts";
+import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 import { getParkingStore } from "@/server/store.ts";
 
 const OVERPASS_BATCH_SIZE = 15;
@@ -65,6 +66,10 @@ export const geocodeMissingLocations = async (
   env: Env,
   limit = 50
 ): Promise<{ geocoded: number; failed: number; pending: number }> => {
+  if (readsParkingStoreFromSeed(env)) {
+    return { failed: 0, geocoded: 0, pending: 0 };
+  }
+
   const store = getParkingStore(env);
   const missing = await store.getLocationsNeedingGeocode(limit);
   let geocoded = 0;

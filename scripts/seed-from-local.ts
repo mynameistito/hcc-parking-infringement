@@ -7,7 +7,7 @@
  * bun run seed:from-local -- --upload-only --apply
  */
 
-import { readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
@@ -22,6 +22,22 @@ import { uploadSeedDirectory } from "@scripts/lib/seed-upload.ts";
 import { requireApiKey } from "@scripts/lib/worker-client.ts";
 
 import { parsePositiveInt } from "@/server/http/query.ts";
+import { parseSeedManifest } from "@/server/seed-manifest.ts";
+
+const listSeedFilesToUpload = async (seedDir: string): Promise<string[]> => {
+  const manifestPath = path.join(seedDir, "manifest.json");
+  const manifestRaw = await readFile(manifestPath, "utf-8");
+  const manifest = parseSeedManifest(JSON.parse(manifestRaw));
+
+  return [
+    "manifest.json",
+    ...manifest.infringementChunks,
+    ...(manifest.watermarksKey === undefined ? [] : [manifest.watermarksKey]),
+    ...(manifest.dashboardSnapshotKey === undefined
+      ? []
+      : [manifest.dashboardSnapshotKey]),
+  ];
+};
 
 loadDevVars();
 
@@ -67,10 +83,7 @@ if (!uploadOnly) {
   );
 }
 
-const dirEntries = await readdir(outDir);
-const filesOnDisk = dirEntries.filter(
-  (name) => name.endsWith(".ndjson") || name === "manifest.json"
-);
+const filesOnDisk = await listSeedFilesToUpload(outDir);
 
 console.log(`[seed] uploading to r2://${bucket}/${prefix}`);
 await uploadSeedDirectory({
@@ -84,7 +97,7 @@ if (!apply) {
   console.log(
     [
       "[seed] upload complete.",
-      `Ensure wrangler has PARKING_STORE_SEED_PREFIX=${JSON.stringify(prefix)} and PARKING_SEED R2 binding, then deploy.`,
+      `Ensure wrangler has PARKING_STORE_SEED_PREFIX=${JSON.stringify(prefix)} and R2 S3 credentials (R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY), then deploy.`,
       "Then: bun run seed:apply -- --to=https://your-worker.workers.dev",
     ].join("\n")
   );

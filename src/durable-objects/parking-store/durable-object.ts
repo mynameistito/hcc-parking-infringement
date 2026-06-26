@@ -64,6 +64,10 @@ export class ParkingStore extends DurableObject<Env> {
     );
   }
 
+  exportDashboardSnapshotPayload(): string {
+    return this.live.resolveSnapshotPayload();
+  }
+
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     void this.ctx;
     onWebSocketMessage(ws, message);

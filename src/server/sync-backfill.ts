@@ -20,6 +20,8 @@ import { addDays } from "@/lib/date-range.ts";
 import { mapWithConcurrency } from "@/lib/map-with-concurrency.ts";
 import { flushBackfillDerivedStateSafely } from "@/server/backfill-flush.ts";
 import { fetchAllInWindow } from "@/server/hcc-client.ts";
+import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
+import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
 import {
   DEFAULT_BACKFILL_CHUNK_DAYS,
@@ -131,6 +133,10 @@ export const processBackfillMessage = async (
   skipped?: boolean;
   result?: SyncWindowResult;
 }> => {
+  if (readsParkingStoreFromSeed(env)) {
+    return { skipped: true, split: false };
+  }
+
   const store = getParkingStore(env);
   const delivery = message.delivery ?? "queue";
 
@@ -254,6 +260,7 @@ export const startBackfill = async (
   start: string;
   total: number;
 }> => {
+  assertParkingStoreWritable(env);
   const delivery = options?.delivery ?? "queue";
   const today = formatDateInAuckland(new Date());
   const start = options?.start ?? BACKFILL_EARLIEST;
