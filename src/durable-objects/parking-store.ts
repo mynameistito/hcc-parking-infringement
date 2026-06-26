@@ -1,22 +1,16 @@
 import { DurableObject } from "cloudflare:workers";
 
 import {
+  flushBackfillDerivedState,
+  markBackfillStatsDirty,
+} from "@/durable-objects/parking-store/backfill-state.ts";
+import {
   browseStreets as queryBrowseStreets,
   browseSuburbs as queryBrowseSuburbs,
   browseVehicles as queryBrowseVehicles,
 } from "@/durable-objects/parking-store/browse-queries.ts";
-import { isoNow } from "@/durable-objects/parking-store/constants.ts";
+import { DashboardLiveState } from "@/durable-objects/parking-store/dashboard-live.ts";
 import {
-  assembleFullDashboardSnapshot,
-  buildColdDashboardSnapshotPayload,
-  buildFullDashboardSnapshotPayload,
-  getDashboardSnapshotPayloadWeight,
-  readStoredDashboardSnapshotPayload,
-  snapshotIsComplete,
-  writeDashboardSnapshotCache,
-} from "@/durable-objects/parking-store/dashboard-snapshot.ts";
-import {
-  countInfringements as countStoredInfringements,
   getDailyStats as queryDailyStats,
   listInfringements as queryInfringements,
 } from "@/durable-objects/parking-store/infringements.ts";
@@ -27,7 +21,6 @@ import {
   readMapPoints,
   saveLocationCache as persistLocationCache,
 } from "@/durable-objects/parking-store/locations.ts";
-import { readPaceTrends } from "@/durable-objects/parking-store/pace-trends.ts";
 import {
   getTopStats as queryTopStats,
   getTopSuburbs as queryTopSuburbs,
@@ -41,21 +34,24 @@ import {
   recomputeStatsLive,
 } from "@/durable-objects/parking-store/stats.ts";
 import {
-  clearSyncMeta,
-  finishSyncRun,
+  applySyncWindow as ingestSyncWindow,
+  importInfringementBatch as ingestImportBatch,
+  recordBackfillFailure as ingestBackfillFailure,
+} from "@/durable-objects/parking-store/sync-ingest.ts";
+import {
   getLatestSyncRun as readLatestSyncRun,
-  getSyncMeta,
   hasWatermark,
-  recordWatermark,
-  setSyncMeta,
-  startSyncRun,
-  upsertInfringements,
 } from "@/durable-objects/parking-store/sync.ts";
 import {
   countIngestWatermarksInRange as countWatermarksInRange,
+  getBackfillProgressSnapshot as readBackfillProgressSnapshot,
   getLatestIngestWatermarkInRange as readLatestWatermarkInRange,
-  readTotalRecordsForProgress,
 } from "@/durable-objects/parking-store/watermarks.ts";
+import {
+  broadcastToWebSockets,
+  handleWebSocketMessage as onWebSocketMessage,
+  pushToWebSocket,
+} from "@/durable-objects/parking-store/websocket.ts";
 import type {
   BrowseQuery,
   BrowseResult,
@@ -118,7 +114,7 @@ export {
 } from "@/durable-objects/geometry.ts";
 
 export class ParkingStore extends DurableObject<Env> {
-  private dashboardSnapshotPayload: string | null = null;
+  private readonly dashboardLive = new DashboardLiveState();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -136,7 +132,7 @@ export class ParkingStore extends DurableObject<Env> {
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
     queueMicrotask(() => {
-      this.pushToSocket(server);
+      pushToWebSocket(server, this.dashboardLive.resolve(this.sql));
     });
 
     return new Response(null, { status: 101, webSocket: client });
@@ -144,11 +140,7 @@ export class ParkingStore extends DurableObject<Env> {
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     void this.ctx;
-    const text =
-      typeof message === "string" ? message : new TextDecoder().decode(message);
-    if (text === "ping") {
-      ws.send(JSON.stringify({ at: isoNow(), type: "pong" }));
-    }
+    onWebSocketMessage(ws, message);
   }
 
   webSocketClose(
@@ -169,87 +161,35 @@ export class ParkingStore extends DurableObject<Env> {
 
     runParkingStoreMigrations(this.sql, {
       recomputeStats: () => {
-        this.recomputeStats();
+        recomputeStatsLive(this.sql);
       },
       refreshDashboardSnapshotCache: () => {
-        this.refreshDashboardSnapshotCache();
+        this.dashboardLive.refresh(this.sql);
       },
     });
   }
 
   applySyncWindow(payload: SyncWindowPayload): SyncWindowResult {
-    const runId = startSyncRun(
-      this.sql,
-      payload.runType,
-      payload.start,
-      payload.end
-    );
-
-    try {
-      const recordsUpserted = upsertInfringements(this.sql, payload.records);
-
-      if (payload.runType === "backfill") {
-        this.markBackfillStatsDirty();
-      } else {
-        this.recomputeStats();
+    return ingestSyncWindow(this.sql, payload, {
+      markBackfillStatsDirty: () => {
+        markBackfillStatsDirty(this.sql);
+      },
+      onIncrementalSuccess: () => {
+        recomputeStatsLive(this.sql);
         this.broadcastLiveUpdate();
-      }
-
-      finishSyncRun(this.sql, runId, "success", {
-        fetched: payload.recordsFetched,
-        upserted: recordsUpserted,
-      });
-
-      recordWatermark(
-        this.sql,
-        payload.start,
-        payload.end,
-        payload.recordsFetched
-      );
-      setSyncMeta(this.sql, "last_hcc_fetch_at", isoNow());
-
-      return {
-        recordsFetched: payload.recordsFetched,
-        recordsUpserted,
-        runId,
-        skipped: payload.skipped,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      finishSyncRun(this.sql, runId, "error", {
-        error: message,
-        fetched: 0,
-        upserted: 0,
-      });
-      throw error;
-    }
-  }
-
-  recordBackfillFailure(start: string, end: string, error: string): void {
-    const runId = startSyncRun(this.sql, "backfill", start, end);
-    finishSyncRun(this.sql, runId, "error", {
-      error,
-      fetched: 0,
-      upserted: 0,
+      },
     });
   }
 
+  recordBackfillFailure(start: string, end: string, error: string): void {
+    ingestBackfillFailure(this.sql, start, end, error);
+  }
+
   importInfringementBatch(payload: ImportBatchPayload): ImportBatchResult {
-    const recordsUpserted = upsertInfringements(this.sql, payload.records);
-
-    if (payload.final) {
-      this.recomputeStats();
-      setSyncMeta(this.sql, "last_csv_import_at", isoNow());
+    return ingestImportBatch(this.sql, payload, () => {
+      recomputeStatsLive(this.sql);
       this.broadcastLiveUpdate();
-    }
-
-    return {
-      recomputed: payload.final,
-      recordsReceived: payload.recordsReceived,
-      recordsUpserted,
-      skipped: payload.skipped,
-      totalRecords: countStoredInfringements(this.sql),
-    };
+    });
   }
 
   getPublicLiveStats(): PublicLiveStats {
@@ -374,26 +314,14 @@ export class ParkingStore extends DurableObject<Env> {
     latestWindow: { end: string; start: string } | null;
     totalRecords: number;
   } {
-    const completed = countWatermarksInRange(this.sql, start, end, chunkDays);
-    const latest = readLatestWatermarkInRange(this.sql, start, end, chunkDays);
-
-    return {
-      completed,
-      latestIngestedAt: latest?.ingestedAt ?? null,
-      latestWindow: latest ? { end: latest.end, start: latest.start } : null,
-      totalRecords: readTotalRecordsForProgress(this.sql),
-    };
+    return readBackfillProgressSnapshot(this.sql, start, end, chunkDays);
   }
 
   flushBackfillDerivedState(): { flushed: boolean } {
-    if (!this.isBackfillStatsDirty()) {
-      return { flushed: false };
-    }
-
-    this.recomputeStats();
-    this.broadcastLiveUpdate();
-    this.clearBackfillStatsDirty();
-    return { flushed: true };
+    return flushBackfillDerivedState(this.sql, () => {
+      recomputeStatsLive(this.sql);
+      this.broadcastLiveUpdate();
+    });
   }
 
   countIngestWatermarksInRange(
@@ -412,80 +340,8 @@ export class ParkingStore extends DurableObject<Env> {
     return readLatestWatermarkInRange(this.sql, start, end, chunkDays);
   }
 
-  private refreshDashboardSnapshotCache(): void {
-    this.dashboardSnapshotPayload = buildFullDashboardSnapshotPayload(
-      assembleFullDashboardSnapshot(this.sql)
-    );
-    writeDashboardSnapshotCache(this.sql, this.dashboardSnapshotPayload);
-  }
-
-  private getDashboardSnapshotPayload(): string {
-    const payload =
-      this.dashboardSnapshotPayload ??
-      readStoredDashboardSnapshotPayload(this.sql);
-
-    if (
-      payload !== null &&
-      getDashboardSnapshotPayloadWeight(payload) > 0 &&
-      snapshotIsComplete(payload)
-    ) {
-      this.dashboardSnapshotPayload = payload;
-      return payload;
-    }
-
-    this.refreshDashboardSnapshotCache();
-    return (
-      this.dashboardSnapshotPayload ??
-      buildColdDashboardSnapshotPayload(
-        readPublicLiveStats(this.sql),
-        readPaceTrends(this.sql),
-        isoNow()
-      )
-    );
-  }
-
   private broadcastLiveUpdate(): void {
-    this.refreshDashboardSnapshotCache();
-    const sockets = this.ctx.getWebSockets();
-    if (sockets.length === 0) {
-      return;
-    }
-
-    const payload = this.dashboardSnapshotPayload;
-    if (payload === null) {
-      return;
-    }
-
-    for (const ws of sockets) {
-      try {
-        ws.send(payload);
-      } catch {
-        // socket already closed
-      }
-    }
-  }
-
-  private pushToSocket(ws: WebSocket): void {
-    try {
-      ws.send(this.getDashboardSnapshotPayload());
-    } catch {
-      // socket already closed
-    }
-  }
-
-  private recomputeStats(): void {
-    recomputeStatsLive(this.sql);
-  }
-
-  private markBackfillStatsDirty(): void {
-    setSyncMeta(this.sql, "backfill_stats_dirty", "1");
-  }
-
-  private isBackfillStatsDirty(): boolean {
-    return getSyncMeta(this.sql, "backfill_stats_dirty") === "1";
-  }
-
-  private clearBackfillStatsDirty(): void {
-    clearSyncMeta(this.sql, "backfill_stats_dirty");
+    const payload = this.dashboardLive.refresh(this.sql);
+    broadcastToWebSockets(this.ctx.getWebSockets(), payload);
   }
 }

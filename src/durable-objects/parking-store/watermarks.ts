@@ -103,3 +103,25 @@ export const readTotalRecordsForProgress = (sql: SqlStorage): number => {
 
   return countRow?.total ?? 0;
 };
+
+export const getBackfillProgressSnapshot = (
+  sql: SqlStorage,
+  start: string,
+  end: string,
+  chunkDays: number
+): {
+  completed: number;
+  latestIngestedAt: string | null;
+  latestWindow: { end: string; start: string } | null;
+  totalRecords: number;
+} => {
+  const completed = countIngestWatermarksInRange(sql, start, end, chunkDays);
+  const latest = getLatestIngestWatermarkInRange(sql, start, end, chunkDays);
+
+  return {
+    completed,
+    latestIngestedAt: latest?.ingestedAt ?? null,
+    latestWindow: latest ? { end: latest.end, start: latest.start } : null,
+    totalRecords: readTotalRecordsForProgress(sql),
+  };
+};
