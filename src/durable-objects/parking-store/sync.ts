@@ -1,4 +1,4 @@
-import type { SyncRunType } from "@/durable-objects/types.ts";
+import type { SyncRunRow, SyncRunType } from "@/durable-objects/types.ts";
 import type { CleanInfringement } from "@/server/clean.ts";
 
 import { isoNow } from "./constants.ts";
@@ -174,4 +174,42 @@ export const setSyncMeta = (
 
 export const clearSyncMeta = (sql: SqlStorage, key: string): void => {
   sql.exec("DELETE FROM sync_meta WHERE key = ?", key);
+};
+
+export const getLatestSyncRun = (sql: SqlStorage): SyncRunRow | null => {
+  const rows = sql
+    .exec<{
+      error: string | null;
+      fetched: number;
+      finished_at: string | null;
+      id: number;
+      inserted: number;
+      run_type: string;
+      started_at: string;
+      status: string;
+      updated: number;
+      window_end: string;
+      window_start: string;
+    }>(`SELECT * FROM sync_runs ORDER BY started_at DESC LIMIT 1`)
+    .toArray();
+
+  const [row] = rows;
+
+  if (row === undefined) {
+    return null;
+  }
+
+  return {
+    error: row.error,
+    fetched: row.fetched,
+    finishedAt: row.finished_at,
+    id: row.id,
+    inserted: row.inserted,
+    runType: row.run_type,
+    startedAt: row.started_at,
+    status: row.status,
+    updated: row.updated,
+    windowEnd: row.window_end,
+    windowStart: row.window_start,
+  };
 };

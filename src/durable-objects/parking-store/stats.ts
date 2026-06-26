@@ -1,6 +1,6 @@
 import { subDays } from "date-fns";
 
-import type { PublicLiveStats } from "@/durable-objects/types.ts";
+import type { CacheStatus, PublicLiveStats } from "@/durable-objects/types.ts";
 import {
   dateBounds,
   formatDateInAuckland,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/auckland-time.ts";
 
 import { isoNow, STATS_LIVE_ID } from "./constants.ts";
+import { getSyncMeta } from "./sync.ts";
 
 export interface WindowAggregate {
   amountCents: number;
@@ -207,4 +208,29 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
       row.towed_count
     );
   }
+};
+
+export const getCacheStatus = (sql: SqlStorage): CacheStatus => {
+  const totalRow = sql
+    .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
+    .one();
+
+  const watermarkRow = sql
+    .exec<{ count: number }>("SELECT count(*) as count FROM ingest_watermarks")
+    .one();
+
+  const statsRow = sql
+    .exec<{ last_synced_at: string | null }>(
+      "SELECT last_synced_at FROM stats_live WHERE id = ? LIMIT 1",
+      STATS_LIVE_ID
+    )
+    .one();
+
+  return {
+    ingestWindows: watermarkRow?.count ?? 0,
+    lastHccFetchAt: getSyncMeta(sql, "last_hcc_fetch_at"),
+    lastSyncedAt: statsRow?.last_synced_at ?? null,
+    source: "parking-store",
+    totalRecords: totalRow?.total ?? 0,
+  };
 };
