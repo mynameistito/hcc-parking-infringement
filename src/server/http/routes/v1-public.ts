@@ -13,7 +13,6 @@ import {
 } from "@/server/locations.ts";
 import { listInfringements } from "@/server/stats.ts";
 
-/** Public dashboard data: locations, vehicles, recent infringements. */
 export const createV1PublicRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

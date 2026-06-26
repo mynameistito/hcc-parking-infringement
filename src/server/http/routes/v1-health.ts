@@ -4,7 +4,6 @@ import { getCacheStatus } from "@/server/cache.ts";
 import { storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 
-/** Health and cache metadata routes. */
 export const createV1HealthRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

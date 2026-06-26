@@ -15,7 +15,6 @@ import {
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 
-/** Browse and explore list endpoints. */
 export const createV1BrowseRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

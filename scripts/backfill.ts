@@ -24,12 +24,12 @@ import {
 import { formatInTimeZone } from "date-fns-tz";
 import { z } from "zod";
 
+import { BACKFILL_EARLIEST } from "@/lib/backfill-constants.ts";
 import { splitDateRange } from "@/server/sync.ts";
 
 loadDevVars();
 
 const AUCKLAND_TZ = "Pacific/Auckland";
-const BACKFILL_EARLIEST = "1990-01-01";
 const POLL_MS = 2000;
 
 const args = process.argv.slice(2);

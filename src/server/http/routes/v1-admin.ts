@@ -27,7 +27,6 @@ import {
   startBackfill,
 } from "@/server/sync.ts";
 
-/** API-key gated admin, sync, import, and geocode routes. */
 export const createV1AdminRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
@@ -38,8 +37,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       ...cache,
       hccFetchPolicy: {
         backfill: "skips already-ingested windows",
-        dailyBackfill:
-          "POST /api/v1/sync/backfill?granularity=week&from=1990-01-01",
+        dailyBackfill: `POST /api/v1/sync/backfill?granularity=week&from=${BACKFILL_EARLIEST}`,
         force: "POST /api/v1/sync/backfill?force=true",
         hourly: "last 7 days only",
       },

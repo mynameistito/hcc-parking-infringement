@@ -21,20 +21,20 @@ Shared Zod schemas and TypeScript types for HTTP and WebSocket payloads consumed
 
 ### Module layout (`src/durable-objects/parking-store/`)
 
-| Module                                        | Responsibility                                      |
-| --------------------------------------------- | --------------------------------------------------- |
-| `durable-object.ts`                           | DO class: WebSocket lifecycle, migration, RPC stubs |
-| `store-api.ts`                                | All RPC business logic (single facade)              |
-| `live-coordinator.ts`                         | Snapshot refresh + recompute + broadcast            |
-| `schema.ts`                                   | SQLite migrations                                   |
-| `sync.ts` / `sync-ingest.ts`                  | Ingestion runs, upserts, watermarks                 |
-| `stats.ts`                                    | Live aggregates, cache status                       |
-| `browse-queries.ts` / `rankings.ts`           | Explore and top-list SQL                            |
-| `infringements.ts`                            | List/filter infringements                           |
-| `locations.ts` / `geocode-candidates.ts`      | Map routes and geocode queue                        |
-| `dashboard-snapshot.ts` / `dashboard-live.ts` | WebSocket snapshot assembly and cache               |
-| `watermarks.ts` / `backfill-state.ts`         | Backfill progress and dirty flags                   |
-| `websocket.ts`                                | Upgrade handler, ping/pong, push                    |
+| Module                                               | Responsibility                                      |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| `durable-object.ts`                                  | DO class: WebSocket lifecycle, migration, RPC stubs |
+| `store-api.ts`                                       | All RPC business logic (single facade)              |
+| `live-coordinator.ts`                                | Snapshot refresh + recompute + broadcast            |
+| `schema.ts`                                          | SQLite migrations                                   |
+| `sync.ts` / `sync-ingest.ts`                         | Ingestion runs, upserts, watermarks                 |
+| `stats.ts` / `stats-live.ts` / `stats-aggregates.ts` | Live aggregates, cache status, SQL windows          |
+| `browse-queries.ts` / `rankings.ts`                  | Explore and top-list SQL                            |
+| `infringements.ts`                                   | List/filter infringements                           |
+| `locations.ts` / `geocode-candidates.ts`             | Map routes and geocode queue                        |
+| `dashboard-snapshot.ts` / `dashboard-live.ts`        | WebSocket snapshot assembly and cache               |
+| `watermarks.ts` / `backfill-state.ts`                | Backfill progress and dirty flags                   |
+| `websocket.ts`                                       | Upgrade handler, ping/pong, push                    |
 
 DO types live under `src/durable-objects/types/` (sync, browse, stats, infringements, locations, dashboard) and re-export from `types.ts`.
 
@@ -46,6 +46,8 @@ DO types live under `src/durable-objects/types/` (sync, browse, stats, infringem
 | `routes/v1-*.ts` | Health, stats, public, browse, admin |
 | `auth-guards.ts` | API key / cron secret assertions     |
 | `query.ts`       | Shared query param parsers           |
+
+Worker and sync helpers: `sync-window.ts`, `sync-backfill.ts`, `backfill-queue.ts`, `scheduled-tasks.ts`. Record cleaning: `clean-schema.ts`, `clean-normalize.ts`, `clean.ts`. Geocoding: `geocode-overpass.ts`. Constants: `lib/backfill-constants.ts`.
 
 ## Time boundaries
 

@@ -5,7 +5,6 @@ import type {
 } from "@/durable-objects/types/browse.ts";
 import type { DailyStatRow } from "@/durable-objects/types/stats.ts";
 
-/** Shared browse/ranking shapes used by the store and HTTP contracts. */
 export type { BrowseSort } from "@/durable-objects/types/browse.ts";
 
 export type TopItem = PublicTopItem;

@@ -20,7 +20,6 @@ import {
 import { getDailyStats, getLiveStats, getTopStats } from "@/server/stats.ts";
 import { getParkingStore } from "@/server/store.ts";
 
-/** Live stats, daily trends, top lists, and WebSocket upgrade. */
 export const createV1StatsRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

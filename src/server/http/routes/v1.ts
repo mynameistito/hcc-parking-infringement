@@ -7,7 +7,6 @@ import { createV1HealthRoutes } from "@/server/http/routes/v1-health.ts";
 import { createV1PublicRoutes } from "@/server/http/routes/v1-public.ts";
 import { createV1StatsRoutes } from "@/server/http/routes/v1-stats.ts";
 
-/** Hono router for `/api/v1` public and gated endpoints. */
 export const createV1Routes = (): Hono<AppEnv> => {
   const v1 = new Hono<AppEnv>();
 
