@@ -78,6 +78,37 @@ export interface PaceWindowChart {
   labels: string[];
 }
 
+const bucketWeekly = (series: DailyStatPoint[]): DailyStatPoint[] => {
+  const weeks: DailyStatPoint[] = [];
+  for (let index = 0; index < series.length; index += 7) {
+    const chunk = series.slice(index, index + 7);
+    const [first] = chunk;
+    if (first === undefined) {
+      continue;
+    }
+    weeks.push({
+      count: chunk.reduce((sum, point) => sum + point.count, 0),
+      date: first.date,
+      totalCents: chunk.reduce((sum, point) => sum + point.totalCents, 0),
+    });
+  }
+  return weeks;
+};
+
+const buildPaceWindow = (
+  dailyTrend: DailyStatPoint[],
+  windowDays: number,
+  maxLabels: number,
+  aggregate?: (series: DailyStatPoint[]) => DailyStatPoint[]
+): PaceWindowChart => {
+  const daily = sliceDays(dailyTrend, windowDays);
+  const series = aggregate?.(daily) ?? daily;
+  return {
+    labels: labelsForSeries(series, maxLabels),
+    values: series.map((point) => point.count),
+  };
+};
+
 export interface PaceLiveValues {
   last7d: number;
   last30d: number;
@@ -96,10 +127,6 @@ export const buildPacePanelData = (
   const sum30 = sumWindow(dailyTrend, 30);
   const sum365 = sumWindow(dailyTrend, 365);
 
-  const last7dSeries = sliceDays(dailyTrend, 7);
-  const last30dSeries = sliceDays(dailyTrend, 30);
-  const last365dSeries = sliceDays(dailyTrend, 365);
-
   const clientTrends: PaceTrends = {
     last30d: comparePeriods(dailyTrend, 30),
     last365d: comparePeriods(dailyTrend, 365),
@@ -114,18 +141,9 @@ export const buildPacePanelData = (
       last7d: pickValue(live.last7d, sum7),
     },
     windows: {
-      last30d: {
-        labels: labelsForSeries(last30dSeries, 5),
-        values: last30dSeries.map((point) => point.count),
-      },
-      last365d: {
-        labels: labelsForSeries(last365dSeries, 6),
-        values: last365dSeries.map((point) => point.count),
-      },
-      last7d: {
-        labels: labelsForSeries(last7dSeries, 7),
-        values: last7dSeries.map((point) => point.count),
-      },
+      last30d: buildPaceWindow(dailyTrend, 30, 5),
+      last365d: buildPaceWindow(dailyTrend, 365, 6, bucketWeekly),
+      last7d: buildPaceWindow(dailyTrend, 7, 7),
     } satisfies Record<string, PaceWindowChart>,
   };
 };
