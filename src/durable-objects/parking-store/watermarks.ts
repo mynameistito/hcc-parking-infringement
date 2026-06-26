@@ -1,4 +1,7 @@
+import type { DateWindow } from "@/durable-objects/types.ts";
+
 import { STATS_LIVE_ID } from "./constants.ts";
+import { hasWatermark } from "./sync.ts";
 
 export const countIngestWatermarksInRange = (
   sql: SqlStorage,
@@ -103,6 +106,18 @@ export const readTotalRecordsForProgress = (sql: SqlStorage): number => {
 
   return countRow?.total ?? 0;
 };
+
+export const isWindowIngested = (
+  sql: SqlStorage,
+  start: string,
+  end: string
+): boolean => hasWatermark(sql, start, end);
+
+export const filterPendingChunks = (
+  sql: SqlStorage,
+  windows: DateWindow[]
+): DateWindow[] =>
+  windows.filter((window) => !hasWatermark(sql, window.start, window.end));
 
 export const getBackfillProgressSnapshot = (
   sql: SqlStorage,

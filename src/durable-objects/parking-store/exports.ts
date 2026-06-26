@@ -1,4 +1,3 @@
-export { ParkingStore } from "@/durable-objects/parking-store/durable-object.ts";
 export type {
   BackfillProgress,
   BrowseQuery,
@@ -28,9 +27,10 @@ export type {
   TopStatRow,
   TopWindow,
   VehicleRankItem,
-} from "@/durable-objects/parking-store/exports.ts";
+} from "@/durable-objects/types.ts";
+
 export {
   normalizeLocationGeometry,
   parseGeometryJson,
   toMapRouteRow,
-} from "@/durable-objects/parking-store/exports.ts";
+} from "@/durable-objects/geometry.ts";

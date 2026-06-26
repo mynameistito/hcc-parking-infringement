@@ -10,6 +10,8 @@ import type {
 } from "@/durable-objects/types.ts";
 import { formatDateInAuckland } from "@/lib/auckland-time.ts";
 
+import { browseStreets } from "./browse-queries.ts";
+
 const topGroupedColumn = (groupBy: "street" | "offence"): string =>
   groupBy === "street" ? "street" : "offence_description";
 
@@ -107,6 +109,38 @@ export const getTopVehicles = (
     model: row.model,
   }));
 };
+
+export const getPublicTop = (
+  sql: SqlStorage,
+  groupBy: "street" | "offence",
+  limit: number
+): PublicTopItem[] =>
+  getTopStats(sql, groupBy, "all", limit).map((row) => ({
+    count: row.count,
+    label: row.key.trim(),
+  }));
+
+export const getTopStreets = (
+  sql: SqlStorage,
+  limit: number
+): LocationRankItem[] =>
+  getTopStats(sql, "street", "all", limit).map((row) => ({
+    count: row.count,
+    label: row.key,
+    street: row.key,
+  }));
+
+export const getStreetsInSuburb = (
+  sql: SqlStorage,
+  suburb: string,
+  limit: number
+): LocationRankItem[] =>
+  browseStreets(sql, {
+    limit,
+    page: 1,
+    sort: "count",
+    suburb,
+  }).items;
 
 export const readTopGrouped = (
   sql: SqlStorage,
