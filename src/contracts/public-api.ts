@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+import type {
+  BrowseResponse,
+  BrowseSort,
+  DailyStatPoint,
+  LocationRankItem,
+  TopItem,
+  VehicleRankItem,
+} from "@/contracts/store-shapes.ts";
+
 /** Public live dashboard aggregate stats. */
 export const liveStatsSchema = z.object({
   allTimeAmountCents: z.number(),
@@ -24,7 +33,7 @@ export const dailyStatPointSchema = z.object({
   totalCents: z.number(),
 });
 
-export type DailyStatPoint = z.infer<typeof dailyStatPointSchema>;
+export type { DailyStatPoint };
 
 export const dailyStatPointArraySchema = z.array(dailyStatPointSchema);
 
@@ -34,7 +43,7 @@ export const topItemSchema = z.object({
   label: z.string(),
 });
 
-export type TopItem = z.infer<typeof topItemSchema>;
+export type { TopItem };
 
 export const topStatsResponseSchema = z.object({
   groupBy: z.enum(["street", "offence"]),
@@ -51,7 +60,7 @@ export const locationRankItemSchema = z.object({
   suburb: z.string().optional(),
 });
 
-export type LocationRankItem = z.infer<typeof locationRankItemSchema>;
+export type { LocationRankItem };
 
 export const locationRankItemArraySchema = z.array(locationRankItemSchema);
 
@@ -63,7 +72,7 @@ export const vehicleRankItemSchema = z.object({
   model: z.string(),
 });
 
-export type VehicleRankItem = z.infer<typeof vehicleRankItemSchema>;
+export type { VehicleRankItem };
 
 export const vehicleRankItemArraySchema = z.array(vehicleRankItemSchema);
 
@@ -98,7 +107,7 @@ export type InfringementListResponse = z.infer<
 
 export const browseSortSchema = z.enum(["count", "name"]);
 
-export type BrowseSort = z.infer<typeof browseSortSchema>;
+export type { BrowseSort };
 
 export interface BrowseParams {
   q?: string;
@@ -125,12 +134,7 @@ export const browseResponseSchema = <T extends z.ZodType>(itemSchema: T) =>
     total: z.number(),
   });
 
-export interface BrowseResponse<T> {
-  readonly items: T[];
-  readonly limit: number;
-  readonly page: number;
-  readonly total: number;
-}
+export type { BrowseResponse };
 
 export const locationBrowseResponseSchema = browseResponseSchema(
   locationRankItemSchema

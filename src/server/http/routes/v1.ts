@@ -1,10 +1,9 @@
 import { Hono } from "hono";
-import { HTTPException } from "hono/http-exception";
 
 import { toPublicInfringementList } from "@/contracts/projections.ts";
 import { todayInAuckland } from "@/lib/auckland-time.ts";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
-import { verifyApiKey, verifyApiKeyOrCronSecret } from "@/server/auth.ts";
+import { verifyApiKey } from "@/server/auth.ts";
 import { getBackfillProgress } from "@/server/backfill-progress.ts";
 import { getCacheStatus } from "@/server/cache.ts";
 import {
@@ -15,6 +14,10 @@ import {
   getTopVehicles,
 } from "@/server/explore.ts";
 import { geocodeMissingLocations } from "@/server/geocode.ts";
+import {
+  assertApiKey,
+  assertApiKeyOrCronSecret,
+} from "@/server/http/auth-guards.ts";
 import {
   isTopGroupBy,
   isTopWindow,
@@ -52,18 +55,6 @@ import {
   hourlySync,
   startBackfill,
 } from "@/server/sync.ts";
-
-const assertApiKey = (request: Request, env: Env): void => {
-  if (!verifyApiKey(request, env)) {
-    throw new HTTPException(401, { message: "Unauthorized" });
-  }
-};
-
-const assertApiKeyOrCronSecret = (request: Request, env: Env): void => {
-  if (!verifyApiKeyOrCronSecret(request, env)) {
-    throw new HTTPException(401, { message: "Unauthorized" });
-  }
-};
 
 const parseBrowseQuery = (c: {
   req: { query: (key: string) => string | undefined };
