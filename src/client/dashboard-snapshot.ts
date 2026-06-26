@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { fullDashboardMessageSchema } from "@/contracts/public-api";
 import type { FullDashboardMessage } from "@/contracts/public-api";
+import { parseAucklandInstant } from "@/lib/auckland-time";
 
 export type { FullDashboardMessage };
 
@@ -24,8 +25,11 @@ export const getDashboardSnapshotTime = (
   message: FullDashboardMessage
 ): number => {
   const source = message.live.lastSyncedAt ?? message.at;
-  const parsed = Date.parse(source);
-  return Number.isNaN(parsed) ? 0 : parsed;
+  try {
+    return parseAucklandInstant(source).getTime();
+  } catch {
+    return 0;
+  }
 };
 
 export { getDashboardSnapshotWeight } from "@/client/dashboard-snapshot-storage";

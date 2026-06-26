@@ -1,3 +1,5 @@
+import { localDateTimeInAucklandIso } from "@/lib/auckland-time.ts";
+
 const STREET_SUFFIXES: Record<string, string> = {
   AVE: "Ave",
   CRES: "Cres",
@@ -29,10 +31,7 @@ const titleCaseWords = (value: string): string =>
 export const dollarsToCents = (amount: number): number =>
   Math.round(amount * 100);
 
-export const toIsoOccurredAt = (date: string, time: string): string => {
-  const normalizedTime = time.length === 5 ? `${time}:00` : time;
-  return `${date}T${normalizedTime}+12:00`;
-};
+export const toIsoOccurredAt = localDateTimeInAucklandIso;
 
 export const emptyToNull = (value: string): string | null =>
   value.length > 0 ? value : null;

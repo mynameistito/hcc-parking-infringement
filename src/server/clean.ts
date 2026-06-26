@@ -1,3 +1,4 @@
+import { normalizeOptionalAucklandInstant } from "@/lib/auckland-time.ts";
 import {
   dollarsToCents,
   emptyToNull,
@@ -29,7 +30,9 @@ export const cleanInfringement = (raw: unknown): CleanInfringement => {
   return {
     additionalCostsCents: dollarsToCents(parsed.Additional_Costs_Amount),
     amountCents: dollarsToCents(parsed.Infringement_Amount),
-    closedAt: emptyToNull(parsed.Infringement_Closed_Date),
+    closedAt: normalizeOptionalAucklandInstant(
+      emptyToNull(parsed.Infringement_Closed_Date)
+    ),
     courtServeMethod: normalizeCourtServeMethod(parsed.Court_Serve_Method),
     infringementNumber: parsed.Infringement_Number,
     infringementType: parsed.Infringement_Type ?? null,

@@ -1,4 +1,5 @@
 import { STATS_LIVE_ID } from "./constants.ts";
+import { migrateParkingStoreTimestampsToAuckland } from "./migrate-auckland-times.ts";
 
 export interface ParkingStoreMigrationHooks {
   recomputeStats: () => void;
@@ -198,6 +199,15 @@ export const runParkingStoreMigrations = (
 
     sql.exec(`
       INSERT INTO _sql_schema_migrations (id) VALUES (9);
+    `);
+  }
+
+  if (currentVersion < 10) {
+    migrateParkingStoreTimestampsToAuckland(sql);
+    hooks.recomputeStats();
+    hooks.refreshDashboardSnapshotCache();
+    sql.exec(`
+      INSERT INTO _sql_schema_migrations (id) VALUES (10);
     `);
   }
 };

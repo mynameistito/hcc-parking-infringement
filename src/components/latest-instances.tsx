@@ -1,9 +1,11 @@
-import { format } from "date-fns";
-
 import { TableRowsSkeleton } from "@/components/data-skeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PublicInfringement } from "@/contracts/public-api";
-import { formatVehicle, moneyFmt } from "@/lib/format";
+import {
+  formatOccurrenceInstantShort,
+  formatVehicle,
+  moneyFmt,
+} from "@/lib/format";
 
 interface LatestInstancesProps {
   recentInfringements: PublicInfringement[];
@@ -51,7 +53,7 @@ export const LatestInstances = ({
                   >
                     <td className="whitespace-nowrap px-3 py-2 font-mono tabular-nums text-muted-foreground">
                       <time dateTime={record.occurredAt}>
-                        {format(new Date(record.occurredAt), "d MMM yy")}
+                        {formatOccurrenceInstantShort(record.occurredAt)}
                       </time>
                     </td>
                     <td className="px-3 py-2" title={formatVehicle(record)}>

@@ -8,7 +8,10 @@ import type {
   TopWindow,
   VehicleRankItem,
 } from "@/durable-objects/types.ts";
-import { formatDateInAuckland } from "@/lib/auckland-time.ts";
+import {
+  formatDateInAuckland,
+  startOfDayInAucklandIso,
+} from "@/lib/auckland-time.ts";
 
 import { browseStreets } from "./browse-queries.ts";
 
@@ -48,7 +51,7 @@ export const getTopStats = (
            GROUP BY ${column}
            ORDER BY count DESC
            LIMIT ?`,
-            `${startDate}T00:00:00+12:00`,
+            startOfDayInAucklandIso(startDate),
             limit
           )
           .toArray();

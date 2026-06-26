@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import { Car } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -18,7 +17,12 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BrowseSort, PublicInfringement } from "@/contracts/public-api";
-import { formatVehicle, moneyFmt, numberFmt } from "@/lib/format";
+import {
+  formatOccurrenceInstant,
+  formatVehicle,
+  moneyFmt,
+  numberFmt,
+} from "@/lib/format";
 
 export const useDebouncedValue = <T,>(value: T, delay = 300): T => {
   const [debounced, setDebounced] = useState(value);
@@ -84,7 +88,7 @@ export const InfringementCards = ({
                 </p>
                 <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-muted-foreground">
                   <time dateTime={record.occurredAt}>
-                    {format(new Date(record.occurredAt), "d MMM yyyy")}
+                    {formatOccurrenceInstant(record.occurredAt)}
                   </time>
                   <span className="font-mono font-semibold text-foreground">
                     {moneyFmt.format(record.amountCents / 100)}

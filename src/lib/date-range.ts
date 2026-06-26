@@ -1,5 +1,1 @@
-export const addDays = (dateStr: string, days: number): string => {
-  const date = new Date(`${dateStr}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-};
+export { addDaysInAuckland as addDays } from "@/lib/auckland-time.ts";

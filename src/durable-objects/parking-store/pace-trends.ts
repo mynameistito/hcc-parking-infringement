@@ -17,7 +17,7 @@ export const computePaceTrend = (
   const currentStart = formatDateInAuckland(subDays(now, days));
   const current = aggregateWindow(
     sql,
-    `${currentStart}T00:00:00+12:00`,
+    dateBounds(currentStart).start,
     todayWindow.end
   ).count;
 

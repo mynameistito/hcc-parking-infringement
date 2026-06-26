@@ -1,6 +1,4 @@
-import { addDays, format, parseISO } from "date-fns";
-
-import { todayInAuckland } from "@/lib/auckland-time";
+import { addDaysInAuckland, todayInAuckland } from "@/lib/auckland-time";
 
 export interface TrendResult {
   current: number;
@@ -49,19 +47,16 @@ export const compareTrailingWindows = (
   return toTrendResult(current, previous);
 };
 
-const toDayKey = (date: Date): string => format(date, "yyyy-MM-dd");
-
 export const fillDailySeries = (
   points: { date: string; count: number; totalCents: number }[],
   days: number,
   endDate = todayInAuckland()
 ): { date: string; count: number; totalCents: number }[] => {
   const byDate = new Map(points.map((point) => [point.date, point]));
-  const end = parseISO(`${endDate}T12:00:00`);
   const result: { date: string; count: number; totalCents: number }[] = [];
 
   for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const key = toDayKey(addDays(end, -offset));
+    const key = addDaysInAuckland(endDate, -offset);
     const existing = byDate.get(key);
     result.push(
       existing ?? {
@@ -90,10 +85,8 @@ export const dailyTrendCoversDays = (
   }
 
   const end = todayInAuckland();
-  const endDate = parseISO(`${end}T12:00:00`);
-  const requiredStart = addDays(endDate, -(days - 1));
-  const earliestDate = parseISO(`${earliest}T12:00:00`);
-  return earliestDate <= requiredStart;
+  const requiredStart = addDaysInAuckland(end, -(days - 1));
+  return earliest <= requiredStart;
 };
 
 export const hasDailyTrendData = (points: { count: number }[]): boolean =>

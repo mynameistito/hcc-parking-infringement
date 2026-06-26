@@ -3,8 +3,11 @@ import { subDays } from "date-fns";
 import type { PublicLiveStats } from "@/durable-objects/types.ts";
 import {
   dateBounds,
+  endOfDayInAucklandIso,
   formatDateInAuckland,
   monthBoundsInAuckland,
+  rollingHoursBoundsInAuckland,
+  startOfDayInAucklandIso,
   yearBoundsInAuckland,
 } from "@/lib/auckland-time.ts";
 
@@ -65,33 +68,33 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
   const todayWindow = dateBounds(today);
   const monthBounds = monthBoundsInAuckland(now);
   const yearBounds = yearBoundsInAuckland(now);
-  const last24hStart = subDays(now, 1).toISOString();
+  const last24hBounds = rollingHoursBoundsInAuckland(now, 24);
   const last7dStart = formatDateInAuckland(subDays(now, 7));
   const last30dStart = formatDateInAuckland(subDays(now, 30));
   const last365dStart = formatDateInAuckland(subDays(now, 365));
 
   const allTime = aggregateWindow(
     sql,
-    "1970-01-01T00:00:00+12:00",
-    "2099-12-31T23:59:59.999+12:00"
+    startOfDayInAucklandIso("1970-01-01"),
+    endOfDayInAucklandIso("2099-12-31")
   );
   const todayStats = aggregateWindow(sql, todayWindow.start, todayWindow.end);
   const monthStats = aggregateWindow(sql, monthBounds.start, monthBounds.end);
   const yearStats = aggregateWindow(sql, yearBounds.start, yearBounds.end);
-  const last24h = aggregateWindow(sql, last24hStart, isoNow());
+  const last24h = aggregateWindow(sql, last24hBounds.start, last24hBounds.end);
   const last7d = aggregateWindow(
     sql,
-    `${last7dStart}T00:00:00+12:00`,
+    startOfDayInAucklandIso(last7dStart),
     todayWindow.end
   );
   const last30d = aggregateWindow(
     sql,
-    `${last30dStart}T00:00:00+12:00`,
+    startOfDayInAucklandIso(last30dStart),
     todayWindow.end
   );
   const last365d = aggregateWindow(
     sql,
-    `${last365dStart}T00:00:00+12:00`,
+    startOfDayInAucklandIso(last365dStart),
     todayWindow.end
   );
 

@@ -1,4 +1,5 @@
 import type { PublicInfringement } from "@/contracts/public-api";
+import { formatAucklandInstant } from "@/lib/auckland-time";
 
 /** NZ locale number formatter for counts and ranks. */
 export const numberFmt = new Intl.NumberFormat("en-NZ");
@@ -18,6 +19,14 @@ export const formatVehicle = (record: PublicInfringement): string => {
   }
   return record.vehicleType ?? "Unknown vehicle";
 };
+
+/** Infringement occurrence date and time in Pacific/Auckland. */
+export const formatOccurrenceInstant = (occurredAt: string): string =>
+  formatAucklandInstant(occurredAt, "d MMM yyyy, h:mm a");
+
+/** Compact occurrence date and time in Pacific/Auckland. */
+export const formatOccurrenceInstantShort = (occurredAt: string): string =>
+  formatAucklandInstant(occurredAt, "d MMM yy, h:mm a");
 
 /** Street line with optional suburb suffix. */
 export const formatStreetSuburb = (

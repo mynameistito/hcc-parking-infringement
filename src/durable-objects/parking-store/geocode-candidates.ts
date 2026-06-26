@@ -2,6 +2,10 @@ import {
   filterRoadGeometry,
   parseGeometryJson,
 } from "@/durable-objects/geometry.ts";
+import {
+  instantInAucklandIso,
+  parseAucklandInstant,
+} from "@/lib/auckland-time.ts";
 
 import { GEOCODE_FAILURE_RETRY_MS } from "./constants.ts";
 
@@ -12,12 +16,12 @@ export const isRecentGeocodeFailure = (
     return false;
   }
 
-  const failed = Date.parse(failedAt);
-  if (Number.isNaN(failed)) {
+  try {
+    const failedAtMs = parseAucklandInstant(failedAt).getTime();
+    return Date.now() - failedAtMs < GEOCODE_FAILURE_RETRY_MS;
+  } catch {
     return false;
   }
-
-  return Date.now() - failed < GEOCODE_FAILURE_RETRY_MS;
 };
 
 export const locationNeedsGeocode = (
@@ -75,4 +79,4 @@ export const filterGeocodeCandidates = (
 };
 
 export const geocodeRetryCutoffIso = (): string =>
-  new Date(Date.now() - GEOCODE_FAILURE_RETRY_MS).toISOString();
+  instantInAucklandIso(new Date(Date.now() - GEOCODE_FAILURE_RETRY_MS));

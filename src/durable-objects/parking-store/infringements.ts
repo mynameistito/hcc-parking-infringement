@@ -4,6 +4,10 @@ import type {
   InfringementQuery,
   InfringementRow,
 } from "@/durable-objects/types.ts";
+import {
+  endOfDayInAucklandIso,
+  startOfDayInAucklandIso,
+} from "@/lib/auckland-time.ts";
 
 const buildInfringementWhere = (
   query: InfringementQuery
@@ -13,11 +17,11 @@ const buildInfringementWhere = (
 
   if (query.from !== undefined && query.from !== "") {
     conditions.push("occurred_at >= ?");
-    params.push(`${query.from}T00:00:00+12:00`);
+    params.push(startOfDayInAucklandIso(query.from));
   }
   if (query.to !== undefined && query.to !== "") {
     conditions.push("occurred_at <= ?");
-    params.push(`${query.to}T23:59:59.999+12:00`);
+    params.push(endOfDayInAucklandIso(query.to));
   }
   if (query.street !== undefined && query.street !== "") {
     conditions.push("street = ?");

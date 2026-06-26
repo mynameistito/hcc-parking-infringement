@@ -1,8 +1,9 @@
 import { fullDashboardMessageSchema } from "@/contracts/public-api";
 import type { FullDashboardMessage } from "@/contracts/public-api";
+import { nowInAucklandIso } from "@/lib/auckland-time";
 
-const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v4";
-const DASHBOARD_SNAPSHOT_CACHE_VERSION = 4;
+const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v5";
+const DASHBOARD_SNAPSHOT_CACHE_VERSION = 5;
 const DASHBOARD_SNAPSHOT_DB_NAME = "hcc-dashboard";
 const DASHBOARD_SNAPSHOT_DB_STORE = "snapshots";
 
@@ -132,7 +133,7 @@ const persistDashboardSnapshotToLocalStorage = (
 ): void => {
   try {
     const cached: CachedDashboardSnapshot = {
-      savedAt: new Date().toISOString(),
+      savedAt: nowInAucklandIso(),
       snapshot,
       version: DASHBOARD_SNAPSHOT_CACHE_VERSION,
     };
@@ -222,7 +223,7 @@ export const persistDashboardSnapshot = (
   void (async () => {
     try {
       const cached: CachedDashboardSnapshot = {
-        savedAt: new Date().toISOString(),
+        savedAt: nowInAucklandIso(),
         snapshot,
         version: DASHBOARD_SNAPSHOT_CACHE_VERSION,
       };

@@ -26,6 +26,7 @@ import type {
   TopItem,
   VehicleRankItem,
 } from "@/contracts/public-api";
+import { parseAucklandInstant } from "@/lib/auckland-time";
 import type { PaceTrends } from "@/lib/trend-window";
 
 const LocationMap = lazy(async () => {
@@ -82,7 +83,16 @@ const LastUpdated = ({
     );
   }
 
-  const ago = formatDistanceToNow(new Date(lastSyncedAt), { addSuffix: true });
+  let syncedAt: Date;
+  try {
+    syncedAt = parseAucklandInstant(lastSyncedAt);
+  } catch {
+    return (
+      <p className="text-sm text-muted-foreground">Waiting for first sync...</p>
+    );
+  }
+
+  const ago = formatDistanceToNow(syncedAt, { addSuffix: true });
 
   return (
     <p className="flex items-center gap-1.5 text-sm text-muted-foreground">

@@ -1,6 +1,5 @@
-import { format, parseISO } from "date-fns";
-
 import type { DailyStatPoint } from "@/contracts/public-api";
+import { formatAucklandDateKey } from "@/lib/auckland-time";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
 import {
   dailyTrendCoversDays,
@@ -64,12 +63,12 @@ const labelsForSeries = (
       return "";
     }
     if (series.length > 60) {
-      return format(parseISO(point.date), "MMM").toUpperCase();
+      return formatAucklandDateKey(point.date, "MMM").toUpperCase();
     }
     if (series.length > 14) {
-      return format(parseISO(point.date), "d MMM").toUpperCase();
+      return formatAucklandDateKey(point.date, "d MMM").toUpperCase();
     }
-    return format(parseISO(point.date), "EEE").toUpperCase();
+    return formatAucklandDateKey(point.date, "EEE").toUpperCase();
   });
 };
 
