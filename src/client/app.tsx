@@ -1,9 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 
-import { Dashboard } from "@/components/dashboard";
-import type { PaceTrends } from "@/lib/trend-window";
-
 import type {
   DailyStatPoint,
   InfringementListResponse,
@@ -12,9 +9,11 @@ import type {
   MapResponse,
   TopStatsResponse,
   VehicleRankItem,
-} from "./api";
-import { useDailyTrend } from "./use-daily-trend";
-import { useLiveSocket } from "./use-live-socket";
+} from "@/client/api";
+import { useDailyTrend } from "@/client/use-daily-trend";
+import { useLiveSocket } from "@/client/use-live-socket";
+import { Dashboard } from "@/components/dashboard";
+import type { PaceTrends } from "@/lib/trend-window";
 
 const EMPTY_LIVE: LiveStatsResponse = {
   allTimeAmountCents: 0,

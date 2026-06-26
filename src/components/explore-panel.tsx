@@ -1,6 +1,13 @@
 import { Car, MapPinned, Search, SignalHigh } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import type { LocationRankItem, VehicleRankItem } from "@/client/api";
+import {
+  ExploreListSkeleton,
+  InspectorSkeleton,
+} from "@/components/data-skeletons";
+import { formatLocationSubtitle, numberFmt } from "@/components/explore-utils";
+import type { ExploreTab } from "@/components/explore-utils";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -11,11 +18,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import type { LocationRankItem, VehicleRankItem } from "../client/api";
-import { ExploreListSkeleton, InspectorSkeleton } from "./data-skeletons";
-import { formatLocationSubtitle, numberFmt } from "./explore-utils";
-import type { ExploreTab } from "./explore-utils";
 
 const TABS = ["suburbs", "streets", "vehicles"] as const;
 
@@ -191,7 +193,6 @@ const Inspector = ({
 };
 
 const ExploreListBody = ({
-  isLoading,
   visibleItems,
   activeTab,
   maxCount,
@@ -199,7 +200,6 @@ const ExploreListBody = ({
   selected,
   onSelect,
 }: {
-  isLoading?: boolean;
   visibleItems: ExploreItem[];
   activeTab: ExploreTab;
   maxCount: number;
@@ -207,10 +207,6 @@ const ExploreListBody = ({
   selected: SelectedItem | null;
   onSelect: (item: SelectedItem) => void;
 }) => {
-  if (isLoading === true) {
-    return <ExploreListSkeleton />;
-  }
-
   if (visibleItems.length === 0) {
     return (
       <EmptyWorkbench
@@ -299,6 +295,7 @@ export const ExplorePanel = ({
   );
 
   const maxCount = Math.max(...items.map((item) => item.count), 1);
+  const loading = isLoading === true;
 
   return (
     <Card className="overflow-hidden py-0" aria-label="Explore">
@@ -355,17 +352,20 @@ export const ExplorePanel = ({
             </Tabs>
           </div>
 
-          <ExploreListBody
-            isLoading={isLoading}
-            visibleItems={visibleItems}
-            activeTab={activeTab}
-            maxCount={maxCount}
-            search={search}
-            selected={selected}
-            onSelect={setSelected}
-          />
+          {loading ? (
+            <ExploreListSkeleton />
+          ) : (
+            <ExploreListBody
+              visibleItems={visibleItems}
+              activeTab={activeTab}
+              maxCount={maxCount}
+              search={search}
+              selected={selected}
+              onSelect={setSelected}
+            />
+          )}
         </section>
-        {isLoading === true ? (
+        {loading ? (
           <InspectorSkeleton />
         ) : (
           <Inspector selected={selected} maxCount={maxCount} />

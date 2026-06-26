@@ -10,3 +10,4 @@ dist/
 data/*.csv
 worker-startup.cpuprofile
 .wrangler-dry-run/
+temp/

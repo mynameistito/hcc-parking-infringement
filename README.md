@@ -158,35 +158,60 @@ Edit `.dev.vars`:
 ```env
 API_KEY=your-long-random-string
 CRON_SECRET=optional-second-secret
-WORKER_URL=http://localhost:8787
+WORKER_URL=http://localhost:5173
 ```
 
-| Variable      | Purpose                                                     |
-| ------------- | ----------------------------------------------------------- |
-| `API_KEY`     | Read by **wrangler dev** — validates `/api/v1/*` requests   |
-| `WORKER_URL`  | Used by **`bun run backfill`** / **`bun run sync`** scripts |
-| `CRON_SECRET` | Optional alternative auth for `POST /api/v1/sync`           |
+| Variable      | Purpose                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| `API_KEY`     | Loaded by **Vite dev** — validates `/api/v1/*` requests                                           |
+| `WORKER_URL`  | Used by **`bun run backfill`** / **`bun run sync`** scripts (defaults to `http://localhost:5173`) |
+| `CRON_SECRET` | Optional alternative auth for `POST /api/v1/sync`                                                 |
 
-Wrangler loads `API_KEY` into the local worker automatically. The backfill script is a separate process, so you still pass `API_KEY` in the shell (use the same value as in `.dev.vars`).
+Vite loads `.dev.vars` into the local worker automatically. The backfill/sync scripts also read `.dev.vars` when `API_KEY` / `WORKER_URL` are not set in the shell.
 
-### 3. Start the worker
+### 3. Start dev server
 
-Terminal 1:
+**Wrangler (recommended for backfill + live queue data)**
+
+```bash
+bun run dev:wrangler
+```
+
+- Dashboard: [http://localhost:8787](http://localhost:8787)
+- Health: [http://localhost:8787/api/health](http://localhost:8787/api/health)
+- Uses the real Workers runtime (Durable Objects, queues, WebSocket live ticker)
+- Builds the SPA once; pass `--watch` to rebuild the frontend on file changes:
+
+```bash
+bun run dev:wrangler -- --watch
+```
+
+Set `WORKER_URL=http://localhost:8787` in `.dev.vars` (or `bun run backfill -- --port=8787`).
+
+**Vite (faster frontend HMR)**
 
 ```bash
 bun run dev
 ```
 
-- Dashboard: [http://localhost:8787](http://localhost:8787)
-- Health: [http://localhost:8787/api/health](http://localhost:8787/api/health)
+- Dashboard: [http://localhost:5173](http://localhost:5173)
+- Best when editing React components — use `WORKER_URL=http://localhost:5173` for scripts
+
+If a port is busy, Vite picks the next free one — set `WORKER_URL` or pass `--port=...` to the backfill script.
 
 ### 4. Run backfill locally
 
-Terminal 2 (PowerShell):
+With `.dev.vars` in place (or `API_KEY` in the shell):
+
+```powershell
+bun run backfill
+```
+
+Or explicitly:
 
 ```powershell
 $env:API_KEY = "your-long-random-string"   # same as .dev.vars
-$env:WORKER_URL = "http://localhost:8787"
+$env:WORKER_URL = "http://localhost:5173"
 bun run backfill
 ```
 
@@ -196,9 +221,23 @@ Expected response:
 { "ok": true, "enqueued": 42, "skipped": 0, "total": 42 }
 ```
 
-- **`enqueued`** — weekly date windows queued for import from HCC
+- **`enqueued`** — daily date windows queued for import from HCC (one day per job)
 - **`skipped`** — windows already ingested (safe to re-run)
+- Failed days are logged and **skipped** so the queue keeps moving (no weekly retries)
 - The worker processes the queue in the background; watch Terminal 1 for logs
+
+Weekly backfill can miss records when a 7-day window exceeds HCC's 10k page limit.
+The default is now **one day per queue job**. If a multi-day job is truncated it is
+split into daily jobs; if a single day fails it is logged and skipped so the rest
+continue. Use `?granularity=week` only if you explicitly want weekly windows:
+
+```powershell
+bun run backfill -- --granularity=day --from=1990-01-01
+```
+
+`bun run backfill` defaults to **daily** windows from **1990-01-01** and shows a **live progress tracker** (windows completed, record count, latest date). Use `--no-track` to queue and exit immediately. If Vite uses a non-default port, pass `--port=5174` (or set `WORKER_URL`).
+
+Local `wrangler dev` (Miniflare) caps queue delivery timers at **10k**. A full 1990→today daily backfill is ~13k windows, so the worker enqueues in **waves of 3,000** and the backfill script waits between waves. Production Cloudflare Queues are not subject to this limit.
 
 Re-fetch every window (ignore ingest cache):
 
@@ -235,8 +274,6 @@ GET /api/public/locations/map  ──►  amber circles on dashboard map
 **Manual geocoding** (faster — run after backfill has imported some data)
 
 ```powershell
-$env:API_KEY = "your-long-random-string"
-$env:WORKER_URL = "http://localhost:8787"
 bun run geocode
 
 # Larger batch (~50 seconds)
@@ -247,7 +284,7 @@ Or with curl:
 
 ```powershell
 # Geocode up to 20 top streets (Nominatim ~1 req/sec, so ~20s)
-curl -X POST "http://localhost:8787/api/v1/geocode/run?limit=20" `
+curl -X POST "http://localhost:5173/api/v1/geocode/run?limit=20" `
   -H "Authorization: Bearer $env:API_KEY"
 ```
 
@@ -261,7 +298,7 @@ bun run geocode -- --limit=20
 **Check map / pending status** (no API key):
 
 ```powershell
-curl http://localhost:8787/api/public/locations/map
+curl http://localhost:5173/api/public/locations/map
 ```
 
 Example response:
@@ -292,7 +329,7 @@ Example response:
 - **`points`** — streets with cached coordinates (these become map pins)
 - **`pendingGeocode`** — streets still waiting to be geocoded
 
-Refresh [http://localhost:8787](http://localhost:8787) after geocoding — amber circles scale with ticket count. Scroll wheel zooms; tiles use **CARTO dark** (OpenStreetMap data).
+Refresh [http://localhost:5173](http://localhost:5173) after geocoding — amber circles scale with ticket count. Scroll wheel zooms; tiles use **CARTO dark** (OpenStreetMap data).
 
 > Nominatim is rate-limited (~1 request/second). Coordinates are cached in `ParkingStore` so each street is only geocoded once.
 
@@ -313,20 +350,7 @@ Every sync write (backfill, hourly, manual) broadcasts a complete snapshot from 
 Recent data only (last 7 days):
 
 ```powershell
-$env:API_KEY = "your-long-random-string"
-$env:WORKER_URL = "http://localhost:8787"
 bun run sync
-```
-
-### 7. Fast frontend iteration (optional)
-
-```bash
-# Terminal 1 — API
-bunx wrangler dev
-
-# Terminal 2 — Vite HMR (proxies /api → :8787)
-bun run dev:client
-# http://localhost:5173
 ```
 
 ## Routes
@@ -347,32 +371,33 @@ bun run dev:client
 
 ### Gated (`Authorization: Bearer <API_KEY>` or `X-API-Key`)
 
-| Route                                           | Description                                                     |
-| ----------------------------------------------- | --------------------------------------------------------------- |
-| `GET /api/v1/cache/status`                      | Ingest watermarks + HCC fetch policy                            |
-| `GET /api/v1/stats/live`                        | Live stats with amounts                                         |
-| `GET /api/v1/stats/daily?from=&to=`             | Daily time series                                               |
-| `GET /api/v1/stats/top?groupBy=&window=&limit=` | Top streets/offences                                            |
-| `GET /api/v1/infringements`                     | Paginated infringement list                                     |
-| `GET /api/v1/health`                            | Sync run status                                                 |
-| `POST /api/v1/sync/backfill`                    | Enqueue missing backfill windows (`?force=true` re-fetches all) |
-| `POST /api/v1/sync`                             | Manual hourly sync                                              |
-| `POST /api/v1/import/infringements`             | Import raw infringement rows into ParkingStore                  |
-| `POST /api/v1/geocode/run?limit=10`             | Geocode streets for map                                         |
+| Route                                           | Description                                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `GET /api/v1/cache/status`                      | Ingest watermarks + HCC fetch policy                                                 |
+| `GET /api/v1/stats/live`                        | Live stats with amounts                                                              |
+| `GET /api/v1/stats/daily?from=&to=`             | Daily time series                                                                    |
+| `GET /api/v1/stats/top?groupBy=&window=&limit=` | Top streets/offences                                                                 |
+| `GET /api/v1/infringements`                     | Paginated infringement list                                                          |
+| `GET /api/v1/health`                            | Sync run status                                                                      |
+| `POST /api/v1/sync/backfill`                    | Enqueue missing backfill windows (`?granularity=day&from=1990-01-01`, `?force=true`) |
+| `GET /api/v1/sync/backfill/progress`            | Live backfill progress for a date range                                              |
+| `POST /api/v1/sync`                             | Manual hourly sync                                                                   |
+| `POST /api/v1/import/infringements`             | Import raw infringement rows into ParkingStore                                       |
+| `POST /api/v1/geocode/run?limit=10`             | Geocode streets for map                                                              |
 
 ## Scripts
 
-| Script       | Description                                                           |
-| ------------ | --------------------------------------------------------------------- |
-| `dev`        | Build client + `wrangler dev`                                         |
-| `dev:client` | Vite dev server with API proxy                                        |
-| `deploy`     | Build + deploy Worker                                                 |
-| `backfill`   | `POST /api/v1/sync/backfill` (needs `API_KEY` + `WORKER_URL`)         |
-| `import:csv` | Import historical CSV rows into `ParkingStore`                        |
-| `sync`       | `POST /api/v1/sync` (needs `API_KEY` or `CRON_SECRET` + `WORKER_URL`) |
-| `geocode`    | `POST /api/v1/geocode/run` (needs `API_KEY` + `WORKER_URL`)           |
-| `lint`       | Ultracite check                                                       |
-| `format`     | Ultracite fix                                                         |
+| Script         | Description                                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `dev`          | Vite dev server + HMR (`http://localhost:5173`)                       |
+| `dev:wrangler` | Wrangler dev + built dashboard (`http://localhost:8787`)              |
+| `deploy`       | Build + deploy Worker                                                 |
+| `backfill`     | `POST /api/v1/sync/backfill` (needs `API_KEY` + `WORKER_URL`)         |
+| `import:csv`   | Import historical CSV rows into `ParkingStore`                        |
+| `sync`         | `POST /api/v1/sync` (needs `API_KEY` or `CRON_SECRET` + `WORKER_URL`) |
+| `geocode`      | `POST /api/v1/geocode/run` (needs `API_KEY` + `WORKER_URL`)           |
+| `lint`         | Ultracite check                                                       |
+| `format`       | Ultracite fix                                                         |
 
 ## Cron
 

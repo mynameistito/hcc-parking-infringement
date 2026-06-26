@@ -1,20 +1,19 @@
 import { MapPinned } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Map, MapControls, MapGeoJSON, useMap } from "@/components/ui/map";
-import { cn } from "@/lib/utils";
-
-import type { MapRouteItem } from "../client/api";
-import { MapAreaSkeleton } from "./data-skeletons";
-import { heatColor } from "./map-heat";
+import type { MapRouteItem } from "@/client/api";
+import { MapAreaSkeleton } from "@/components/data-skeletons";
+import { heatColor } from "@/components/map-heat";
 import {
   boundsFromRoutes,
   buildRoutesGeoJSON,
   hamiltonMapCenter,
   isRouteFeatureProperties,
-} from "./map-routes";
-import type { RouteFeatureProperties } from "./map-routes";
+} from "@/components/map-routes";
+import type { RouteFeatureProperties } from "@/components/map-routes";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Map, MapControls, MapGeoJSON, useMap } from "@/components/ui/map";
+import { cn } from "@/lib/utils";
 
 interface LocationMapProps {
   routes: MapRouteItem[];
@@ -157,6 +156,7 @@ export const LocationMap = ({
   );
 
   const hasRoutes = geojson.features.length > 0;
+  const loading = isLoading === true;
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
@@ -172,16 +172,17 @@ export const LocationMap = ({
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
               OSM road lines coloured by ticket volume.
-              {pendingGeocode > 0
+              {!loading && pendingGeocode > 0
                 ? ` ${pendingGeocode} roads awaiting geometry...`
                 : ""}
             </p>
           </div>
-          {selected === null ? (
+          {!loading && selected === null ? (
             <p className="text-sm text-muted-foreground">
               Select a route to inspect it.
             </p>
-          ) : (
+          ) : null}
+          {!loading && selected !== null ? (
             <p className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
               <span className="font-medium">{selected.street}</span>
               {selected.suburb !== null && selected.suburb.length > 0
@@ -192,7 +193,7 @@ export const LocationMap = ({
               </span>{" "}
               tickets
             </p>
-          )}
+          ) : null}
         </div>
       </CardHeader>
 

@@ -2,8 +2,8 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "hcc-parking-infringement",
   "main": "src/worker.ts",
-  "compatibility_date": "2026-01-01",
-  "compatibility_flags": ["nodejs_compat", "web_socket_auto_reply_to_close"],
+  "compatibility_date": "2026-06-25",
+  "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
     "bindings": [
       {
@@ -28,7 +28,9 @@
     "consumers": [
       {
         "queue": "hcc-backfill",
-        "max_batch_size": 1,
+        "max_batch_size": 16,
+        "max_batch_timeout": 1,
+        "max_concurrency": 2,
       },
     ],
   },
@@ -40,6 +42,8 @@
   },
   "assets": {
     "binding": "ASSETS",
+    "directory": "./dist/client",
     "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/v1/*"],
   },
 }

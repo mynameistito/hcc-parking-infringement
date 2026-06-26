@@ -7,12 +7,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { PaceTrends } from "@/lib/trend-window";
+import { useEffect, useState, lazy, Suspense } from "react";
 
 import type {
   DailyStatPoint,
@@ -20,13 +15,22 @@ import type {
   MapRouteItem,
   PublicInfringement,
   VehicleRankItem,
-} from "../client/api";
-import { ExplorePanel } from "./explore-panel";
-import { LatestInstances } from "./latest-instances";
-import { LiveTicker } from "./live-ticker";
-import { LocationMap } from "./location-map";
-import { TopLists } from "./top-lists";
-import type { TopItem } from "./top-lists";
+} from "@/client/api";
+import { MapAreaSkeleton } from "@/components/data-skeletons";
+import { ExplorePanel } from "@/components/explore-panel";
+import { LatestInstances } from "@/components/latest-instances";
+import { LiveTicker } from "@/components/live-ticker";
+import { TopLists } from "@/components/top-lists";
+import type { TopItem } from "@/components/top-lists";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { PaceTrends } from "@/lib/trend-window";
+
+const LocationMap = lazy(async () => {
+  const module = await import("@/components/location-map");
+  return { default: module.LocationMap };
+});
 
 export interface DashboardLiveStats {
   allTimeTotal: number;
@@ -253,11 +257,13 @@ export const Dashboard = ({
           />
         </div>
         <section className="min-w-0">
-          <LocationMap
-            routes={mapRoutes}
-            pendingGeocode={pendingGeocode}
-            isLoading={isLoading}
-          />
+          <Suspense fallback={<MapAreaSkeleton />}>
+            <LocationMap
+              routes={mapRoutes}
+              pendingGeocode={pendingGeocode}
+              isLoading={isLoading}
+            />
+          </Suspense>
         </section>
         <aside className="min-w-0">
           <TopLists

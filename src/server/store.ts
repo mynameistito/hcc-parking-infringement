@@ -1,4 +1,4 @@
-import type { ParkingStore } from "../durable-objects/parking-store.ts";
+import type { ParkingStore } from "@/durable-objects/parking-store.ts";
 
 const STORE_NAME = "hamilton-parking";
 

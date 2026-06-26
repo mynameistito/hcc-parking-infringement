@@ -1,5 +1,8 @@
-import { useId } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { useId, useMemo } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { LOAD_IN_EASE } from "@/components/load-in";
 import { buildYTicks, formatYTick } from "@/lib/chart-scale";
 import { cn } from "@/lib/utils";
 
@@ -9,52 +12,22 @@ interface TrendChartProps {
   valueStyle?: "number" | "currency";
   className?: string;
   compact?: boolean;
+  /** Stagger the left-to-right draw animation (ms). */
+  revealDelay?: number;
 }
 
-const CHART_WIDTH = 520;
-const CHART_HEIGHT = 112;
-const COMPACT_CHART_HEIGHT = 48;
-const COMPACT_MARGIN = { bottom: 2, left: 2, right: 2, top: 2 };
-const FULL_MARGIN = { bottom: 22, left: 36, right: 8, top: 8 };
-const COMPACT_PRESERVE_ASPECT_RATIO = "none";
-const FULL_PRESERVE_ASPECT_RATIO = "xMidYMid meet";
+const CHART_COLOR = "var(--chart-1)";
+const DRAW_DURATION_S = 1.4;
 
-const getChartLayout = (compact: boolean) => {
-  if (compact) {
-    return {
-      chartHeight: COMPACT_CHART_HEIGHT,
-      emptyHeightClass: "h-[40px]",
-      heightClass: "h-[40px]",
-      margin: COMPACT_MARGIN,
-      preserveAspectRatio: COMPACT_PRESERVE_ASPECT_RATIO,
-      strokeWidth: "2",
-    };
-  }
-
-  return {
-    chartHeight: CHART_HEIGHT,
-    emptyHeightClass: "h-[96px]",
-    heightClass: "h-[112px]",
-    margin: FULL_MARGIN,
-    preserveAspectRatio: FULL_PRESERVE_ASPECT_RATIO,
-    strokeWidth: "1.5",
-  };
-};
-
-const buildPoints = (
-  values: number[],
-  plotWidth: number,
-  plotHeight: number,
-  yMax: number,
-  margin: { left: number; top: number }
-) => {
-  const step = values.length > 1 ? plotWidth / (values.length - 1) : 0;
-
-  return values.map((value, index) => ({
-    x: margin.left + index * step,
-    y: margin.top + plotHeight - (value / yMax) * plotHeight,
-  }));
-};
+const useChartDomain = (values: number[]) =>
+  useMemo(() => {
+    const maxValue = Math.max(...values, 0);
+    const minValue = Math.min(...values, 0);
+    const yTicks = buildYTicks(
+      maxValue === minValue && maxValue > 0 ? maxValue * 1.25 : maxValue
+    );
+    return yTicks.at(-1) ?? 10;
+  }, [values]);
 
 export const TrendChart = ({
   values,
@@ -62,21 +35,27 @@ export const TrendChart = ({
   valueStyle = "number",
   className,
   compact = false,
+  revealDelay = 0,
 }: TrendChartProps) => {
   const gradientId = useId();
-  const layout = getChartLayout(compact);
-  const { chartHeight, margin } = layout;
-  const plotWidth = CHART_WIDTH - margin.left - margin.right;
-  const plotHeight = chartHeight - margin.top - margin.bottom;
-  const maxValue = Math.max(...values, 0);
-  const minValue = Math.min(...values, 0);
+  const yMax = useChartDomain(values);
+  const reduceMotion = useReducedMotion() === true;
+
+  const data = useMemo(
+    () =>
+      values.map((value, index) => ({
+        label: xLabels[index] ?? "",
+        value,
+      })),
+    [values, xLabels]
+  );
 
   if (values.length === 0) {
     return (
       <div
         className={cn(
           "flex items-center justify-center rounded-[4px] bg-muted/30 text-[10px] text-muted-foreground",
-          layout.emptyHeightClass,
+          compact ? "h-[40px]" : "h-[96px]",
           className
         )}
       >
@@ -85,116 +64,87 @@ export const TrendChart = ({
     );
   }
 
-  const yTicks = buildYTicks(
-    maxValue === minValue && maxValue > 0 ? maxValue * 1.25 : maxValue
-  );
-  const yMax = yTicks.at(-1) ?? 10;
-  const points = buildPoints(values, plotWidth, plotHeight, yMax, margin);
-
-  const line = points
-    .map((point, index) =>
-      index === 0 ? `M ${point.x} ${point.y}` : `L ${point.x} ${point.y}`
-    )
-    .join(" ");
-
-  const [first] = points;
-  const last = points.at(-1);
-  const baseline = margin.top + plotHeight;
-  const area =
-    first !== undefined && last !== undefined
-      ? `${line} L ${last.x} ${baseline} L ${first.x} ${baseline} Z`
-      : "";
-
-  const xTickCount = xLabels.length;
-  const xStep = xTickCount > 1 ? plotWidth / (xTickCount - 1) : plotWidth / 2;
+  const height = compact ? 40 : 112;
+  const margin = compact
+    ? { bottom: 2, left: 2, right: 2, top: 2 }
+    : { bottom: 22, left: 36, right: 8, top: 8 };
 
   return (
-    <svg
-      viewBox={`0 0 ${CHART_WIDTH} ${chartHeight}`}
-      preserveAspectRatio={layout.preserveAspectRatio}
-      className={cn(layout.heightClass, "w-full", className)}
+    <motion.div
+      animate={{ clipPath: "inset(0 0% 0 0)" }}
       aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--chart-1)" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="var(--chart-1)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-
-      {!compact &&
-        yTicks.map((tick) => {
-          const y = margin.top + plotHeight - (tick / yMax) * plotHeight;
-          return (
-            <g key={tick}>
-              <line
-                x1={margin.left}
-                y1={y}
-                x2={CHART_WIDTH - margin.right}
-                y2={y}
-                stroke="var(--border)"
-                strokeDasharray="3 4"
-                strokeWidth="1"
-              />
-              <text
-                x={margin.left - 8}
-                y={y + 4}
-                textAnchor="end"
-                className="fill-muted-foreground text-[9px]"
-              >
-                {formatYTick(tick, valueStyle)}
-              </text>
-            </g>
-          );
-        })}
-
-      {!compact && (
-        <line
-          x1={margin.left}
-          y1={baseline}
-          x2={CHART_WIDTH - margin.right}
-          y2={baseline}
-          stroke="var(--border)"
-          strokeDasharray="3 4"
-          strokeWidth="1"
-        />
+      className={cn(
+        "w-full overflow-hidden",
+        compact ? "h-[40px]" : "h-[112px]",
+        className
       )}
+      initial={reduceMotion ? false : { clipPath: "inset(0 100% 0 0)" }}
+      transition={{
+        delay: reduceMotion ? 0 : revealDelay / 1000,
+        duration: reduceMotion ? 0 : DRAW_DURATION_S,
+        ease: LOAD_IN_EASE,
+      }}
+    >
+      <AreaChart
+        data={data}
+        height={height}
+        margin={margin}
+        responsive
+        width="100%"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CHART_COLOR} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={CHART_COLOR} stopOpacity={0} />
+          </linearGradient>
+        </defs>
 
-      {!compact &&
-        xLabels.map((label, index) => {
-          const x = margin.left + index * xStep;
-          return (
-            <g key={`${label}-${index}`}>
-              <line
-                x1={x}
-                y1={baseline}
-                x2={x}
-                y2={baseline + 4}
-                stroke="var(--border)"
-                strokeWidth="1"
-              />
-              <text
-                x={x}
-                y={chartHeight - 4}
-                textAnchor="middle"
-                className="fill-muted-foreground text-[9px]"
-              >
-                {label}
-              </text>
-            </g>
-          );
-        })}
-
-      {area.length > 0 ? <path d={area} fill={`url(#${gradientId})`} /> : null}
-      {line.length > 0 ? (
-        <path
-          d={line}
-          fill="none"
-          stroke="var(--chart-1)"
-          strokeWidth={layout.strokeWidth}
-          vectorEffect="non-scaling-stroke"
+        <YAxis
+          axisLine={false}
+          domain={[0, yMax]}
+          hide={compact}
+          tick={
+            compact ? false : { fill: "var(--muted-foreground)", fontSize: 9 }
+          }
+          tickFormatter={
+            compact
+              ? undefined
+              : (value: number) => formatYTick(value, valueStyle)
+          }
+          tickLine={false}
+          width={compact ? 0 : 28}
         />
-      ) : null}
-    </svg>
+
+        {!compact && (
+          <>
+            <CartesianGrid
+              stroke="var(--border)"
+              strokeDasharray="3 4"
+              vertical={false}
+            />
+            <XAxis
+              axisLine={{
+                stroke: "var(--border)",
+                strokeDasharray: "3 4",
+              }}
+              dataKey="label"
+              tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
+              tickLine={{ stroke: "var(--border)" }}
+            />
+          </>
+        )}
+
+        <Area
+          activeDot={false}
+          dataKey="value"
+          dot={false}
+          fill={`url(#${gradientId})`}
+          isAnimationActive={false}
+          stroke={CHART_COLOR}
+          strokeWidth={compact ? 2 : 1.5}
+          type="linear"
+        />
+      </AreaChart>
+    </motion.div>
   );
 };

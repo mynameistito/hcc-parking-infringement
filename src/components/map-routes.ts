@@ -5,8 +5,12 @@ import type {
   LineString,
 } from "geojson";
 
-import type { MapRouteItem } from "../client/api";
-import { heatColor, heatLineOpacity, heatLineWeight } from "./map-heat";
+import type { MapRouteItem } from "@/client/api";
+import {
+  heatColor,
+  heatLineOpacity,
+  heatLineWeight,
+} from "@/components/map-heat";
 
 export interface RouteFeatureProperties {
   id: string;

@@ -1,0 +1,401 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Hamilton City Council OpenData - Parking Infringement",
+    "version": "0.1.0",
+    "description": "Unofficial MIT-licensed OpenAPI specification inferred from observed responses. This license applies only to this generated API description, not to Hamilton City Council's API, service, or underlying data.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.hcc.govt.nz"
+    }
+  ],
+  "tags": [
+    {
+      "name": "OpenData",
+      "description": "Hamilton City Council OpenData endpoints"
+    }
+  ],
+  "paths": {
+    "/OpenData/get_parking_infringement": {
+      "get": {
+        "tags": ["OpenData"],
+        "summary": "Get parking infringement records",
+        "description": "Returns parking/traffic infringement records for a date range. Observed query names are accepted case-insensitively for Page, Start_Date, and End_Date. CamelCase StartDate/EndDate was not accepted in the observed probe. The API may return only Paging with no Data property when there are no records or when Page is outside the valid range.",
+        "operationId": "getParkingInfringements",
+        "parameters": [
+          {
+            "name": "Page",
+            "in": "query",
+            "required": true,
+            "description": "1-based page number. Observed Page_Size is 10000. Page values 0 and -1 returned only Paging and no Data, so clients should use Page >= 1.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          },
+          {
+            "name": "Start_Date",
+            "in": "query",
+            "required": true,
+            "description": "Start date for the query. YYYY-MM-DD is the canonical format. YYYY/MM/DD was also observed to work, but YYYY-MM-DD is recommended.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-04-01"
+          },
+          {
+            "name": "End_Date",
+            "in": "query",
+            "required": true,
+            "description": "End date for the query. YYYY-MM-DD is the canonical format. Based on observed examples, this appears to be inclusive of the requested day range, but confirm against wider samples before relying on boundary semantics.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-04-02"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response. Data may be omitted when no records are returned, so clients should treat Data as optional and default it to an empty array.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParkingInfringementResponse"
+                },
+                "examples": {
+                  "withData": {
+                    "summary": "Response with records",
+                    "value": {
+                      "Paging": [
+                        {
+                          "Dataset_Name": "Parking_Infringement",
+                          "Current_Page": 1,
+                          "Page_Count": 1,
+                          "Page_Size": 10000
+                        }
+                      ],
+                      "Data": [
+                        {
+                          "Additional_Costs_Amount": 0.0,
+                          "Additional_Costs_Balance": 0.0,
+                          "Court_Serve_Method": "P   ",
+                          "Infringement_Amount": 51.0,
+                          "Infringement_Closed_Date": "2026-04-17",
+                          "Infringement_Date": "2026-04-01",
+                          "Infringement_Number": 1134317,
+                          "Infringement_Time": "14:33:00",
+                          "Infringement_Type": 14,
+                          "Is_Towed": false,
+                          "Occured_At_Post_Code": "3204",
+                          "Occured_At_Street": "Horne ST",
+                          "Occured_At_Suburb": "Hamilton Central",
+                          "Occured_At_Town": "Hamilton",
+                          "Offence_Category": "Parking",
+                          "Offence_Code": "151",
+                          "Offence_Description": "P106 Parked over the time limit         ",
+                          "Vehicle_Colour": "          ",
+                          "Vehicle_Make": "HYUNDAI   ",
+                          "Vehicle_Model": "          ",
+                          "Vehicle_Type": "MOTOR VEHI"
+                        }
+                      ]
+                    }
+                  },
+                  "pagingOnly": {
+                    "summary": "Response with Paging only",
+                    "value": {
+                      "Paging": [
+                        {
+                          "Dataset_Name": "Parking_Infringement",
+                          "Current_Page": 1,
+                          "Page_Count": 1,
+                          "Page_Size": 10000
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Observed for unsupported routes and for OPTIONS/HEAD against the endpoint. The response body was JSON with statusCode/message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "statusCode": 404,
+                  "message": "Resource not found"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Observed for missing required query params, invalid Page values such as abc, and unsupported parameter names such as StartDate/EndDate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpstreamNoResponseError"
+                },
+                "example": {
+                  "error": {
+                    "code": "NoResponse",
+                    "message": "The server did not receive a response from an upstream server. Request tracking id '...'."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-observed": {
+          "query_parameter_casing": {
+            "accepted": [
+              "Page/Start_Date/End_Date",
+              "page/start_date/end_date",
+              "PAGE/START_DATE/END_DATE"
+            ],
+            "not_accepted": [
+              "Page/StartDate/EndDate",
+              "Page/startDate/endDate",
+              "Page/from/to"
+            ]
+          },
+          "content_type": "application/json",
+          "observed_page_size": 10000,
+          "observed_doc_routes": "Common Swagger/OpenAPI/doc routes returned 404.",
+          "notes": [
+            "Page 0 and Page -1 returned 200 with Paging only and no Data.",
+            "No-param GET returned 502 NoResponse.",
+            "HEAD and OPTIONS returned 404.",
+            "format=json and $top=1 were accepted but did not appear to change the response shape."
+          ]
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ParkingInfringementResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["Paging"],
+        "properties": {
+          "Paging": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PagingInfo"
+            }
+          },
+          "Data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParkingInfringement"
+            },
+            "default": []
+          }
+        }
+      },
+      "PagingInfo": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["Dataset_Name", "Current_Page", "Page_Count", "Page_Size"],
+        "properties": {
+          "Dataset_Name": {
+            "type": "string",
+            "examples": ["Parking_Infringement"]
+          },
+          "Current_Page": {
+            "type": "integer",
+            "examples": [1]
+          },
+          "Page_Count": {
+            "type": "integer",
+            "minimum": 0,
+            "examples": [1]
+          },
+          "Page_Size": {
+            "type": "integer",
+            "examples": [10000]
+          }
+        }
+      },
+      "ParkingInfringement": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "Additional_Costs_Amount",
+          "Additional_Costs_Balance",
+          "Court_Serve_Method",
+          "Infringement_Amount",
+          "Infringement_Date",
+          "Infringement_Number",
+          "Infringement_Time",
+          "Infringement_Type",
+          "Is_Towed",
+          "Occured_At_Post_Code",
+          "Occured_At_Street",
+          "Occured_At_Suburb",
+          "Occured_At_Town",
+          "Offence_Category",
+          "Offence_Code",
+          "Offence_Description",
+          "Vehicle_Colour",
+          "Vehicle_Make",
+          "Vehicle_Model",
+          "Vehicle_Type"
+        ],
+        "properties": {
+          "Additional_Costs_Amount": {
+            "type": "number",
+            "examples": [0.0, 90.2]
+          },
+          "Additional_Costs_Balance": {
+            "type": "number",
+            "examples": [0.0, 90.2]
+          },
+          "Court_Serve_Method": {
+            "type": "string",
+            "description": "Observed as fixed-width/padded string.",
+            "examples": ["P   ", "A   "]
+          },
+          "Infringement_Amount": {
+            "type": "number",
+            "examples": [51.0, 20.0, 25.0, 70.0, 71.0]
+          },
+          "Infringement_Closed_Date": {
+            "type": "string",
+            "format": "date",
+            "description": "Optional. In the observed sample it was omitted for some records rather than present as null.",
+            "examples": ["2026-04-17", "2026-05-04", "2026-04-08", "2026-05-18"]
+          },
+          "Infringement_Date": {
+            "type": "string",
+            "format": "date",
+            "examples": ["2026-04-01", "2026-05-01"]
+          },
+          "Infringement_Number": {
+            "type": "integer",
+            "examples": [1134317, 1134325, 1134333, 1134341]
+          },
+          "Infringement_Time": {
+            "type": "string",
+            "examples": ["14:33:00", "14:28:00", "12:01:00", "14:22:00"],
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$",
+            "description": "Time in HH:mm:ss format as returned by the API."
+          },
+          "Infringement_Type": {
+            "type": "integer",
+            "examples": [14]
+          },
+          "Is_Towed": {
+            "type": "boolean",
+            "examples": [false, true]
+          },
+          "Occured_At_Post_Code": {
+            "type": "string",
+            "examples": ["3204", "3206", "3214", "3216"]
+          },
+          "Occured_At_Street": {
+            "type": "string",
+            "examples": ["Horne ST", "Selwyn ST", "Anglesea ST", "Park TCE"]
+          },
+          "Occured_At_Suburb": {
+            "type": "string",
+            "examples": [
+              "Hamilton Central",
+              "Hamilton Lake",
+              "Frankton",
+              "Melville"
+            ]
+          },
+          "Occured_At_Town": {
+            "type": "string",
+            "examples": ["Hamilton"]
+          },
+          "Offence_Category": {
+            "type": "string",
+            "examples": ["Parking", "Traffic"]
+          },
+          "Offence_Code": {
+            "type": "string",
+            "examples": ["151", "148", "149", "823"]
+          },
+          "Offence_Description": {
+            "type": "string",
+            "description": "Observed as fixed-width/padded string.",
+            "examples": [
+              "P106 Parked over the time limit         ",
+              "P542 Parked in metered parking place    ",
+              "C101 No evidence of current WOF         ",
+              "P546 Failed to correctly activate the   "
+            ]
+          },
+          "Vehicle_Colour": {
+            "type": "string",
+            "description": "Observed as fixed-width/padded string; blank/padded values are possible.",
+            "examples": ["          ", "026040    ", "026151    ", "026061    "]
+          },
+          "Vehicle_Make": {
+            "type": "string",
+            "description": "Observed as fixed-width/padded string.",
+            "examples": ["HYUNDAI   ", "SUZUKI    ", "Subaru    ", "VOLVO     "]
+          },
+          "Vehicle_Model": {
+            "type": "string",
+            "description": "Observed as fixed-width/padded string; blank/padded values are possible.",
+            "examples": ["          ", "Impreza   ", "Ranger    ", "Axela     "]
+          },
+          "Vehicle_Type": {
+            "type": "string",
+            "description": "Observed as fixed-width/padded string.",
+            "examples": ["MOTOR VEHI", "CAR       ", "STATION WA", "UTILITY   "]
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "examples": [404]
+          },
+          "message": {
+            "type": "string",
+            "examples": ["Resource not found"]
+          }
+        }
+      },
+      "UpstreamNoResponseError": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string",
+                "examples": ["NoResponse"]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": []
+}

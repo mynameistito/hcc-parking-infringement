@@ -2,44 +2,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-export const StatPillSkeleton = () => (
-  <div className="rounded-[6px] border border-border bg-background px-3 py-2">
-    <Skeleton className="h-3 w-16" />
-    <Skeleton className="mt-1 h-8 w-20" />
+export const StatPillLoading = ({ label }: { label: string }) => (
+  <div className="min-w-0 rounded-[6px] border border-border bg-background px-3 py-2">
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <Skeleton className="h-3 w-11" />
+    </div>
+    <Skeleton className="mt-0.5 block h-[30px] w-20" />
     <Skeleton className="mt-1.5 h-[40px] w-full" />
   </div>
-);
-
-export const LiveTickerSkeleton = () => (
-  <Card
-    className="bg-card"
-    aria-busy="true"
-    aria-label="Loading all-time parking infringement total"
-  >
-    <CardContent className="p-0">
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
-        <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
-          <Skeleton className="h-4 w-40" />
-          <div className="space-y-3">
-            <Skeleton className="h-16 w-48 sm:h-20 sm:w-64" />
-            <Skeleton className="h-4 w-full max-w-md" />
-          </div>
-          <Skeleton className="mt-5 h-10 w-56 rounded-[6px]" />
-        </section>
-        <aside className="border-t border-border p-4 sm:p-5 lg:border-t-0 lg:border-l">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-3 lg:grid-cols-1">
-            {Array.from({ length: 3 }, (_, index) => (
-              <StatPillSkeleton key={index} />
-            ))}
-          </div>
-        </aside>
-      </div>
-    </CardContent>
-  </Card>
 );
 
 export const TopListSkeleton = ({

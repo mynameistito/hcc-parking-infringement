@@ -3,9 +3,8 @@
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import type { VariantProps } from "class-variance-authority";
 
+import { tabsListVariants } from "@/components/ui/tabs-variants";
 import { cn } from "@/lib/utils";
-
-import { tabsListVariants } from "./tabs-variants";
 
 const Tabs = ({
   className,

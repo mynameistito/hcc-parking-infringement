@@ -2,7 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { z } from "zod";
 
-import { getParkingStore } from "./store.ts";
+import { getParkingStore } from "@/server/store.ts";
 
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const USER_AGENT = "hcc-parking-infringement/1.0 (hamilton parking ticker)";

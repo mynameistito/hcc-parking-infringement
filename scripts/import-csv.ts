@@ -2,14 +2,18 @@
  * Import a Hamilton parking infringement CSV into ParkingStore.
  *
  * Usage:
- *   API_KEY=xxx WORKER_URL=http://localhost:8787 bun run import:csv
- *   API_KEY=xxx WORKER_URL=https://your-worker.workers.dev bun run import:csv -- --file=C:\path\Infringement.csv
+ *   bun run import:csv
+ *   bun run import:csv -- --file=C:\path\Infringement.csv
+ *   API_KEY=xxx WORKER_URL=https://your-worker.workers.dev bun run import:csv
  */
 
 import { readFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { getWorkerUrl, loadDevVars } from "@scripts/dev-env.ts";
 import { z } from "zod";
+
+loadDevVars();
 
 const args = process.argv.slice(2);
 
@@ -29,10 +33,7 @@ const parsePositiveInt = (
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const workerUrl = (process.env.WORKER_URL ?? "http://localhost:8787").replace(
-  /\/$/u,
-  ""
-);
+const workerUrl = getWorkerUrl();
 const apiKey = process.env.API_KEY;
 const csvPath = readArg("file") ?? "data\\Infringement.csv";
 const batchSize = Math.min(parsePositiveInt(readArg("batch-size"), 1000), 5000);

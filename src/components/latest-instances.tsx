@@ -1,9 +1,8 @@
 import { format } from "date-fns";
 
+import type { PublicInfringement } from "@/client/api";
+import { TableRowsSkeleton } from "@/components/data-skeletons";
 import { Card, CardContent } from "@/components/ui/card";
-
-import type { PublicInfringement } from "../client/api";
-import { TableRowsSkeleton } from "./data-skeletons";
 
 const currencyFmt = new Intl.NumberFormat("en-NZ", {
   currency: "NZD",

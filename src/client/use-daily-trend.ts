@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { fetchDailyTrend } from "@/client/api";
+import type { DailyStatPoint } from "@/client/api";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
 import { dailyTrendCoversDays, hasDailyTrendData } from "@/lib/trend";
-
-import { fetchDailyTrend } from "./api";
-import type { DailyStatPoint } from "./api";
 
 export const useDailyTrend = (
   cached: DailyStatPoint[] | undefined,

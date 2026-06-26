@@ -5,8 +5,8 @@ import type {
   InfringementQuery,
   LocationRankItem,
   VehicleRankItem,
-} from "../durable-objects/parking-store.ts";
-import { getParkingStore } from "./store.ts";
+} from "@/durable-objects/parking-store.ts";
+import { getParkingStore } from "@/server/store.ts";
 
 export type {
   BrowseQuery,

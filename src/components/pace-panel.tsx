@@ -1,56 +1,18 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useMemo } from "react";
 
 import type { DailyStatPoint } from "@/client/api";
+import { StatPillLoading } from "@/components/data-skeletons";
+import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import type { TrendResult } from "@/lib/trend";
 import { buildPacePanelData } from "@/lib/trend-window";
 import type { PaceTrends } from "@/lib/trend-window";
 import { cn } from "@/lib/utils";
 
-import { TrendChart } from "./trend-chart";
-
-const useAnimatedNumber = (value: number, duration = 600): number => {
-  const [display, setDisplay] = useState(value);
-  const frameRef = useRef<number | null>(null);
-  const fromRef = useRef(value);
-
-  useEffect(() => {
-    if (frameRef.current !== null) {
-      cancelAnimationFrame(frameRef.current);
-    }
-
-    const from = fromRef.current;
-    const to = value;
-    if (from === to) {
-      return () => {
-        if (frameRef.current !== null) {
-          cancelAnimationFrame(frameRef.current);
-        }
-      };
-    }
-
-    const startedAt = performance.now();
-    const tick = (now: number) => {
-      const progress = Math.min((now - startedAt) / duration, 1);
-      const eased = 1 - (1 - progress) ** 3;
-      setDisplay(Math.round(from + (to - from) * eased));
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(tick);
-      } else {
-        fromRef.current = to;
-      }
-    };
-
-    frameRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current);
-      }
-    };
-  }, [value, duration]);
-
-  return display;
-};
+const TrendChart = lazy(async () => {
+  const module = await import("@/components/trend-chart");
+  return { default: module.TrendChart };
+});
 
 const numberFmt = new Intl.NumberFormat("en-NZ");
 
@@ -98,6 +60,7 @@ interface PaceStatBoxProps {
   trend: TrendResult;
   chartValues: number[];
   chartLabels: string[];
+  chartRevealDelay?: number;
 }
 
 const PaceStatBox = ({
@@ -106,8 +69,12 @@ const PaceStatBox = ({
   trend,
   chartValues,
   chartLabels,
+  chartRevealDelay = 0,
 }: PaceStatBoxProps) => {
-  const animated = useAnimatedNumber(value);
+  const animated = useAnimatedNumber(value, {
+    duration: 500,
+    initialDuration: 1000,
+  });
 
   return (
     <div className="min-w-0 rounded-[6px] border border-border bg-background px-3 py-2">
@@ -115,15 +82,22 @@ const PaceStatBox = ({
         <span className="text-[11px] text-muted-foreground">{label}</span>
         <TrendBadge trend={trend} />
       </div>
-      <span className="mt-0.5 block font-mono text-3xl font-semibold leading-none tabular-nums tracking-[-0.04em]">
+      <span className="mt-0.5 block min-h-[30px] font-mono text-3xl font-semibold leading-none tabular-nums tracking-[-0.04em]">
         {numberFmt.format(animated)}
       </span>
-      <TrendChart
-        values={chartValues}
-        xLabels={chartLabels}
-        className="mt-1.5 h-[40px]"
-        compact
-      />
+      <Suspense
+        fallback={
+          <div className="mt-1.5 h-12 animate-pulse rounded bg-muted/40" />
+        }
+      >
+        <TrendChart
+          values={chartValues}
+          xLabels={chartLabels}
+          className="mt-1.5"
+          compact
+          revealDelay={chartRevealDelay}
+        />
+      </Suspense>
     </div>
   );
 };
@@ -134,6 +108,7 @@ interface PacePanelProps {
   last30d: number;
   last365d: number;
   paceTrends?: PaceTrends;
+  isLoading?: boolean;
 }
 
 export const PacePanel = ({
@@ -142,7 +117,9 @@ export const PacePanel = ({
   last30d,
   last365d,
   paceTrends,
+  isLoading,
 }: PacePanelProps) => {
+  const loading = isLoading === true;
   const panel = useMemo(
     () =>
       buildPacePanelData(
@@ -159,32 +136,45 @@ export const PacePanel = ({
 
   return (
     <aside className="border-t border-border p-3 sm:p-4 lg:border-t-0 lg:border-l">
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="mb-2 flex min-h-5 items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-primary">Current pace</h2>
         <span className="text-[11px] text-muted-foreground">Live snapshot</span>
       </div>
       <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3 lg:grid-cols-1">
-        <PaceStatBox
-          label="Last 7D"
-          value={panel.values.last7d}
-          trend={panel.trends.last7d}
-          chartValues={panel.windows.last7d.values}
-          chartLabels={panel.windows.last7d.labels}
-        />
-        <PaceStatBox
-          label="Last 30D"
-          value={panel.values.last30d}
-          trend={panel.trends.last30d}
-          chartValues={panel.windows.last30d.values}
-          chartLabels={panel.windows.last30d.labels}
-        />
-        <PaceStatBox
-          label="Last 365D"
-          value={panel.values.last365d}
-          trend={panel.trends.last365d}
-          chartValues={panel.windows.last365d.values}
-          chartLabels={panel.windows.last365d.labels}
-        />
+        {loading ? (
+          <>
+            <StatPillLoading label="Last 7D" />
+            <StatPillLoading label="Last 30D" />
+            <StatPillLoading label="Last 365D" />
+          </>
+        ) : (
+          <>
+            <PaceStatBox
+              label="Last 7D"
+              value={panel.values.last7d}
+              trend={panel.trends.last7d}
+              chartValues={panel.windows.last7d.values}
+              chartLabels={panel.windows.last7d.labels}
+              chartRevealDelay={280}
+            />
+            <PaceStatBox
+              label="Last 30D"
+              value={panel.values.last30d}
+              trend={panel.trends.last30d}
+              chartValues={panel.windows.last30d.values}
+              chartLabels={panel.windows.last30d.labels}
+              chartRevealDelay={460}
+            />
+            <PaceStatBox
+              label="Last 365D"
+              value={panel.values.last365d}
+              trend={panel.trends.last365d}
+              chartValues={panel.windows.last365d.values}
+              chartLabels={panel.windows.last365d.labels}
+              chartRevealDelay={640}
+            />
+          </>
+        )}
       </div>
     </aside>
   );

@@ -1,4 +1,4 @@
-import type { PublicInfringement } from "../client/api";
+import type { PublicInfringement } from "@/client/api";
 
 export const EXPLORE_PAGE_SIZE = 25;
 

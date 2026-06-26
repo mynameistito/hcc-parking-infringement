@@ -1,8 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import type { TrendResult } from "@/lib/trend";
-import type { PaceTrends } from "@/lib/trend-window";
-
 import type {
   DailyStatPoint,
   LiveStatsResponse,
@@ -11,7 +8,9 @@ import type {
   PublicInfringement,
   TopItem,
   VehicleRankItem,
-} from "./api";
+} from "@/client/api";
+import type { TrendResult } from "@/lib/trend";
+import type { PaceTrends } from "@/lib/trend-window";
 
 export interface FullDashboardMessage {
   type: "full";
@@ -220,6 +219,28 @@ export const getDashboardSnapshotWeight = (
   message.suburbs.length +
   message.vehicles.length +
   message.map.routes.length;
+
+export const readPersistedDashboardSnapshotSync =
+  (): FullDashboardMessage | null => {
+    try {
+      const raw = window.localStorage.getItem(DASHBOARD_SNAPSHOT_CACHE_KEY);
+      if (raw === null) {
+        return null;
+      }
+
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        isCachedDashboardSnapshot(parsed) &&
+        getDashboardSnapshotWeight(parsed.snapshot) > 0
+      ) {
+        return parsed.snapshot;
+      }
+    } catch {
+      // Storage can be unavailable in private or locked-down browsing modes.
+    }
+
+    return null;
+  };
 
 export const readPersistedDashboardSnapshot =
   async (): Promise<FullDashboardMessage | null> => {

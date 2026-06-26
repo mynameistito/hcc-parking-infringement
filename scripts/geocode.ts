@@ -2,12 +2,20 @@
  * Geocode Hamilton streets for the map (batched Overpass, no Nominatim).
  *
  * Usage:
- *   API_KEY=xxx WORKER_URL=http://localhost:8787 bun run geocode
- *   API_KEY=xxx bun run geocode -- --limit=50
- *   API_KEY=xxx bun run geocode -- --once
+ *   bun run geocode
+ *   bun run geocode -- --limit=50
+ *   bun run geocode -- --once
  */
 
+import {
+  describeConnectionFailure,
+  describeFetchFailure,
+  getWorkerUrl,
+  loadDevVars,
+} from "@scripts/dev-env.ts";
 import { z } from "zod";
+
+loadDevVars();
 
 const args = process.argv.slice(2);
 const limitArg = args.find((arg) => arg.startsWith("--limit="));
@@ -17,14 +25,11 @@ const limit =
     : Number.parseInt(limitArg.split("=")[1] ?? "50", 10);
 const runOnce = args.includes("--once");
 
-const workerUrl = (process.env.WORKER_URL ?? "http://localhost:8787").replace(
-  /\/$/u,
-  ""
-);
+const workerUrl = getWorkerUrl();
 const apiKey = process.env.API_KEY;
 
 if (apiKey === undefined || apiKey === "") {
-  console.error("Missing API_KEY.");
+  console.error("Missing API_KEY (environment or `.dev.vars`).");
   process.exit(1);
 }
 
@@ -50,20 +55,29 @@ const runGeocodeBatch = async (): Promise<
   const url = new URL("/api/v1/geocode/run", workerUrl);
   url.searchParams.set("limit", String(limit));
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    method: "POST",
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      method: "POST",
+    });
+  } catch (error) {
+    console.error(describeConnectionFailure(error, "POST", url.toString()));
+    process.exit(1);
+  }
 
   const rawBody: unknown = await response.json().catch(() => null);
   const parsedBody = geocodeRunResultSchema.safeParse(rawBody);
   const body = parsedBody.success ? parsedBody.data : null;
 
   if (!response.ok) {
-    console.error(`Geocode failed (${response.status}):`, body);
+    console.error(
+      describeFetchFailure(response, rawBody, "POST", url.toString())
+    );
     process.exit(1);
   }
 
@@ -71,7 +85,7 @@ const runGeocodeBatch = async (): Promise<
 };
 
 const fetchPendingCount = async (): Promise<number> => {
-  const mapResponse = await fetch(`${workerUrl}/api/public/locations/map`);
+  const mapResponse = await fetch(`${workerUrl}/api/v1/locations/map`);
   const rawBody: unknown = await mapResponse.json();
   const parsedBody = mapResponseSchema.safeParse(rawBody);
 
@@ -131,7 +145,7 @@ console.log(
 
 const { totalGeocoded, totalFailed } = await runGeocodeLoop(0, 0, 0);
 
-const mapResponse = await fetch(`${workerUrl}/api/public/locations/map`);
+const mapResponse = await fetch(`${workerUrl}/api/v1/locations/map`);
 const rawMapBody: unknown = await mapResponse.json();
 const parsedMapBody = mapResponseSchema.safeParse(rawMapBody);
 const mapData = parsedMapBody.success ? parsedMapBody.data.data : undefined;

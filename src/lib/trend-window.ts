@@ -1,10 +1,13 @@
 import { format, parseISO } from "date-fns";
 
 import type { DailyStatPoint } from "@/client/api";
-
-import { PACE_DAILY_TREND_DAYS } from "./pace-constants";
-import { dailyTrendCoversDays, fillDailySeries, toTrendResult } from "./trend";
-import type { TrendResult } from "./trend";
+import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
+import {
+  dailyTrendCoversDays,
+  fillDailySeries,
+  toTrendResult,
+} from "@/lib/trend";
+import type { TrendResult } from "@/lib/trend";
 
 export { PACE_DAILY_TREND_DAYS };
 

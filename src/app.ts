@@ -1,40 +1,48 @@
+import { formatInTimeZone } from "date-fns-tz";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
-import { PACE_DAILY_TREND_DAYS } from "./lib/pace-constants.ts";
-import { verifyApiKey, verifyApiKeyOrCronSecret } from "./server/auth.ts";
-import { getCacheStatus } from "./server/cache.ts";
+import { BACKFILL_CHUNK_DAYS_DEFAULT } from "@/lib/backfill-constants.ts";
+import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
+import { verifyApiKey, verifyApiKeyOrCronSecret } from "@/server/auth.ts";
+import { getBackfillProgress } from "@/server/backfill-progress.ts";
+import { getCacheStatus } from "@/server/cache.ts";
 import {
   browseStreets,
   browseSuburbs,
   browseVehicles,
   exploreInfringements,
   getTopVehicles,
-} from "./server/explore.ts";
-import { geocodeMissingLocations } from "./server/geocode.ts";
-import { importInfringements } from "./server/import.ts";
+} from "@/server/explore.ts";
+import { geocodeMissingLocations } from "@/server/geocode.ts";
+import { importInfringements } from "@/server/import.ts";
 import {
   getMapPoints,
   getTopStreets,
   getTopSuburbs,
-} from "./server/locations.ts";
+} from "@/server/locations.ts";
 import {
   getPublicDailyTrend,
   getPublicLiveStats,
   getPublicTopOffences,
   getPublicTopStreets,
-} from "./server/public-stats.ts";
+} from "@/server/public-stats.ts";
 import {
   getDailyStats,
   getLiveStats,
   getTopStats,
   listInfringements,
-} from "./server/stats.ts";
-import type { TopGroupBy, TopWindow } from "./server/stats.ts";
-import { getParkingStore } from "./server/store.ts";
-import { getLatestSyncRun, hourlySync, startBackfill } from "./server/sync.ts";
+} from "@/server/stats.ts";
+import type { TopGroupBy, TopWindow } from "@/server/stats.ts";
+import { getParkingStore } from "@/server/store.ts";
+import {
+  BACKFILL_EARLIEST,
+  getLatestSyncRun,
+  hourlySync,
+  startBackfill,
+} from "@/server/sync.ts";
 
 interface AppEnv {
   Bindings: Env;
@@ -100,6 +108,28 @@ const parseDateParam = (value: string | undefined): string | undefined => {
 const parseForceFlag = (value: string | undefined): boolean =>
   value === "1" || value === "true" || value === "yes";
 
+const parseBackfillChunkDays = (
+  granularity: string | undefined,
+  chunkDays: string | undefined
+): number | undefined => {
+  if (chunkDays !== undefined) {
+    const parsed = Number.parseInt(chunkDays, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  if (granularity === "day") {
+    return 1;
+  }
+
+  if (granularity === "week") {
+    return 7;
+  }
+
+  return BACKFILL_CHUNK_DAYS_DEFAULT;
+};
+
 const parseBrowseSort = (value: string | undefined): "count" | "name" =>
   value === "name" ? "name" : "count";
 
@@ -116,7 +146,9 @@ const isTopGroupBy = (value: string | undefined): value is TopGroupBy =>
 const isTopWindow = (value: string): value is TopWindow =>
   value === "all" || value === "7d" || value === "30d";
 
-app.get("/api/health", async (c) => {
+const v1 = new Hono<AppEnv>();
+
+v1.get("/health", async (c) => {
   const cache = await getCacheStatus(c.env);
   return c.json({
     dataSource: cache.source,
@@ -126,12 +158,12 @@ app.get("/api/health", async (c) => {
   });
 });
 
-app.get("/api/public/cache", async (c) => {
+v1.get("/cache", async (c) => {
   const cache = await getCacheStatus(c.env);
   return storedJson(c, {
     meta: {
       description:
-        "All public endpoints serve data from ParkingStore. HCC Open Data is only contacted during background sync.",
+        "All dashboard endpoints serve data from ParkingStore. HCC Open Data is only contacted during background sync.",
       ingestWindows: cache.ingestWindows,
       lastHccFetchAt: cache.lastHccFetchAt,
       lastSyncedAt: cache.lastSyncedAt,
@@ -141,7 +173,12 @@ app.get("/api/public/cache", async (c) => {
   });
 });
 
-app.get("/api/public/stats/live", async (c) => {
+v1.get("/stats/live", async (c) => {
+  if (verifyApiKey(c.req.raw, c.env)) {
+    const stats = await getLiveStats(c.env);
+    return storedJson(c, { meta: { source: "stored" }, ...stats });
+  }
+
   try {
     const data = await getPublicLiveStats(c.env);
     return storedJson(c, {
@@ -149,16 +186,31 @@ app.get("/api/public/stats/live", async (c) => {
       meta: { source: "stored" },
     });
   } catch (error) {
-    console.error("public live stats error", error);
+    console.error("live stats error", error);
     return jsonError(500, "Failed to load live stats");
   }
 });
 
-app.get("/api/public/stats/daily", async (c) => {
+v1.get("/stats/daily", async (c) => {
+  const from = parseDateParam(c.req.query("from"));
+  const to = parseDateParam(c.req.query("to"));
+
+  if (from !== undefined || to !== undefined) {
+    assertApiKey(c.req.raw, c.env);
+
+    if (from === undefined || to === undefined) {
+      return jsonError(400, "from and to query params required (YYYY-MM-DD)");
+    }
+
+    const stats = await getDailyStats(c.env, from, to);
+    return storedJson(c, { data: stats, from, meta: { source: "stored" }, to });
+  }
+
   const days = Math.min(
     parsePositiveInt(c.req.query("days"), PACE_DAILY_TREND_DAYS),
     PACE_DAILY_TREND_DAYS
   );
+
   try {
     const data = await getPublicDailyTrend(c.env, days);
     return storedJson(c, {
@@ -166,53 +218,77 @@ app.get("/api/public/stats/daily", async (c) => {
       meta: { days, source: "stored" },
     });
   } catch (error) {
-    console.error("public daily stats error", error);
+    console.error("daily stats error", error);
     return jsonError(500, "Failed to load daily stats");
   }
 });
 
-app.get("/api/public/live/ws", async (c) => {
+v1.get("/live/ws", async (c) => {
   const stub = getParkingStore(c.env);
   return await stub.fetch(c.req.raw);
 });
 
-app.get("/api/public/stats/top", async (c) => {
-  const groupBy = c.req.query("groupBy") ?? "street";
-  const limit = Math.min(parsePositiveInt(c.req.query("limit"), 5), 20);
+v1.get("/stats/top", async (c) => {
+  const groupByParam = c.req.query("groupBy") ?? "street";
+  const windowParam = c.req.query("window");
+  const limit = Math.min(
+    parsePositiveInt(c.req.query("limit"), windowParam === undefined ? 5 : 10),
+    windowParam === undefined ? 20 : 100
+  );
 
-  if (groupBy !== "street" && groupBy !== "offence") {
+  if (windowParam !== undefined) {
+    assertApiKey(c.req.raw, c.env);
+
+    if (!isTopGroupBy(groupByParam)) {
+      return jsonError(400, "groupBy must be street or offence");
+    }
+    if (!isTopWindow(windowParam)) {
+      return jsonError(400, "window must be all, 7d, or 30d");
+    }
+
+    const data = await getTopStats(c.env, groupByParam, windowParam, limit);
+    return storedJson(c, {
+      data,
+      groupBy: groupByParam,
+      limit,
+      meta: { source: "stored" },
+      window: windowParam,
+    });
+  }
+
+  if (groupByParam !== "street" && groupByParam !== "offence") {
     return jsonError(400, "groupBy must be street or offence");
   }
 
   try {
     const items =
-      groupBy === "street"
+      groupByParam === "street"
         ? await getPublicTopStreets(c.env, limit)
         : await getPublicTopOffences(c.env, limit);
 
     return storedJson(c, {
-      data: { groupBy, items },
+      data: { groupBy: groupByParam, items },
       meta: { source: "stored" },
     });
   } catch (error) {
-    console.error("public top stats error", error);
+    console.error("top stats error", error);
     return jsonError(500, "Failed to load top stats");
   }
 });
 
-app.get("/api/public/locations/streets", async (c) => {
+v1.get("/locations/streets", async (c) => {
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
   const streets = await getTopStreets(c.env, limit);
   return storedJson(c, { data: streets, meta: { source: "stored" } });
 });
 
-app.get("/api/public/locations/suburbs", async (c) => {
+v1.get("/locations/suburbs", async (c) => {
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
   const suburbs = await getTopSuburbs(c.env, limit);
   return storedJson(c, { data: suburbs, meta: { source: "stored" } });
 });
 
-app.get("/api/public/locations/map", async (c) => {
+v1.get("/locations/map", async (c) => {
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 100);
   c.executionCtx.waitUntil(geocodeMissingLocations(c.env, 25));
   const map = await getMapPoints(c.env, limit);
@@ -226,13 +302,13 @@ app.get("/api/public/locations/map", async (c) => {
   });
 });
 
-app.get("/api/public/vehicles/top", async (c) => {
+v1.get("/vehicles/top", async (c) => {
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
   const vehicles = await getTopVehicles(c.env, limit);
   return storedJson(c, { data: vehicles, meta: { source: "stored" } });
 });
 
-app.get("/api/public/infringements/recent", async (c) => {
+v1.get("/infringements/recent", async (c) => {
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 15), 50);
   const result = await listInfringements(c.env, {
     limit,
@@ -241,7 +317,7 @@ app.get("/api/public/infringements/recent", async (c) => {
   return storedJson(c, { meta: { source: "stored" }, ...result });
 });
 
-app.get("/api/public/browse/suburbs", async (c) => {
+v1.get("/browse/suburbs", async (c) => {
   const result = await browseSuburbs(c.env, {
     limit: Math.min(parsePositiveInt(c.req.query("limit"), 25), 100),
     page: parsePositiveInt(c.req.query("page"), 1),
@@ -251,7 +327,7 @@ app.get("/api/public/browse/suburbs", async (c) => {
   return storedJson(c, { meta: { source: "stored" }, ...result });
 });
 
-app.get("/api/public/browse/streets", async (c) => {
+v1.get("/browse/streets", async (c) => {
   const result = await browseStreets(c.env, {
     limit: Math.min(parsePositiveInt(c.req.query("limit"), 25), 100),
     page: parsePositiveInt(c.req.query("page"), 1),
@@ -262,7 +338,7 @@ app.get("/api/public/browse/streets", async (c) => {
   return storedJson(c, { meta: { source: "stored" }, ...result });
 });
 
-app.get("/api/public/browse/vehicles", async (c) => {
+v1.get("/browse/vehicles", async (c) => {
   const result = await browseVehicles(c.env, {
     limit: Math.min(parsePositiveInt(c.req.query("limit"), 25), 100),
     page: parsePositiveInt(c.req.query("page"), 1),
@@ -272,7 +348,7 @@ app.get("/api/public/browse/vehicles", async (c) => {
   return storedJson(c, { meta: { source: "stored" }, ...result });
 });
 
-app.get("/api/public/explore/suburbs/:suburb/streets", async (c) => {
+v1.get("/explore/suburbs/:suburb/streets", async (c) => {
   const suburb = decodeURIComponent(c.req.param("suburb")).trim();
   if (suburb === "") {
     return jsonError(400, "suburb required");
@@ -287,7 +363,7 @@ app.get("/api/public/explore/suburbs/:suburb/streets", async (c) => {
   return storedJson(c, { meta: { source: "stored", suburb }, ...result });
 });
 
-app.get("/api/public/explore/infringements", async (c) => {
+v1.get("/explore/infringements", async (c) => {
   const page = parsePositiveInt(c.req.query("page"), 1);
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 15), 50);
   const street = optionalTrimmedQuery(c.req.query("street"));
@@ -318,67 +394,22 @@ app.get("/api/public/explore/infringements", async (c) => {
   return storedJson(c, { meta: { source: "stored" }, ...result });
 });
 
-app.get("/api/v1/cache/status", async (c) => {
+v1.get("/cache/status", async (c) => {
   assertApiKey(c.req.raw, c.env);
   const cache = await getCacheStatus(c.env);
   return storedJson(c, {
     ...cache,
     hccFetchPolicy: {
       backfill: "skips already-ingested windows",
+      dailyBackfill:
+        "POST /api/v1/sync/backfill?granularity=week&from=1990-01-01",
       force: "POST /api/v1/sync/backfill?force=true",
       hourly: "last 7 days only",
     },
   });
 });
 
-app.get("/api/v1/stats/live", async (c) => {
-  assertApiKey(c.req.raw, c.env);
-  const stats = await getLiveStats(c.env);
-  return storedJson(c, { meta: { source: "stored" }, ...stats });
-});
-
-app.get("/api/v1/stats/daily", async (c) => {
-  assertApiKey(c.req.raw, c.env);
-  const from = parseDateParam(c.req.query("from"));
-  const to = parseDateParam(c.req.query("to"));
-
-  if (from === undefined || to === undefined) {
-    return jsonError(400, "from and to query params required (YYYY-MM-DD)");
-  }
-
-  const stats = await getDailyStats(c.env, from, to);
-  return storedJson(c, { data: stats, from, meta: { source: "stored" }, to });
-});
-
-app.get("/api/v1/stats/top", async (c) => {
-  assertApiKey(c.req.raw, c.env);
-  const groupByParam = c.req.query("groupBy");
-  const windowParam = c.req.query("window") ?? "all";
-  const limit = parsePositiveInt(c.req.query("limit"), 10);
-
-  if (!isTopGroupBy(groupByParam)) {
-    return jsonError(400, "groupBy must be street or offence");
-  }
-  if (!isTopWindow(windowParam)) {
-    return jsonError(400, "window must be all, 7d, or 30d");
-  }
-
-  const data = await getTopStats(
-    c.env,
-    groupByParam,
-    windowParam,
-    Math.min(limit, 100)
-  );
-  return storedJson(c, {
-    data,
-    groupBy: groupByParam,
-    limit,
-    meta: { source: "stored" },
-    window: windowParam,
-  });
-});
-
-app.get("/api/v1/infringements", async (c) => {
+v1.get("/infringements", async (c) => {
   assertApiKey(c.req.raw, c.env);
   const page = parsePositiveInt(c.req.query("page"), 1);
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 200);
@@ -403,7 +434,7 @@ app.get("/api/v1/infringements", async (c) => {
   return storedJson(c, { meta: { source: "stored" }, ...result });
 });
 
-app.get("/api/v1/health", async (c) => {
+v1.get("/status", async (c) => {
   assertApiKey(c.req.raw, c.env);
   const [latestRun, cache] = await Promise.all([
     getLatestSyncRun(c.env),
@@ -430,7 +461,7 @@ app.get("/api/v1/health", async (c) => {
   });
 });
 
-app.post("/api/v1/sync", async (c) => {
+v1.post("/sync", async (c) => {
   assertApiKeyOrCronSecret(c.req.raw, c.env);
 
   try {
@@ -442,12 +473,68 @@ app.post("/api/v1/sync", async (c) => {
   }
 });
 
-app.post("/api/v1/sync/backfill", async (c) => {
+v1.get("/sync/backfill/progress", async (c) => {
+  assertApiKey(c.req.raw, c.env);
+
+  const from = parseDateParam(c.req.query("from")) ?? BACKFILL_EARLIEST;
+  const to =
+    parseDateParam(c.req.query("to")) ??
+    formatInTimeZone(new Date(), "Pacific/Auckland", "yyyy-MM-dd");
+  const chunkDays = parseBackfillChunkDays(
+    c.req.query("granularity"),
+    c.req.query("chunkDays")
+  );
+
+  if (c.req.query("from") !== undefined && from === undefined) {
+    return jsonError(400, "from must be YYYY-MM-DD");
+  }
+
+  if (
+    c.req.query("to") !== undefined &&
+    parseDateParam(c.req.query("to")) === undefined
+  ) {
+    return jsonError(400, "to must be YYYY-MM-DD");
+  }
+
+  try {
+    const progress = await getBackfillProgress(c.env, {
+      chunkDays,
+      end: to,
+      start: from,
+    });
+    return storedJson(c, { ok: true, ...progress });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return jsonError(500, message);
+  }
+});
+
+v1.post("/sync/backfill", async (c) => {
   assertApiKey(c.req.raw, c.env);
 
   try {
     const force = parseForceFlag(c.req.query("force"));
-    const result = await startBackfill(c.env, { force });
+    const from = parseDateParam(c.req.query("from"));
+    const to = parseDateParam(c.req.query("to"));
+    const chunkDays = parseBackfillChunkDays(
+      c.req.query("granularity"),
+      c.req.query("chunkDays")
+    );
+
+    if (c.req.query("from") !== undefined && from === undefined) {
+      return jsonError(400, "from must be YYYY-MM-DD");
+    }
+
+    if (c.req.query("to") !== undefined && to === undefined) {
+      return jsonError(400, "to must be YYYY-MM-DD");
+    }
+
+    const result = await startBackfill(c.env, {
+      chunkDays,
+      end: to,
+      force,
+      start: from,
+    });
     return c.json({ force, ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -455,7 +542,7 @@ app.post("/api/v1/sync/backfill", async (c) => {
   }
 });
 
-app.post("/api/v1/import/infringements", async (c) => {
+v1.post("/import/infringements", async (c) => {
   assertApiKey(c.req.raw, c.env);
 
   try {
@@ -468,12 +555,14 @@ app.post("/api/v1/import/infringements", async (c) => {
   }
 });
 
-app.post("/api/v1/geocode/run", async (c) => {
+v1.post("/geocode/run", async (c) => {
   assertApiKey(c.req.raw, c.env);
   const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 100);
   const result = await geocodeMissingLocations(c.env, limit);
   return c.json({ ok: true, ...result });
 });
+
+app.route("/api/v1", v1);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 

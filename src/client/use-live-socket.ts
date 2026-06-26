@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 import {
   applyDashboardSnapshot,
@@ -8,8 +8,8 @@ import {
   parseDashboardMessage,
   persistDashboardSnapshot,
   readPersistedDashboardSnapshot,
-} from "./dashboard-snapshot";
-import type { FullDashboardMessage } from "./dashboard-snapshot";
+} from "@/client/dashboard-snapshot";
+import type { FullDashboardMessage } from "@/client/dashboard-snapshot";
 
 const RECONNECT_DELAY_MS = 3000;
 const PING_INTERVAL_MS = 30_000;
@@ -78,7 +78,7 @@ const emit = (): void => {
 
 const liveSocketUrl = (): string => {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}/api/public/live/ws`;
+  return `${protocol}//${window.location.host}/api/v1/live/ws`;
 };
 
 const clearReconnectTimer = (): void => {
@@ -207,14 +207,24 @@ const subscribe = (listener: Listener): (() => void) => {
 
 const getSnapshot = (): LiveTransportState => snapshot;
 
+export const restoreDashboardFromCache = (
+  queryClient: ReturnQueryClient,
+  message: FullDashboardMessage
+): void => {
+  applyDashboardSnapshot(queryClient, message);
+  store.lastSnapshotTime = getDashboardSnapshotTime(message);
+  store.lastSnapshotWeight = getDashboardSnapshotWeight(message);
+  store.ready = true;
+  store.cached = true;
+  emit();
+};
+
 export const useLiveSocket = (): LiveTransportState => {
   const queryClient = useQueryClient();
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    setMounted(true);
     void (async () => {
       const cached = await readPersistedDashboardSnapshot();
       if (cancelled || cached === null) {
@@ -249,11 +259,5 @@ export const useLiveSocket = (): LiveTransportState => {
     };
   }, [queryClient]);
 
-  const liveState = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-
-  if (!mounted) {
-    return { cached: false, connected: false, ready: false };
-  }
-
-  return liveState;
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };

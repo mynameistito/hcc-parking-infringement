@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import { BACKFILL_HCC_CONCURRENCY } from "@/lib/backfill-constants.ts";
+
+export type HccClientEnv = Pick<Env, "HCC_API_BASE">;
+
 const DEFAULT_API_BASE =
   "https://api.hcc.govt.nz/OpenData/get_parking_infringement";
 
@@ -33,7 +37,7 @@ export interface FetchInfringementsOptions {
   page: number;
 }
 
-const apiBase = (env: Env): string => {
+const apiBase = (env: HccClientEnv): string => {
   const base = env.HCC_API_BASE ?? DEFAULT_API_BASE;
   if (base.includes("get_parking_infringement")) {
     return base;
@@ -41,87 +45,100 @@ const apiBase = (env: Env): string => {
   return `${base.replace(/\/$/u, "")}/get_parking_infringement`;
 };
 
-export const fetchInfringements = async (
-  env: Env,
-  options: FetchInfringementsOptions
-): Promise<HccInfringementResponse> => {
-  const url = new URL(apiBase(env));
-  url.searchParams.set("Page", String(options.page));
-  url.searchParams.set("Start_Date", options.startDate);
-  url.searchParams.set("End_Date", options.endDate);
+let hccInFlight = 0;
+const hccWaiters: (() => void)[] = [];
 
-  const response = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
+const acquireHccSlot = async (): Promise<void> => {
+  if (hccInFlight < BACKFILL_HCC_CONCURRENCY) {
+    hccInFlight += 1;
+    return;
+  }
+
+  const waiter = Promise.withResolvers<null>();
+  hccWaiters.push(() => {
+    waiter.resolve(null);
   });
-
-  if (!response.ok) {
-    throw new Error(
-      `HCC API error ${response.status}: ${await response.text()}`
-    );
-  }
-
-  const parsed = hccInfringementResponseSchema.safeParse(await response.json());
-  if (!parsed.success) {
-    throw new Error("HCC API response missing Paging metadata");
-  }
-
-  return parsed.data;
+  await waiter.promise;
+  hccInFlight += 1;
 };
 
+const releaseHccSlot = (): void => {
+  hccInFlight -= 1;
+  hccWaiters.shift()?.();
+};
+
+const withHccSlot = async <T>(task: () => Promise<T>): Promise<T> => {
+  await acquireHccSlot();
+  try {
+    return await task();
+  } finally {
+    releaseHccSlot();
+  }
+};
+
+export const fetchInfringements = async (
+  env: HccClientEnv,
+  options: FetchInfringementsOptions
+): Promise<HccInfringementResponse> =>
+  await withHccSlot(async () => {
+    const url = new URL(apiBase(env));
+    url.searchParams.set("Page", String(options.page));
+    url.searchParams.set("Start_Date", options.startDate);
+    url.searchParams.set("End_Date", options.endDate);
+
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `HCC API error ${response.status}: ${await response.text()}`
+      );
+    }
+
+    const parsed = hccInfringementResponseSchema.safeParse(
+      await response.json()
+    );
+    if (!parsed.success) {
+      throw new Error("HCC API response missing Paging metadata");
+    }
+
+    return parsed.data;
+  });
+
 export interface FetchAllResult {
-  records: Record<string, unknown>[];
+  lastPageRecords: number;
   pageCount: number;
+  pagesFetched: number;
   pageSize: number;
   possiblyTruncated: boolean;
+  records: Record<string, unknown>[];
 }
 
-const fetchRemainingPages = async (
-  env: Env,
+const isFullPage = (recordCount: number, pageSize: number): boolean =>
+  recordCount >= pageSize && recordCount > 0;
+
+const readPageRecords = (
+  response: HccInfringementResponse
+): Record<string, unknown>[] =>
+  response.Data !== undefined && response.Data.length > 0 ? response.Data : [];
+
+const fetchPageRecords = async (
+  env: HccClientEnv,
   startDate: string,
   endDate: string,
-  page: number,
-  pageCount: number,
-  pageSize: number,
-  records: Record<string, unknown>[]
-): Promise<FetchAllResult> => {
-  if (page > pageCount) {
-    const possiblyTruncated =
-      pageCount === 1 && records.length >= pageSize && records.length > 0;
-
-    return { pageCount, pageSize, possiblyTruncated, records };
-  }
-
+  page: number
+): Promise<Record<string, unknown>[]> => {
   const response = await fetchInfringements(env, {
     endDate,
     page,
     startDate,
   });
-  const [paging] = response.Paging;
-  if (paging === undefined) {
-    const possiblyTruncated =
-      pageCount === 1 && records.length >= pageSize && records.length > 0;
-
-    return { pageCount, pageSize, possiblyTruncated, records };
-  }
-
-  const nextRecords = [...records];
-  if (response.Data !== undefined && response.Data.length > 0) {
-    nextRecords.push(...response.Data);
-  }
-
-  return await fetchRemainingPages(
-    env,
-    startDate,
-    endDate,
-    page + 1,
-    paging.Page_Count,
-    paging.Page_Size,
-    nextRecords
-  );
+  return readPageRecords(response);
 };
 
 export const fetchAllInWindow = async (
-  env: Env,
+  env: HccClientEnv,
   startDate: string,
   endDate: string
 ): Promise<FetchAllResult> => {
@@ -133,37 +150,47 @@ export const fetchAllInWindow = async (
   const [paging] = response.Paging;
   if (paging === undefined) {
     return {
+      lastPageRecords: 0,
       pageCount: 0,
       pageSize: 10_000,
+      pagesFetched: 0,
       possiblyTruncated: false,
       records: [],
     };
   }
 
-  const records: Record<string, unknown>[] = [];
-  if (response.Data !== undefined && response.Data.length > 0) {
-    records.push(...response.Data);
-  }
+  const firstPageRecords = readPageRecords(response);
 
   if (paging.Page_Count <= 1) {
-    const possiblyTruncated =
-      records.length >= paging.Page_Size && records.length > 0;
-
     return {
+      lastPageRecords: firstPageRecords.length,
       pageCount: paging.Page_Count,
       pageSize: paging.Page_Size,
-      possiblyTruncated,
-      records,
+      pagesFetched: 1,
+      possiblyTruncated: isFullPage(firstPageRecords.length, paging.Page_Size),
+      records: firstPageRecords,
     };
   }
 
-  return await fetchRemainingPages(
-    env,
-    startDate,
-    endDate,
-    2,
-    paging.Page_Count,
-    paging.Page_Size,
-    records
+  const otherPages = Array.from(
+    { length: paging.Page_Count - 1 },
+    (_, index) => index + 2
   );
+  const otherPageRecords = await Promise.all(
+    otherPages.map(
+      async (page) => await fetchPageRecords(env, startDate, endDate, page)
+    )
+  );
+
+  const records = [...firstPageRecords, ...otherPageRecords.flat()];
+  const lastPageRecords = otherPageRecords.at(-1)?.length ?? 0;
+
+  return {
+    lastPageRecords,
+    pageCount: paging.Page_Count,
+    pageSize: paging.Page_Size,
+    pagesFetched: paging.Page_Count,
+    possiblyTruncated: isFullPage(lastPageRecords, paging.Page_Size),
+    records,
+  };
 };

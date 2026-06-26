@@ -2,10 +2,10 @@ import { DurableObject } from "cloudflare:workers";
 import { parseISO, subDays } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
-import { PACE_DAILY_TREND_DAYS } from "../lib/pace-constants.ts";
-import { toTrendResult } from "../lib/trend.ts";
-import type { TrendResult } from "../lib/trend.ts";
-import type { CleanInfringement } from "../server/clean.ts";
+import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
+import { toTrendResult } from "@/lib/trend.ts";
+import type { TrendResult } from "@/lib/trend.ts";
+import type { CleanInfringement } from "@/server/clean.ts";
 
 const AUCKLAND_TZ = "Pacific/Auckland";
 const STATS_LIVE_ID = 1;
@@ -214,6 +214,18 @@ export interface SyncRunRow {
 export interface DateWindow {
   start: string;
   end: string;
+}
+
+export interface BackfillProgress {
+  chunkDays: number;
+  completed: number;
+  end: string;
+  latestIngestedAt: string | null;
+  latestWindow: { end: string; start: string } | null;
+  percent: number;
+  start: string;
+  total: number;
+  totalRecords: number;
 }
 
 export interface CacheStatus {
@@ -678,6 +690,15 @@ export class ParkingStore extends DurableObject<Env> {
       });
       throw error;
     }
+  }
+
+  recordBackfillFailure(start: string, end: string, error: string): void {
+    const runId = this.startSyncRun("backfill", start, end);
+    this.finishSyncRun(runId, "error", {
+      error,
+      fetched: 0,
+      upserted: 0,
+    });
   }
 
   importInfringementBatch(payload: ImportBatchPayload): ImportBatchResult {
@@ -1457,6 +1478,89 @@ export class ParkingStore extends DurableObject<Env> {
     };
   }
 
+  countIngestWatermarksInRange(
+    start: string,
+    end: string,
+    chunkDays: number
+  ): number {
+    const row =
+      chunkDays === 1
+        ? this.ctx.storage.sql
+            .exec<{ count: number }>(
+              `SELECT count(*) as count FROM ingest_watermarks
+               WHERE window_start = window_end
+                 AND window_start >= ?
+                 AND window_start <= ?`,
+              start,
+              end
+            )
+            .one()
+        : this.ctx.storage.sql
+            .exec<{ count: number }>(
+              `SELECT count(*) as count FROM ingest_watermarks
+               WHERE window_start >= ?
+                 AND window_end <= ?
+                 AND window_start != window_end`,
+              start,
+              end
+            )
+            .one();
+
+    return row?.count ?? 0;
+  }
+
+  getLatestIngestWatermarkInRange(
+    start: string,
+    end: string,
+    chunkDays: number
+  ): { end: string; ingestedAt: string; start: string } | null {
+    const rows =
+      chunkDays === 1
+        ? this.ctx.storage.sql
+            .exec<{
+              window_start: string;
+              window_end: string;
+              ingested_at: string;
+            }>(
+              `SELECT window_start, window_end, ingested_at FROM ingest_watermarks
+               WHERE window_start = window_end
+                 AND window_start >= ?
+                 AND window_start <= ?
+               ORDER BY ingested_at DESC
+               LIMIT 1`,
+              start,
+              end
+            )
+            .toArray()
+        : this.ctx.storage.sql
+            .exec<{
+              window_start: string;
+              window_end: string;
+              ingested_at: string;
+            }>(
+              `SELECT window_start, window_end, ingested_at FROM ingest_watermarks
+               WHERE window_start >= ?
+                 AND window_end <= ?
+                 AND window_start != window_end
+               ORDER BY ingested_at DESC
+               LIMIT 1`,
+              start,
+              end
+            )
+            .toArray();
+
+    const [row] = rows;
+    if (row === undefined) {
+      return null;
+    }
+
+    return {
+      end: row.window_end,
+      ingestedAt: row.ingested_at,
+      start: row.window_start,
+    };
+  }
+
   private refreshDashboardSnapshotCache(): void {
     this.dashboardSnapshotPayload = JSON.stringify({
       type: "full",
@@ -2083,13 +2187,13 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   private getSyncMeta(key: string): string | null {
-    const row = this.ctx.storage.sql
+    const rows = this.ctx.storage.sql
       .exec<{ value: string }>(
         "SELECT value FROM sync_meta WHERE key = ? LIMIT 1",
         key
       )
-      .one();
+      .toArray();
 
-    return row?.value ?? null;
+    return rows[0]?.value ?? null;
   }
 }

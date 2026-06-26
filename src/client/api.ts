@@ -271,13 +271,13 @@ const isDailyStatPointArray = (value: unknown): value is DailyStatPoint[] =>
   Array.isArray(value) && value.every(isDailyStatPoint);
 
 export const fetchLiveStats = async (): Promise<LiveStatsResponse> =>
-  await parseEnvelope("/api/public/stats/live", isLiveStatsResponse);
+  await parseEnvelope("/api/v1/stats/live", isLiveStatsResponse);
 
 export const fetchDailyTrend = async (
   days = PACE_DAILY_TREND_DAYS
 ): Promise<DailyStatPoint[]> =>
   await parseEnvelope(
-    `/api/public/stats/daily?days=${days}`,
+    `/api/v1/stats/daily?days=${days}`,
     isDailyStatPointArray
   );
 
@@ -286,17 +286,14 @@ export const fetchTopStats = async (
   limit = 5
 ): Promise<TopStatsResponse> => {
   const params = new URLSearchParams({ groupBy, limit: String(limit) });
-  return await parseEnvelope(
-    `/api/public/stats/top?${params}`,
-    isTopStatsResponse
-  );
+  return await parseEnvelope(`/api/v1/stats/top?${params}`, isTopStatsResponse);
 };
 
 export const fetchTopStreets = async (
   limit = 10
 ): Promise<LocationRankItem[]> =>
   await parseEnvelope(
-    `/api/public/locations/streets?limit=${limit}`,
+    `/api/v1/locations/streets?limit=${limit}`,
     isLocationRankItemArray
   );
 
@@ -304,21 +301,18 @@ export const fetchTopSuburbs = async (
   limit = 10
 ): Promise<LocationRankItem[]> =>
   await parseEnvelope(
-    `/api/public/locations/suburbs?limit=${limit}`,
+    `/api/v1/locations/suburbs?limit=${limit}`,
     isLocationRankItemArray
   );
 
 export const fetchMapPoints = async (limit = 50): Promise<MapResponse> =>
-  await parseEnvelope(
-    `/api/public/locations/map?limit=${limit}`,
-    isMapResponse
-  );
+  await parseEnvelope(`/api/v1/locations/map?limit=${limit}`, isMapResponse);
 
 export const fetchTopVehicles = async (
   limit = 10
 ): Promise<VehicleRankItem[]> =>
   await parseEnvelope(
-    `/api/public/vehicles/top?limit=${limit}`,
+    `/api/v1/vehicles/top?limit=${limit}`,
     isVehicleRankItemArray
   );
 
@@ -326,7 +320,7 @@ export const fetchRecentInfringements = async (
   limit = 15
 ): Promise<InfringementListResponse> =>
   await parseJson(
-    `/api/public/infringements/recent?limit=${limit}`,
+    `/api/v1/infringements/recent?limit=${limit}`,
     isInfringementListResponse
   );
 
@@ -348,7 +342,7 @@ export const fetchBrowseSuburbs = async (
   params: BrowseParams = {}
 ): Promise<BrowseResponse<LocationRankItem>> =>
   await parseJson(
-    `/api/public/browse/suburbs?${buildBrowseParams(params)}`,
+    `/api/v1/browse/suburbs?${buildBrowseParams(params)}`,
     isLocationBrowseResponse
   );
 
@@ -356,7 +350,7 @@ export const fetchBrowseStreets = async (
   params: BrowseParams = {}
 ): Promise<BrowseResponse<LocationRankItem>> =>
   await parseJson(
-    `/api/public/browse/streets?${buildBrowseParams(params)}`,
+    `/api/v1/browse/streets?${buildBrowseParams(params)}`,
     isLocationBrowseResponse
   );
 
@@ -364,7 +358,7 @@ export const fetchBrowseVehicles = async (
   params: BrowseParams = {}
 ): Promise<BrowseResponse<VehicleRankItem>> =>
   await parseJson(
-    `/api/public/browse/vehicles?${buildBrowseParams(params)}`,
+    `/api/v1/browse/vehicles?${buildBrowseParams(params)}`,
     isVehicleBrowseResponse
   );
 
@@ -374,7 +368,7 @@ export const fetchStreetsInSuburb = async (
 ): Promise<BrowseResponse<LocationRankItem>> => {
   const encoded = encodeURIComponent(suburb);
   return await parseJson(
-    `/api/public/explore/suburbs/${encoded}/streets?${buildBrowseParams(params)}`,
+    `/api/v1/explore/suburbs/${encoded}/streets?${buildBrowseParams(params)}`,
     isLocationBrowseResponse
   );
 };
@@ -407,7 +401,7 @@ export const fetchExploreInfringements = async (
   search.set("page", String(params.page ?? 1));
   search.set("limit", String(params.limit ?? 15));
   return await parseJson(
-    `/api/public/explore/infringements?${search}`,
+    `/api/v1/explore/infringements?${search}`,
     isInfringementListResponse
   );
 };

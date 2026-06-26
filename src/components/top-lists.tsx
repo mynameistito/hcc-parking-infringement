@@ -1,3 +1,4 @@
+import { TopListSkeleton } from "@/components/data-skeletons";
 import {
   Card,
   CardContent,
@@ -5,8 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-import { TopListSkeleton } from "./data-skeletons";
 
 const numberFmt = new Intl.NumberFormat("en-NZ");
 

@@ -2,6 +2,9 @@ import { format } from "date-fns";
 import { Car, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import type { BrowseSort, PublicInfringement } from "@/client/api";
+import { InfringementCardsSkeleton } from "@/components/data-skeletons";
+import { formatVehicle, moneyFmt, numberFmt } from "@/components/explore-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,10 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-import type { BrowseSort, PublicInfringement } from "../client/api";
-import { InfringementCardsSkeleton } from "./data-skeletons";
-import { formatVehicle, moneyFmt, numberFmt } from "./explore-utils";
 
 export const useDebouncedValue = <T,>(value: T, delay = 300): T => {
   const [debounced, setDebounced] = useState(value);

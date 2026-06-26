@@ -8,6 +8,32 @@
       content="Live parking infringement ticker for Hamilton City Council open data."
     />
     <title>HCC Parking Infringements — Live Ticker</title>
+    <script>
+      try {
+        if (localStorage.getItem("hcc-theme") === "light") {
+          document.documentElement.classList.add("light");
+        }
+      } catch {}
+    </script>
+    <style>
+      html {
+        background-color: #000000;
+        color-scheme: dark;
+      }
+      html.light {
+        background-color: #ffffff;
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        min-height: 100%;
+        background-color: inherit;
+      }
+      #root {
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

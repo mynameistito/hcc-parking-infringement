@@ -5,9 +5,9 @@ import type {
   DailyStatRow,
   PublicLiveStats,
   PublicTopItem,
-} from "../durable-objects/parking-store.ts";
-import { PACE_DAILY_TREND_DAYS } from "../lib/pace-constants.ts";
-import { getParkingStore } from "./store.ts";
+} from "@/durable-objects/parking-store.ts";
+import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
+import { getParkingStore } from "@/server/store.ts";
 
 export type { PublicLiveStats, PublicTopItem };
 
