@@ -1,11 +1,43 @@
 import { DurableObject } from "cloudflare:workers";
 import { parseISO, subDays } from "date-fns";
 
+import { toMapRouteRow } from "@/durable-objects/geometry.ts";
 import {
-  filterRoadGeometry,
-  parseGeometryJson,
-  toMapRouteRow,
-} from "@/durable-objects/geometry.ts";
+  DASHBOARD_SNAPSHOT_CACHE_ID,
+  GEOCODE_CANDIDATE_POOL,
+  HAMILTON_CENTER_LAT,
+  HAMILTON_CENTER_LON,
+  isoNow,
+  STATS_LIVE_ID,
+} from "@/durable-objects/parking-store/constants.ts";
+import {
+  buildColdDashboardSnapshotPayload,
+  buildFullDashboardSnapshotPayload,
+  getDashboardSnapshotPayloadWeight,
+  snapshotIsComplete,
+} from "@/durable-objects/parking-store/dashboard-snapshot.ts";
+import {
+  filterGeocodeCandidates,
+  geocodeRetryCutoffIso,
+} from "@/durable-objects/parking-store/geocode-candidates.ts";
+import type { GeocodeCandidateRow } from "@/durable-objects/parking-store/geocode-candidates.ts";
+import { runParkingStoreMigrations } from "@/durable-objects/parking-store/schema.ts";
+import {
+  aggregatePeriod,
+  aggregateWindow,
+  mapPublicLiveStatsRow,
+  recomputeStatsLive,
+} from "@/durable-objects/parking-store/stats.ts";
+import {
+  clearSyncMeta,
+  finishSyncRun,
+  getSyncMeta,
+  hasWatermark,
+  recordWatermark,
+  setSyncMeta,
+  startSyncRun,
+  upsertInfringements,
+} from "@/durable-objects/parking-store/sync.ts";
 import type {
   BrowseQuery,
   BrowseResult,
@@ -25,7 +57,6 @@ import type {
   PublicPaceTrends,
   PublicTopItem,
   SyncRunRow,
-  SyncRunType,
   SyncWindowPayload,
   SyncWindowResult,
   TopGroupBy,
@@ -43,7 +74,6 @@ import {
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 import { toTrendResult } from "@/lib/trend.ts";
 import type { TrendResult } from "@/lib/trend.ts";
-import type { CleanInfringement } from "@/server/clean.ts";
 
 export type {
   BackfillProgress,
@@ -80,83 +110,6 @@ export {
   parseGeometryJson,
   toMapRouteRow,
 } from "@/durable-objects/geometry.ts";
-
-const STATS_LIVE_ID = 1;
-const DASHBOARD_SNAPSHOT_CACHE_ID = 1;
-
-const isoNow = (): string => new Date().toISOString();
-
-const HAMILTON_CENTER_LAT = -37.787;
-const HAMILTON_CENTER_LON = 175.279;
-const GEOCODE_FAILURE_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
-const GEOCODE_CANDIDATE_POOL = 500;
-
-const isRecentGeocodeFailure = (
-  failedAt: string | null | undefined
-): boolean => {
-  if (failedAt === null || failedAt === undefined || failedAt === "") {
-    return false;
-  }
-
-  const failed = Date.parse(failedAt);
-  if (Number.isNaN(failed)) {
-    return false;
-  }
-
-  return Date.now() - failed < GEOCODE_FAILURE_RETRY_MS;
-};
-
-const locationNeedsGeocode = (
-  geometryJson: string | null | undefined,
-  geocodeFailedAt: string | null | undefined
-): boolean => {
-  if (isRecentGeocodeFailure(geocodeFailedAt)) {
-    return false;
-  }
-
-  const geometry = filterRoadGeometry(parseGeometryJson(geometryJson));
-  return geometry.length === 0;
-};
-
-interface GeocodeCandidateRow extends Record<string, SqlStorageValue> {
-  street: string;
-  suburb: string | null;
-  town: string;
-  count: number;
-  geometry_json: string | null;
-  geocode_failed_at: string | null;
-}
-
-const filterGeocodeCandidates = (
-  rows: GeocodeCandidateRow[],
-  limit: number
-): { street: string; suburb: string | null; town: string; count: number }[] => {
-  const results: {
-    street: string;
-    suburb: string | null;
-    town: string;
-    count: number;
-  }[] = [];
-
-  for (const row of rows) {
-    if (!locationNeedsGeocode(row.geometry_json, row.geocode_failed_at)) {
-      continue;
-    }
-
-    results.push({
-      count: row.count,
-      street: row.street,
-      suburb: row.suburb,
-      town: row.town,
-    });
-
-    if (results.length >= limit) {
-      break;
-    }
-  }
-
-  return results;
-};
 
 export class ParkingStore extends DurableObject<Env> {
   private dashboardSnapshotPayload: string | null = null;
@@ -205,208 +158,27 @@ export class ParkingStore extends DurableObject<Env> {
   private async migrate(): Promise<void> {
     await Promise.resolve();
 
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
-        id INTEGER PRIMARY KEY,
-        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `);
-
-    const currentVersion = this.ctx.storage.sql
-      .exec<{ version: number }>(
-        "SELECT COALESCE(MAX(id), 0) as version FROM _sql_schema_migrations"
-      )
-      .one().version;
-
-    if (currentVersion < 1) {
-      this.ctx.storage.sql.exec(`
-        CREATE TABLE IF NOT EXISTS infringements (
-          infringement_number INTEGER PRIMARY KEY,
-          occurred_at TEXT NOT NULL,
-          amount_cents INTEGER NOT NULL,
-          street TEXT NOT NULL,
-          suburb TEXT,
-          town TEXT,
-          post_code TEXT,
-          offence_code TEXT,
-          offence_description TEXT NOT NULL,
-          offence_category TEXT,
-          vehicle_make TEXT,
-          vehicle_model TEXT,
-          is_towed INTEGER NOT NULL DEFAULT 0,
-          first_seen_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_infringements_occurred_at ON infringements (occurred_at);
-        CREATE INDEX IF NOT EXISTS idx_infringements_street ON infringements (street);
-        CREATE INDEX IF NOT EXISTS idx_infringements_offence_description ON infringements (offence_description);
-
-        CREATE TABLE IF NOT EXISTS sync_runs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          run_type TEXT NOT NULL,
-          window_start TEXT NOT NULL,
-          window_end TEXT NOT NULL,
-          fetched INTEGER NOT NULL DEFAULT 0,
-          inserted INTEGER NOT NULL DEFAULT 0,
-          updated INTEGER NOT NULL DEFAULT 0,
-          status TEXT NOT NULL,
-          error TEXT,
-          started_at TEXT NOT NULL,
-          finished_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS stats_live (
-          id INTEGER PRIMARY KEY,
-          all_time_total INTEGER NOT NULL DEFAULT 0,
-          all_time_amount_cents INTEGER NOT NULL DEFAULT 0,
-          today INTEGER NOT NULL DEFAULT 0,
-          last_24h INTEGER NOT NULL DEFAULT 0,
-          last_7d INTEGER NOT NULL DEFAULT 0,
-          last_30d INTEGER NOT NULL DEFAULT 0,
-          this_month INTEGER NOT NULL DEFAULT 0,
-          this_year INTEGER NOT NULL DEFAULT 0,
-          towed_all_time INTEGER NOT NULL DEFAULT 0,
-          towed_today INTEGER NOT NULL DEFAULT 0,
-          last_synced_at TEXT,
-          last_record_at TEXT
-        );
-
-        INSERT OR IGNORE INTO stats_live (id) VALUES (1);
-
-        CREATE TABLE IF NOT EXISTS daily_counts (
-          date TEXT PRIMARY KEY,
-          count INTEGER NOT NULL DEFAULT 0,
-          amount_cents INTEGER NOT NULL DEFAULT 0,
-          towed_count INTEGER NOT NULL DEFAULT 0
-        );
-
-        INSERT INTO _sql_schema_migrations (id) VALUES (1);
-      `);
-    }
-
-    if (currentVersion < 2) {
-      this.ctx.storage.sql.exec(`
-        CREATE TABLE IF NOT EXISTS ingest_watermarks (
-          window_start TEXT NOT NULL,
-          window_end TEXT NOT NULL,
-          record_count INTEGER NOT NULL DEFAULT 0,
-          ingested_at TEXT NOT NULL,
-          PRIMARY KEY (window_start, window_end)
-        );
-
-        CREATE TABLE IF NOT EXISTS sync_meta (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL
-        );
-
-        INSERT INTO _sql_schema_migrations (id) VALUES (2);
-      `);
-    }
-
-    if (currentVersion < 3) {
-      this.ctx.storage.sql.exec(`
-        ALTER TABLE infringements ADD COLUMN closed_at TEXT;
-        ALTER TABLE infringements ADD COLUMN additional_costs_cents INTEGER NOT NULL DEFAULT 0;
-        ALTER TABLE infringements ADD COLUMN court_serve_method TEXT;
-        ALTER TABLE infringements ADD COLUMN vehicle_colour TEXT;
-        ALTER TABLE infringements ADD COLUMN vehicle_type TEXT;
-        ALTER TABLE infringements ADD COLUMN infringement_type INTEGER;
-
-        CREATE TABLE IF NOT EXISTS location_cache (
-          street TEXT NOT NULL,
-          suburb TEXT NOT NULL DEFAULT '',
-          town TEXT NOT NULL DEFAULT 'Hamilton',
-          lat REAL NOT NULL,
-          lon REAL NOT NULL,
-          display_name TEXT NOT NULL DEFAULT '',
-          geocoded_at TEXT NOT NULL,
-          PRIMARY KEY (street, suburb)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_location_cache_coords ON location_cache (lat, lon);
-
-        INSERT INTO _sql_schema_migrations (id) VALUES (3);
-      `);
-    }
-
-    if (currentVersion < 4) {
-      this.ctx.storage.sql.exec(`
-        ALTER TABLE location_cache ADD COLUMN geometry_json TEXT;
-        INSERT INTO _sql_schema_migrations (id) VALUES (4);
-      `);
-    }
-
-    if (currentVersion < 5) {
-      this.ctx.storage.sql.exec(`
-        ALTER TABLE location_cache ADD COLUMN geocode_failed_at TEXT;
-        INSERT INTO _sql_schema_migrations (id) VALUES (5);
-      `);
-    }
-
-    if (currentVersion < 6) {
-      this.ctx.storage.sql.exec(`
-        CREATE TABLE IF NOT EXISTS dashboard_snapshot_cache (
-          id INTEGER PRIMARY KEY,
-          payload TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        );
-
-        INSERT INTO _sql_schema_migrations (id) VALUES (6);
-      `);
-    }
-
-    if (currentVersion < 7) {
-      this.ctx.storage.sql.exec(`
-        CREATE INDEX IF NOT EXISTS idx_infringements_location
-          ON infringements (street, suburb, town);
-        CREATE INDEX IF NOT EXISTS idx_infringements_vehicle
-          ON infringements (vehicle_make, vehicle_model);
-
-        INSERT INTO _sql_schema_migrations (id) VALUES (7);
-      `);
-    }
-
-    if (currentVersion < 8) {
-      this.ctx.storage.sql.exec(`
-        ALTER TABLE stats_live ADD COLUMN last_365d INTEGER NOT NULL DEFAULT 0;
-        INSERT INTO _sql_schema_migrations (id) VALUES (8);
-      `);
-      this.recomputeStats();
-      this.refreshDashboardSnapshotCache();
-    }
-
-    if (currentVersion < 9) {
-      const statsRow = this.ctx.storage.sql
-        .exec<{ last_365d: number; all_time_total: number }>(
-          "SELECT last_365d, all_time_total FROM stats_live WHERE id = ? LIMIT 1",
-          STATS_LIVE_ID
-        )
-        .one();
-
-      if (
-        (statsRow?.last_365d ?? 0) === 0 &&
-        (statsRow?.all_time_total ?? 0) > 0
-      ) {
+    runParkingStoreMigrations(this.ctx.storage.sql, {
+      recomputeStats: () => {
         this.recomputeStats();
+      },
+      refreshDashboardSnapshotCache: () => {
         this.refreshDashboardSnapshotCache();
-      }
-
-      this.ctx.storage.sql.exec(`
-        INSERT INTO _sql_schema_migrations (id) VALUES (9);
-      `);
-    }
+      },
+    });
   }
 
   applySyncWindow(payload: SyncWindowPayload): SyncWindowResult {
-    const runId = this.startSyncRun(
+    const { sql } = this.ctx.storage;
+    const runId = startSyncRun(
+      sql,
       payload.runType,
       payload.start,
       payload.end
     );
 
     try {
-      const recordsUpserted = this.upsertInfringements(payload.records);
+      const recordsUpserted = upsertInfringements(sql, payload.records);
 
       if (payload.runType === "backfill") {
         this.markBackfillStatsDirty();
@@ -415,13 +187,13 @@ export class ParkingStore extends DurableObject<Env> {
         this.broadcastLiveUpdate();
       }
 
-      this.finishSyncRun(runId, "success", {
+      finishSyncRun(sql, runId, "success", {
         fetched: payload.recordsFetched,
         upserted: recordsUpserted,
       });
 
-      this.recordWatermark(payload.start, payload.end, payload.recordsFetched);
-      this.setSyncMeta("last_hcc_fetch_at", isoNow());
+      recordWatermark(sql, payload.start, payload.end, payload.recordsFetched);
+      setSyncMeta(sql, "last_hcc_fetch_at", isoNow());
 
       return {
         recordsFetched: payload.recordsFetched,
@@ -431,7 +203,7 @@ export class ParkingStore extends DurableObject<Env> {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.finishSyncRun(runId, "error", {
+      finishSyncRun(sql, runId, "error", {
         error: message,
         fetched: 0,
         upserted: 0,
@@ -441,8 +213,9 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   recordBackfillFailure(start: string, end: string, error: string): void {
-    const runId = this.startSyncRun("backfill", start, end);
-    this.finishSyncRun(runId, "error", {
+    const { sql } = this.ctx.storage;
+    const runId = startSyncRun(sql, "backfill", start, end);
+    finishSyncRun(sql, runId, "error", {
       error,
       fetched: 0,
       upserted: 0,
@@ -450,11 +223,12 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   importInfringementBatch(payload: ImportBatchPayload): ImportBatchResult {
-    const recordsUpserted = this.upsertInfringements(payload.records);
+    const { sql } = this.ctx.storage;
+    const recordsUpserted = upsertInfringements(sql, payload.records);
 
     if (payload.final) {
       this.recomputeStats();
-      this.setSyncMeta("last_csv_import_at", isoNow());
+      setSyncMeta(sql, "last_csv_import_at", isoNow());
       this.broadcastLiveUpdate();
     }
 
@@ -488,37 +262,7 @@ export class ParkingStore extends DurableObject<Env> {
       }>("SELECT * FROM stats_live WHERE id = ? LIMIT 1", STATS_LIVE_ID)
       .toArray();
 
-    const [row] = rows;
-
-    if (row === undefined) {
-      return {
-        allTimeAmountCents: 0,
-        allTimeTotal: 0,
-        last24h: 0,
-        last30d: 0,
-        last365d: 0,
-        last7d: 0,
-        lastRecordAt: null,
-        lastSyncedAt: null,
-        thisMonth: 0,
-        today: 0,
-        towedToday: 0,
-      };
-    }
-
-    return {
-      allTimeAmountCents: row.all_time_amount_cents,
-      allTimeTotal: row.all_time_total,
-      last24h: row.last_24h,
-      last30d: row.last_30d,
-      last365d: row.last_365d ?? 0,
-      last7d: row.last_7d,
-      lastRecordAt: row.last_record_at,
-      lastSyncedAt: row.last_synced_at,
-      thisMonth: row.this_month,
-      today: row.today,
-      towedToday: row.towed_today,
-    };
+    return mapPublicLiveStatsRow(rows[0]);
   }
 
   getLiveStats(): LiveStats {
@@ -530,15 +274,18 @@ export class ParkingStore extends DurableObject<Env> {
       .one();
 
     const now = new Date();
-    const today = this.aggregatePeriod(
+    const today = aggregatePeriod(
+      this.ctx.storage.sql,
       todayBounds(now).start,
       todayBounds(now).end
     );
-    const thisMonth = this.aggregatePeriod(
+    const thisMonth = aggregatePeriod(
+      this.ctx.storage.sql,
       monthBoundsInAuckland(now).start,
       monthBoundsInAuckland(now).end
     );
-    const thisYear = this.aggregatePeriod(
+    const thisYear = aggregatePeriod(
+      this.ctx.storage.sql,
       yearBoundsInAuckland(now).start,
       yearBoundsInAuckland(now).end
     );
@@ -951,9 +698,6 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   private countLocationsNeedingGeocodeSync(): number {
-    const retryCutoff = new Date(
-      Date.now() - GEOCODE_FAILURE_RETRY_MS
-    ).toISOString();
     const row = this.ctx.storage.sql
       .exec<{ total: number }>(
         `SELECT count(*) as total
@@ -977,7 +721,7 @@ export class ParkingStore extends DurableObject<Env> {
              OR geocode_failed_at = ''
              OR geocode_failed_at < ?
            )`,
-        retryCutoff
+        geocodeRetryCutoffIso()
       )
       .one();
 
@@ -1190,12 +934,13 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   isWindowIngested(start: string, end: string): boolean {
-    return this.hasWatermark(start, end);
+    return hasWatermark(this.ctx.storage.sql, start, end);
   }
 
   filterPendingChunks(windows: DateWindow[]): DateWindow[] {
+    const { sql } = this.ctx.storage;
     return windows.filter(
-      (window) => !this.hasWatermark(window.start, window.end)
+      (window) => !hasWatermark(sql, window.start, window.end)
     );
   }
 
@@ -1219,7 +964,7 @@ export class ParkingStore extends DurableObject<Env> {
 
     return {
       ingestWindows: watermarkRow?.count ?? 0,
-      lastHccFetchAt: this.getSyncMeta("last_hcc_fetch_at"),
+      lastHccFetchAt: getSyncMeta(this.ctx.storage.sql, "last_hcc_fetch_at"),
       lastSyncedAt: statsRow?.last_synced_at ?? null,
       source: "parking-store",
       totalRecords: totalRow?.total ?? 0,
@@ -1342,10 +1087,9 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   private refreshDashboardSnapshotCache(): void {
-    this.dashboardSnapshotPayload = JSON.stringify({
-      type: "full",
-      ...this.buildFullDashboardSnapshotSync(),
-    });
+    this.dashboardSnapshotPayload = buildFullDashboardSnapshotPayload(
+      this.buildFullDashboardSnapshotSync()
+    );
     this.ctx.storage.sql.exec(
       `INSERT INTO dashboard_snapshot_cache (id, payload, updated_at)
        VALUES (?, ?, ?)
@@ -1369,79 +1113,6 @@ export class ParkingStore extends DurableObject<Env> {
     return rows[0]?.payload ?? null;
   }
 
-  private buildColdDashboardSnapshotPayload(): string {
-    return JSON.stringify({
-      at: isoNow(),
-      dailyTrend: [],
-      live: this.readPublicLiveStatsSync(),
-      map: {
-        pendingGeocode: 0,
-        routes: [],
-      },
-      paceTrends: this.readPaceTrendsSync(),
-      recentInfringements: [],
-      streets: [],
-      suburbs: [],
-      topOffences: [],
-      topStreets: [],
-      type: "full",
-      vehicles: [],
-    });
-  }
-
-  private static getDashboardSnapshotPayloadWeight(payload: string): number {
-    try {
-      const parsed: unknown = JSON.parse(payload);
-      if (typeof parsed !== "object" || parsed === null) {
-        return 0;
-      }
-
-      const snapshot = parsed as {
-        map?: { routes?: unknown[] };
-        recentInfringements?: unknown[];
-        streets?: unknown[];
-        suburbs?: unknown[];
-        topOffences?: unknown[];
-        topStreets?: unknown[];
-        vehicles?: unknown[];
-      };
-
-      return (
-        (snapshot.recentInfringements?.length ?? 0) +
-        (snapshot.topStreets?.length ?? 0) +
-        (snapshot.topOffences?.length ?? 0) +
-        (snapshot.streets?.length ?? 0) +
-        (snapshot.suburbs?.length ?? 0) +
-        (snapshot.vehicles?.length ?? 0) +
-        (snapshot.map?.routes?.length ?? 0)
-      );
-    } catch {
-      return 0;
-    }
-  }
-
-  private static snapshotIsComplete(payload: string): boolean {
-    try {
-      const parsed: unknown = JSON.parse(payload);
-      if (typeof parsed !== "object" || parsed === null) {
-        return false;
-      }
-      const dailyTrend: unknown = Reflect.get(parsed, "dailyTrend");
-      const paceTrends: unknown = Reflect.get(parsed, "paceTrends");
-      return (
-        Array.isArray(dailyTrend) &&
-        dailyTrend.length > 0 &&
-        typeof paceTrends === "object" &&
-        paceTrends !== null &&
-        Reflect.get(paceTrends, "last7d") !== undefined &&
-        Reflect.get(paceTrends, "last30d") !== undefined &&
-        Reflect.get(paceTrends, "last365d") !== undefined
-      );
-    } catch {
-      return false;
-    }
-  }
-
   private getDashboardSnapshotPayload(): string {
     const payload =
       this.dashboardSnapshotPayload ??
@@ -1449,8 +1120,8 @@ export class ParkingStore extends DurableObject<Env> {
 
     if (
       payload !== null &&
-      ParkingStore.getDashboardSnapshotPayloadWeight(payload) > 0 &&
-      ParkingStore.snapshotIsComplete(payload)
+      getDashboardSnapshotPayloadWeight(payload) > 0 &&
+      snapshotIsComplete(payload)
     ) {
       this.dashboardSnapshotPayload = payload;
       return payload;
@@ -1458,7 +1129,12 @@ export class ParkingStore extends DurableObject<Env> {
 
     this.refreshDashboardSnapshotCache();
     return (
-      this.dashboardSnapshotPayload ?? this.buildColdDashboardSnapshotPayload()
+      this.dashboardSnapshotPayload ??
+      buildColdDashboardSnapshotPayload(
+        this.readPublicLiveStatsSync(),
+        this.readPaceTrendsSync(),
+        isoNow()
+      )
     );
   }
 
@@ -1507,11 +1183,13 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   private computePaceTrend(days: number): TrendResult {
+    const { sql } = this.ctx.storage;
     const now = new Date();
     const today = formatDateInAuckland(now);
     const todayWindow = dateBounds(today);
     const currentStart = formatDateInAuckland(subDays(now, days));
-    const current = this.aggregateWindow(
+    const current = aggregateWindow(
+      sql,
       `${currentStart}T00:00:00+12:00`,
       todayWindow.end
     ).count;
@@ -1519,7 +1197,8 @@ export class ParkingStore extends DurableObject<Env> {
     const currentStartDate = parseISO(`${currentStart}T12:00:00`);
     const priorEndDay = formatDateInAuckland(subDays(currentStartDate, 1));
     const priorStartDay = formatDateInAuckland(subDays(currentStartDate, days));
-    const previous = this.aggregateWindow(
+    const previous = aggregateWindow(
+      sql,
       dateBounds(priorStartDay).start,
       dateBounds(priorEndDay).end
     ).count;
@@ -1683,303 +1362,20 @@ export class ParkingStore extends DurableObject<Env> {
     return totalRow?.total ?? 0;
   }
 
-  private startSyncRun(
-    runType: SyncRunType,
-    start: string,
-    end: string
-  ): number {
-    const result = this.ctx.storage.sql.exec<{ id: number }>(
-      `INSERT INTO sync_runs (run_type, window_start, window_end, status, started_at)
-       VALUES (?, ?, ?, 'running', ?)
-       RETURNING id`,
-      runType,
-      start,
-      end,
-      isoNow()
-    );
-    const runId = result.one().id;
-    if (!runId) {
-      throw new Error("Failed to create sync run");
-    }
-    return runId;
-  }
-
-  private finishSyncRun(
-    runId: number,
-    status: "success" | "error",
-    details: { fetched: number; upserted: number; error?: string }
-  ): void {
-    this.ctx.storage.sql.exec(
-      `UPDATE sync_runs
-       SET finished_at = ?, status = ?, fetched = ?, inserted = ?, updated = 0, error = ?
-       WHERE id = ?`,
-      isoNow(),
-      status,
-      details.fetched,
-      details.upserted,
-      details.error ?? null,
-      runId
-    );
-  }
-
-  private upsertInfringements(records: CleanInfringement[]): number {
-    if (records.length === 0) {
-      return 0;
-    }
-
-    const now = isoNow();
-
-    for (const record of records) {
-      this.ctx.storage.sql.exec(
-        `INSERT INTO infringements (
-          infringement_number, occurred_at, closed_at, amount_cents,
-          additional_costs_cents, street, suburb, town, post_code,
-          offence_code, offence_description, offence_category,
-          infringement_type, court_serve_method,
-          vehicle_colour, vehicle_make, vehicle_model, vehicle_type,
-          is_towed, first_seen_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(infringement_number) DO UPDATE SET
-          occurred_at = excluded.occurred_at,
-          closed_at = excluded.closed_at,
-          amount_cents = excluded.amount_cents,
-          additional_costs_cents = excluded.additional_costs_cents,
-          street = excluded.street,
-          suburb = excluded.suburb,
-          town = excluded.town,
-          post_code = excluded.post_code,
-          offence_code = excluded.offence_code,
-          offence_description = excluded.offence_description,
-          offence_category = excluded.offence_category,
-          infringement_type = excluded.infringement_type,
-          court_serve_method = excluded.court_serve_method,
-          vehicle_colour = excluded.vehicle_colour,
-          vehicle_make = excluded.vehicle_make,
-          vehicle_model = excluded.vehicle_model,
-          vehicle_type = excluded.vehicle_type,
-          is_towed = excluded.is_towed,
-          updated_at = excluded.updated_at`,
-        record.infringementNumber,
-        record.occurredAt,
-        record.closedAt,
-        record.amountCents,
-        record.additionalCostsCents,
-        record.street,
-        record.suburb,
-        record.town,
-        record.postCode,
-        record.offenceCode,
-        record.offenceDescription,
-        record.offenceCategory,
-        record.infringementType,
-        record.courtServeMethod,
-        record.vehicleColour,
-        record.vehicleMake,
-        record.vehicleModel,
-        record.vehicleType,
-        record.isTowed ? 1 : 0,
-        now,
-        now
-      );
-    }
-
-    return records.length;
-  }
-
-  private aggregateWindow(
-    start: string,
-    end: string
-  ): { count: number; amountCents: number; towedCount: number } {
-    const row = this.ctx.storage.sql
-      .exec<{ count: number; amount_cents: number; towed_count: number }>(
-        `SELECT count(*) as count,
-                coalesce(sum(amount_cents), 0) as amount_cents,
-                coalesce(sum(case when is_towed = 1 then 1 else 0 end), 0) as towed_count
-         FROM infringements
-         WHERE occurred_at >= ? AND occurred_at <= ?`,
-        start,
-        end
-      )
-      .one();
-
-    return {
-      amountCents: row?.amount_cents ?? 0,
-      count: row?.count ?? 0,
-      towedCount: row?.towed_count ?? 0,
-    };
-  }
-
-  private aggregatePeriod(
-    start: string,
-    end: string
-  ): { count: number; totalCents: number } {
-    const row = this.aggregateWindow(start, end);
-    return { count: row.count, totalCents: row.amountCents };
-  }
-
   private recomputeStats(): void {
-    const now = new Date();
-    const today = formatDateInAuckland(now);
-    const todayWindow = dateBounds(today);
-    const monthBounds = monthBoundsInAuckland(now);
-    const yearBounds = yearBoundsInAuckland(now);
-    const last24hStart = subDays(now, 1).toISOString();
-    const last7dStart = formatDateInAuckland(subDays(now, 7));
-    const last30dStart = formatDateInAuckland(subDays(now, 30));
-    const last365dStart = formatDateInAuckland(subDays(now, 365));
-
-    const allTime = this.aggregateWindow(
-      "1970-01-01T00:00:00+12:00",
-      "2099-12-31T23:59:59.999+12:00"
-    );
-    const todayStats = this.aggregateWindow(todayWindow.start, todayWindow.end);
-    const monthStats = this.aggregateWindow(monthBounds.start, monthBounds.end);
-    const yearStats = this.aggregateWindow(yearBounds.start, yearBounds.end);
-    const last24h = this.aggregateWindow(last24hStart, isoNow());
-    const last7d = this.aggregateWindow(
-      `${last7dStart}T00:00:00+12:00`,
-      todayWindow.end
-    );
-    const last30d = this.aggregateWindow(
-      `${last30dStart}T00:00:00+12:00`,
-      todayWindow.end
-    );
-    const last365d = this.aggregateWindow(
-      `${last365dStart}T00:00:00+12:00`,
-      todayWindow.end
-    );
-
-    const lastRecord = this.ctx.storage.sql
-      .exec<{ latest: string | null }>(
-        "SELECT max(occurred_at) as latest FROM infringements"
-      )
-      .one();
-
-    const syncedAt = isoNow();
-
-    this.ctx.storage.sql.exec(
-      `INSERT INTO stats_live (
-        id, all_time_total, all_time_amount_cents, today, last_24h, last_7d,
-        last_30d, last_365d, this_month, this_year, towed_all_time, towed_today,
-        last_synced_at, last_record_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        all_time_total = excluded.all_time_total,
-        all_time_amount_cents = excluded.all_time_amount_cents,
-        today = excluded.today,
-        last_24h = excluded.last_24h,
-        last_7d = excluded.last_7d,
-        last_30d = excluded.last_30d,
-        last_365d = excluded.last_365d,
-        this_month = excluded.this_month,
-        this_year = excluded.this_year,
-        towed_all_time = excluded.towed_all_time,
-        towed_today = excluded.towed_today,
-        last_synced_at = excluded.last_synced_at,
-        last_record_at = excluded.last_record_at`,
-      STATS_LIVE_ID,
-      allTime.count,
-      allTime.amountCents,
-      todayStats.count,
-      last24h.count,
-      last7d.count,
-      last30d.count,
-      last365d.count,
-      monthStats.count,
-      yearStats.count,
-      allTime.towedCount,
-      todayStats.towedCount,
-      syncedAt,
-      lastRecord?.latest ?? null
-    );
-
-    const dailyRows = this.ctx.storage.sql
-      .exec<{
-        date: string;
-        count: number;
-        amount_cents: number;
-        towed_count: number;
-      }>(
-        `SELECT substr(occurred_at, 1, 10) as date,
-                count(*) as count,
-                coalesce(sum(amount_cents), 0) as amount_cents,
-                coalesce(sum(case when is_towed = 1 then 1 else 0 end), 0) as towed_count
-         FROM infringements
-         GROUP BY substr(occurred_at, 1, 10)`
-      )
-      .toArray();
-
-    for (const row of dailyRows) {
-      this.ctx.storage.sql.exec(
-        `INSERT INTO daily_counts (date, count, amount_cents, towed_count)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(date) DO UPDATE SET
-           count = excluded.count,
-           amount_cents = excluded.amount_cents,
-           towed_count = excluded.towed_count`,
-        row.date,
-        row.count,
-        row.amount_cents,
-        row.towed_count
-      );
-    }
-  }
-
-  private hasWatermark(start: string, end: string): boolean {
-    const rows = this.ctx.storage.sql
-      .exec<{ found: number }>(
-        `SELECT 1 as found FROM ingest_watermarks
-         WHERE window_start = ? AND window_end = ?
-         LIMIT 1`,
-        start,
-        end
-      )
-      .toArray();
-
-    return rows.length > 0;
-  }
-
-  private recordWatermark(
-    start: string,
-    end: string,
-    recordCount: number
-  ): void {
-    this.ctx.storage.sql.exec(
-      `INSERT INTO ingest_watermarks (window_start, window_end, record_count, ingested_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(window_start, window_end) DO UPDATE SET
-         record_count = excluded.record_count,
-         ingested_at = excluded.ingested_at`,
-      start,
-      end,
-      recordCount,
-      isoNow()
-    );
-  }
-
-  private setSyncMeta(key: string, value: string): void {
-    this.ctx.storage.sql.exec(
-      `INSERT INTO sync_meta (key, value) VALUES (?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      key,
-      value
-    );
-  }
-
-  private clearSyncMeta(key: string): void {
-    this.ctx.storage.sql.exec("DELETE FROM sync_meta WHERE key = ?", key);
+    recomputeStatsLive(this.ctx.storage.sql);
   }
 
   private markBackfillStatsDirty(): void {
-    this.setSyncMeta("backfill_stats_dirty", "1");
+    setSyncMeta(this.ctx.storage.sql, "backfill_stats_dirty", "1");
   }
 
   private isBackfillStatsDirty(): boolean {
-    return this.getSyncMeta("backfill_stats_dirty") === "1";
+    return getSyncMeta(this.ctx.storage.sql, "backfill_stats_dirty") === "1";
   }
 
   private clearBackfillStatsDirty(): void {
-    this.clearSyncMeta("backfill_stats_dirty");
+    clearSyncMeta(this.ctx.storage.sql, "backfill_stats_dirty");
   }
 
   private readTotalRecordsForProgress(): number {
@@ -1999,16 +1395,5 @@ export class ParkingStore extends DurableObject<Env> {
       .one();
 
     return countRow?.total ?? 0;
-  }
-
-  private getSyncMeta(key: string): string | null {
-    const rows = this.ctx.storage.sql
-      .exec<{ value: string }>(
-        "SELECT value FROM sync_meta WHERE key = ? LIMIT 1",
-        key
-      )
-      .toArray();
-
-    return rows[0]?.value ?? null;
   }
 }
