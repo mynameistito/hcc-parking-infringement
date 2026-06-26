@@ -37,6 +37,15 @@ export const optionalTrimmedQuery = (
   return trimmed !== undefined && trimmed !== "" ? trimmed : undefined;
 };
 
+export const parseBrowseQuery = (
+  query: (key: string) => string | undefined
+) => ({
+  limit: Math.min(parsePositiveInt(query("limit"), 25), 100),
+  page: parsePositiveInt(query("page"), 1),
+  q: optionalTrimmedQuery(query("q")),
+  sort: parseBrowseSort(query("sort")),
+});
+
 export const isTopGroupBy = (value: string | undefined): value is TopGroupBy =>
   value === "street" || value === "offence";
 
@@ -64,4 +73,21 @@ export const parseBackfillChunkDays = (
   }
 
   return BACKFILL_CHUNK_DAYS_DEFAULT;
+};
+
+/** Validate optional from/to backfill query params; returns an error message when invalid. */
+export const parseBackfillDateRange = (
+  query: (key: string) => string | undefined,
+  from: string | undefined,
+  to: string | undefined
+): string | undefined => {
+  if (query("from") !== undefined && from === undefined) {
+    return "from must be YYYY-MM-DD";
+  }
+
+  if (query("to") !== undefined && to === undefined) {
+    return "to must be YYYY-MM-DD";
+  }
+
+  return undefined;
 };

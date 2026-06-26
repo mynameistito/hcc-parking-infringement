@@ -38,6 +38,15 @@ Shared Zod schemas and TypeScript types for HTTP and WebSocket payloads consumed
 
 DO types live under `src/durable-objects/types/` (sync, browse, stats, infringements, locations, dashboard) and re-export from `types.ts`.
 
+## HTTP (`src/server/http/`)
+
+| Module           | Responsibility                       |
+| ---------------- | ------------------------------------ |
+| `routes/v1.ts`   | Composes `/api/v1` sub-routers       |
+| `routes/v1-*.ts` | Health, stats, public, browse, admin |
+| `auth-guards.ts` | API key / cron secret assertions     |
+| `query.ts`       | Shared query param parsers           |
+
 ## Time boundaries
 
 All calendar windows (today, month, pace trends) use **Pacific/Auckland** via `src/lib/auckland-time.ts`.
