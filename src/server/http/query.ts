@@ -83,8 +83,19 @@ export const parseBackfillChunkDays = (
     return 7;
   }
 
+  if (granularity === "month") {
+    return 30;
+  }
+
   return BACKFILL_CHUNK_DAYS_DEFAULT;
 };
+
+export type BackfillDelivery = "direct" | "queue";
+
+/** How backfill work is scheduled: inline processing or Cloudflare Queue. */
+export const parseBackfillDelivery = (
+  value: string | undefined
+): BackfillDelivery => (value === "queue" ? "queue" : "direct");
 
 /** Validate optional from/to backfill query params; returns an error message when invalid. */
 export const parseBackfillDateRange = (

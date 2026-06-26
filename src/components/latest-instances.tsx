@@ -4,9 +4,8 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
-  type Column,
-  type SortingState,
 } from "@tanstack/react-table";
+import type { Column, SortingState } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -32,11 +31,11 @@ const EMPTY_CELL = "—";
 const DEFAULT_SORTING: SortingState = [{ desc: true, id: "occurredAt" }];
 
 const SORT_LABELS: Record<string, string> = {
-  occurredAt: "Date",
-  vehicle: "Vehicle",
-  street: "Street",
-  offence: "Offence",
   fine: "Fine",
+  occurredAt: "Date",
+  offence: "Offence",
+  street: "Street",
+  vehicle: "Vehicle",
 };
 
 const columnHelper = createColumnHelper<PublicInfringement>();
@@ -44,13 +43,27 @@ const columnHelper = createColumnHelper<PublicInfringement>();
 const sortDescFirst = (columnId: string): boolean =>
   columnId === "occurredAt" || columnId === "fine";
 
+const SortDirectionIcon = ({ sorted }: { sorted: false | "asc" | "desc" }) => {
+  if (sorted === "asc") {
+    return <ArrowUp className="size-3 shrink-0" aria-hidden="true" />;
+  }
+
+  if (sorted === "desc") {
+    return <ArrowDown className="size-3 shrink-0" aria-hidden="true" />;
+  }
+
+  return (
+    <ArrowUpDown className="size-3 shrink-0 opacity-40" aria-hidden="true" />
+  );
+};
+
 const SortableHeader = ({
   align = "left",
   column,
   label,
 }: {
   align?: "left" | "right";
-  column: Column<PublicInfringement, unknown>;
+  column: Column<PublicInfringement>;
   label: string;
 }) => {
   const sorted = column.getIsSorted();
@@ -71,16 +84,7 @@ const SortableHeader = ({
       }}
     >
       <span>{label}</span>
-      {sorted === "asc" ? (
-        <ArrowUp className="size-3 shrink-0" aria-hidden="true" />
-      ) : sorted === "desc" ? (
-        <ArrowDown className="size-3 shrink-0" aria-hidden="true" />
-      ) : (
-        <ArrowUpDown
-          className="size-3 shrink-0 opacity-40"
-          aria-hidden="true"
-        />
-      )}
+      <SortDirectionIcon sorted={sorted} />
     </button>
   );
 };
@@ -99,7 +103,7 @@ const getCellClassName = (columnId: string): string => {
 };
 
 const getAriaSort = (
-  column: Column<PublicInfringement, unknown>
+  column: Column<PublicInfringement>
 ): "ascending" | "descending" | "none" => {
   const sorted = column.getIsSorted();
   if (sorted === "asc") {
@@ -118,16 +122,12 @@ const columns = [
         {formatOccurrenceInstantShort(info.getValue())}
       </time>
     ),
-    header: ({ column }) => (
-      <SortableHeader column={column} label="Date" />
-    ),
+    header: ({ column }) => <SortableHeader column={column} label="Date" />,
     sortingFn: "datetime",
   }),
   columnHelper.accessor((row) => formatVehicle(row), {
     cell: (info) => info.getValue(),
-    header: ({ column }) => (
-      <SortableHeader column={column} label="Vehicle" />
-    ),
+    header: ({ column }) => <SortableHeader column={column} label="Vehicle" />,
     id: "vehicle",
     sortingFn: "alphanumeric",
   }),
@@ -138,9 +138,7 @@ const columns = [
         const label = info.getValue();
         return label.length > 0 ? label : EMPTY_CELL;
       },
-      header: ({ column }) => (
-        <SortableHeader column={column} label="Street" />
-      ),
+      header: ({ column }) => <SortableHeader column={column} label="Street" />,
       id: "street",
       sortingFn: "alphanumeric",
     }
@@ -148,7 +146,7 @@ const columns = [
   columnHelper.accessor("offenceDescription", {
     cell: (info) => {
       const offence = info.getValue();
-      const isTowed = info.row.original.isTowed;
+      const { isTowed } = info.row.original;
 
       return (
         <div className="space-y-1">
@@ -161,9 +159,7 @@ const columns = [
         </div>
       );
     },
-    header: ({ column }) => (
-      <SortableHeader column={column} label="Offence" />
-    ),
+    header: ({ column }) => <SortableHeader column={column} label="Offence" />,
     id: "offence",
     sortingFn: "alphanumeric",
   }),
@@ -178,7 +174,7 @@ const columns = [
 ];
 
 const formatSortSummary = (sorting: SortingState): string => {
-  const active = sorting[0];
+  const [active] = sorting;
   if (active === undefined) {
     return "Newest first";
   }

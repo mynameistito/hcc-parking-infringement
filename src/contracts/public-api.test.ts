@@ -34,28 +34,19 @@ describe("liveStatsSchema", () => {
 describe("resolveOffenceDescription", () => {
   it("expands truncated P546 labels from the council feed", () => {
     expect(
-      resolveOffenceDescription(
-        "P546",
-        "Failed to correctly activate the"
-      )
+      resolveOffenceDescription("P546", "Failed to correctly activate the")
     ).toBe("Failed to correctly activate the parking machine");
   });
 
   it("expands when only the numeric HCC offence code is stored", () => {
     expect(
-      resolveOffenceDescription(
-        "824",
-        "Failed to correctly activate the"
-      )
+      resolveOffenceDescription("824", "Failed to correctly activate the")
     ).toBe("Failed to correctly activate the parking machine");
   });
 
   it("expands from truncated text without any offence code", () => {
     expect(
-      resolveOffenceDescription(
-        undefined,
-        "Failed to correctly activate the"
-      )
+      resolveOffenceDescription(undefined, "Failed to correctly activate the")
     ).toBe("Failed to correctly activate the parking machine");
   });
 
@@ -69,9 +60,9 @@ describe("resolveOffenceDescription", () => {
   });
 
   it("keeps complete labels when already full", () => {
-    expect(
-      resolveOffenceDescription("P508", "Parked in a clearway")
-    ).toBe("Parked in a clearway");
+    expect(resolveOffenceDescription("P508", "Parked in a clearway")).toBe(
+      "Parked in a clearway"
+    );
   });
 });
 

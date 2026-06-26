@@ -22,6 +22,7 @@ import type {
   TopWindow,
   VehicleRankItem,
 } from "@/durable-objects/types.ts";
+import type { CleanInfringement } from "@/server/clean-schema.ts";
 
 import {
   flushBackfillDerivedState,
@@ -34,6 +35,7 @@ import {
 } from "./browse-queries.ts";
 import {
   getDailyStats,
+  countInfringements,
   listInfringements as queryInfringements,
 } from "./infringements.ts";
 import type { LiveCoordinator } from "./live-coordinator.ts";
@@ -52,6 +54,18 @@ import {
   getTopSuburbs,
   getTopVehicles,
 } from "./rankings.ts";
+import type {
+  ExportInfringementsResult,
+  ExportWatermarksResult,
+  IngestWatermarkExport,
+} from "./replication.ts";
+import {
+  exportInfringements,
+  exportWatermarks,
+  finalizeStoredImport as runFinalizeStoredImport,
+  importStoredInfringements as runImportStoredInfringements,
+  importWatermarks as runImportWatermarks,
+} from "./replication.ts";
 import { getCacheStatus, getLiveStats, readPublicLiveStats } from "./stats.ts";
 import {
   applySyncWindow as runSyncWindow,
@@ -130,6 +144,15 @@ export interface ParkingStoreApi {
     end: string,
     chunkDays: number
   ) => { end: string; ingestedAt: string; start: string } | null;
+  exportInfringements: (
+    after: number,
+    limit: number
+  ) => ExportInfringementsResult;
+  importStoredInfringements: (records: CleanInfringement[]) => number;
+  exportWatermarks: (offset: number, limit: number) => ExportWatermarksResult;
+  importWatermarks: (watermarks: IngestWatermarkExport[]) => number;
+  finalizeStoredImport: () => void;
+  countInfringements: () => number;
 }
 
 export const createParkingStoreApi = (
@@ -156,12 +179,25 @@ export const createParkingStoreApi = (
 
     browseVehicles: (query) => browseVehicles(sql(), query),
 
+    countInfringements: () => countInfringements(sql()),
+
     countIngestWatermarksInRange: (start, end, chunkDays) =>
       countIngestWatermarksInRange(sql(), start, end, chunkDays),
 
     countLocationsNeedingGeocode: () => countLocationsNeedingGeocode(sql()),
 
+    exportInfringements: (after, limit) =>
+      exportInfringements(sql(), after, limit),
+
+    exportWatermarks: (offset, limit) => exportWatermarks(sql(), offset, limit),
+
     filterPendingChunks: (windows) => filterPendingChunks(sql(), windows),
+
+    finalizeStoredImport: () => {
+      runFinalizeStoredImport(() => {
+        live.recomputeAndBroadcast();
+      });
+    },
 
     flushBackfillDerivedState: () =>
       flushBackfillDerivedState(sql(), () => {
@@ -207,6 +243,11 @@ export const createParkingStoreApi = (
         live.recomputeAndBroadcast();
       });
     },
+
+    importStoredInfringements: (records) =>
+      runImportStoredInfringements(sql(), records),
+
+    importWatermarks: (watermarks) => runImportWatermarks(sql(), watermarks),
 
     isWindowIngested: (start, end) => isWindowIngested(sql(), start, end),
 

@@ -14,6 +14,7 @@
     "fix": "ultracite fix",
     "test": "vitest run",
     "backfill": "bun run scripts/backfill.ts",
+    "push:local": "bun run scripts/push-local.ts",
     "import:csv": "bun run scripts/import-csv.ts",
     "sync": "bun run scripts/sync.ts",
     "geocode": "bun run scripts/geocode.ts",

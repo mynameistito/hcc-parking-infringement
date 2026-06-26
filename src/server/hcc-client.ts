@@ -54,17 +54,21 @@ const acquireHccSlot = async (): Promise<void> => {
     return;
   }
 
-  const waiter = Promise.withResolvers<null>();
+  const { promise, resolve } = Promise.withResolvers<null>();
   hccWaiters.push(() => {
-    waiter.resolve(null);
+    resolve(null);
   });
-  await waiter.promise;
-  hccInFlight += 1;
+  await promise;
 };
 
 const releaseHccSlot = (): void => {
+  const next = hccWaiters.shift();
+  if (next) {
+    next();
+    return;
+  }
+
   hccInFlight -= 1;
-  hccWaiters.shift()?.();
 };
 
 const withHccSlot = async <T>(task: () => Promise<T>): Promise<T> => {

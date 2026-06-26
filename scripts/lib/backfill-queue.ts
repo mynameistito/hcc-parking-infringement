@@ -47,6 +47,30 @@ const waitForWaveDrain = async (
   );
 };
 
+const logWaveResult = (
+  body: BackfillResponse | null,
+  fallbackDelivery: string
+): void => {
+  const enqueued = body?.enqueued ?? 0;
+  const skipped = body?.skipped ?? 0;
+  const remaining = body?.remaining ?? 0;
+  const queueMessages = body?.queueMessages ?? 0;
+  const delivery = body?.delivery ?? fallbackDelivery;
+  const actionVerb = delivery === "direct" ? "processed" : "queued";
+  const queueSuffix =
+    delivery === "queue" && queueMessages > 0
+      ? ` (${formatNumber(queueMessages)} queue msgs)`
+      : "";
+  const skippedSuffix =
+    skipped > 0 ? ` · ${formatNumber(skipped)} skipped` : "";
+  const remainingSuffix =
+    remaining > 0 ? ` · ${formatNumber(remaining)} remaining` : "";
+
+  console.log(
+    `[backfill] ${actionVerb} ${formatNumber(enqueued)} windows${queueSuffix}${skippedSuffix}${remainingSuffix}`
+  );
+};
+
 /**
  * POST backfill waves until `continueFrom` is null or no windows remain.
  * Waits for each wave to finish ingesting before enqueueing the next.
@@ -55,6 +79,7 @@ export const queueBackfillWaves = async (
   ctx: WorkerScriptContext,
   options: {
     chunkDays: string | undefined;
+    delivery: string;
     force: boolean;
     from: string;
     granularity: string;
@@ -76,19 +101,18 @@ export const queueBackfillWaves = async (
     bodies.push(body ?? {});
     const enqueued = body?.enqueued ?? 0;
     totalEnqueued += enqueued;
-    const skipped = body?.skipped ?? 0;
     const remaining = body?.remaining ?? 0;
-
-    console.log(
-      `[backfill] queued ${formatNumber(enqueued)} windows${
-        skipped > 0 ? ` · ${formatNumber(skipped)} skipped` : ""
-      }${remaining > 0 ? ` · ${formatNumber(remaining)} remaining` : ""}`
-    );
+    logWaveResult(body, options.delivery);
 
     const continueFrom = body?.continueFrom;
 
     if (continueFrom === undefined || continueFrom === null || remaining <= 0) {
       break;
+    }
+
+    if (options.delivery === "direct") {
+      currentFrom = continueFrom;
+      continue;
     }
 
     console.log(

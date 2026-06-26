@@ -4,6 +4,7 @@
  * @example
  * bun run backfill
  * bun run backfill -- --granularity=day --from=1990-01-01
+ * bun run backfill -- --delivery=queue
  * bun run backfill -- --port=8787 --force --no-track
  */
 
@@ -28,6 +29,7 @@ loadDevVars();
 const args = scriptArgv();
 const force = readFlag(args, "force");
 const track = !readFlag(args, "no-track");
+const delivery = readArg(args, "delivery") ?? "direct";
 
 let workerUrl: string;
 
@@ -45,7 +47,9 @@ const chunkDays = readArg(args, "chunkDays");
 const from = readArg(args, "from") ?? BACKFILL_EARLIEST;
 const to = readArg(args, "to") ?? todayInAuckland();
 
-console.log(`[backfill] ${from} → ${to} (${granularity}) @ ${workerUrl}`);
+console.log(
+  `[backfill] ${from} → ${to} (${granularity}, ${delivery}) @ ${workerUrl}`
+);
 
 try {
   await assertWorkerReachable(workerUrl);
@@ -56,6 +60,7 @@ try {
 
 const { bodies, totalEnqueued } = await queueBackfillWaves(ctx, {
   chunkDays,
+  delivery,
   force,
   from,
   granularity,

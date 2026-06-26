@@ -48,6 +48,80 @@ const toOffenceTopItem = (row: {
   label: resolveOffenceDescription(row.code, row.description),
 });
 
+const readTopStreetsGrouped = (
+  sql: SqlStorage,
+  limit: number
+): { street: string; suburb: string; count: number }[] =>
+  sql
+    .exec<{ street: string; suburb: string; count: number }>(
+      `SELECT street,
+              ${STREET_SUBURB_EXPR} as suburb,
+              count(*) as count
+       FROM infringements
+       WHERE street != '' AND street != 'Unknown'
+       GROUP BY street, ${STREET_SUBURB_EXPR}
+       ORDER BY count DESC
+       LIMIT ?`,
+      limit
+    )
+    .toArray();
+
+const readTopOffencesGrouped = (
+  sql: SqlStorage,
+  limit: number,
+  fromIso?: string
+): {
+  code: string;
+  description: string;
+  count: number;
+  total_cents: number;
+}[] => {
+  if (fromIso === undefined) {
+    return sql
+      .exec<{
+        code: string;
+        description: string;
+        count: number;
+        total_cents: number;
+      }>(
+        `SELECT offence_code as code,
+                min(offence_description) as description,
+                count(*) as count,
+                coalesce(sum(amount_cents), 0) as total_cents
+         FROM infringements
+         WHERE offence_code IS NOT NULL AND trim(offence_code) != ''
+         GROUP BY offence_code
+         ORDER BY count DESC
+         LIMIT ?`,
+        limit
+      )
+      .toArray();
+  }
+
+  return sql
+    .exec<{
+      code: string;
+      description: string;
+      count: number;
+      total_cents: number;
+    }>(
+      `SELECT offence_code as code,
+              min(offence_description) as description,
+              count(*) as count,
+              coalesce(sum(amount_cents), 0) as total_cents
+       FROM infringements
+       WHERE offence_code IS NOT NULL
+         AND trim(offence_code) != ''
+         AND occurred_at >= ?
+       GROUP BY offence_code
+       ORDER BY count DESC
+       LIMIT ?`,
+      fromIso,
+      limit
+    )
+    .toArray();
+};
+
 export const getTopStats = (
   sql: SqlStorage,
   groupBy: TopGroupBy,
@@ -113,7 +187,11 @@ export const getTopStats = (
     const rows =
       startDate === null
         ? readTopOffencesGrouped(sql, limit)
-        : readTopOffencesGrouped(sql, limit, startOfDayInAucklandIso(startDate));
+        : readTopOffencesGrouped(
+            sql,
+            limit,
+            startOfDayInAucklandIso(startDate)
+          );
 
     return rows.map((row) => ({
       count: row.count,
@@ -193,7 +271,8 @@ export const getPublicTop = (
 export const getTopStreets = (
   sql: SqlStorage,
   limit: number
-): LocationRankItem[] => readTopStreetsGrouped(sql, limit).map(toStreetLocationRankItem);
+): LocationRankItem[] =>
+  readTopStreetsGrouped(sql, limit).map(toStreetLocationRankItem);
 
 export const getStreetsInSuburb = (
   sql: SqlStorage,
@@ -206,80 +285,6 @@ export const getStreetsInSuburb = (
     sort: "count",
     suburb,
   }).items;
-
-const readTopStreetsGrouped = (
-  sql: SqlStorage,
-  limit: number
-): { street: string; suburb: string; count: number }[] =>
-  sql
-    .exec<{ street: string; suburb: string; count: number }>(
-      `SELECT street,
-              ${STREET_SUBURB_EXPR} as suburb,
-              count(*) as count
-       FROM infringements
-       WHERE street != '' AND street != 'Unknown'
-       GROUP BY street, ${STREET_SUBURB_EXPR}
-       ORDER BY count DESC
-       LIMIT ?`,
-      limit
-    )
-    .toArray();
-
-const readTopOffencesGrouped = (
-  sql: SqlStorage,
-  limit: number,
-  fromIso?: string
-): {
-  code: string;
-  description: string;
-  count: number;
-  total_cents: number;
-}[] => {
-  if (fromIso === undefined) {
-    return sql
-      .exec<{
-        code: string;
-        description: string;
-        count: number;
-        total_cents: number;
-      }>(
-        `SELECT offence_code as code,
-                min(offence_description) as description,
-                count(*) as count,
-                coalesce(sum(amount_cents), 0) as total_cents
-         FROM infringements
-         WHERE offence_code IS NOT NULL AND trim(offence_code) != ''
-         GROUP BY offence_code
-         ORDER BY count DESC
-         LIMIT ?`,
-        limit
-      )
-      .toArray();
-  }
-
-  return sql
-    .exec<{
-      code: string;
-      description: string;
-      count: number;
-      total_cents: number;
-    }>(
-      `SELECT offence_code as code,
-              min(offence_description) as description,
-              count(*) as count,
-              coalesce(sum(amount_cents), 0) as total_cents
-       FROM infringements
-       WHERE offence_code IS NOT NULL
-         AND trim(offence_code) != ''
-         AND occurred_at >= ?
-       GROUP BY offence_code
-       ORDER BY count DESC
-       LIMIT ?`,
-      fromIso,
-      limit
-    )
-    .toArray();
-};
 
 export const readTopGrouped = (
   sql: SqlStorage,

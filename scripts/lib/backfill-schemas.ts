@@ -8,10 +8,12 @@ import { parseBackfillChunkDays } from "@/server/http/query.ts";
 export const backfillResponseSchema = z.object({
   chunkDays: z.number().optional(),
   continueFrom: z.string().nullable().optional(),
+  delivery: z.enum(["direct", "queue"]).optional(),
   end: z.string().optional(),
   enqueued: z.number().optional(),
   error: z.string().optional(),
   ok: z.boolean().optional(),
+  queueMessages: z.number().optional(),
   remaining: z.number().optional(),
   skipped: z.number().optional(),
   start: z.string().optional(),

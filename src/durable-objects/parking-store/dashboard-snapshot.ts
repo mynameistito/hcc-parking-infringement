@@ -1,11 +1,11 @@
 import { subDays } from "date-fns";
 
+import { toPublicInfringementList } from "@/contracts/projections.ts";
 import type {
   PublicDashboardSnapshot,
   PublicLiveStats,
   PublicPaceTrends,
 } from "@/durable-objects/types.ts";
-import { toPublicInfringementList } from "@/contracts/projections.ts";
 import { formatDateInAuckland } from "@/lib/auckland-time.ts";
 import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants.ts";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";

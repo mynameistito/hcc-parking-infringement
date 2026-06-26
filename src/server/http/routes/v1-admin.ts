@@ -12,13 +12,22 @@ import {
   optionalTrimmedQuery,
   parseBackfillChunkDays,
   parseBackfillDateRange,
+  parseBackfillDelivery,
   parseDateParam,
   parseForceFlag,
+  parseNonNegativeInt,
   parsePositiveInt,
 } from "@/server/http/query.ts";
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 import { importInfringements } from "@/server/import.ts";
+import {
+  exportStoredInfringements,
+  exportStoredWatermarks,
+  finalizeStoredImport,
+  importStoredInfringements,
+  importStoredWatermarks,
+} from "@/server/replication.ts";
 import { listInfringements } from "@/server/stats.ts";
 import {
   BACKFILL_EARLIEST,
@@ -147,6 +156,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       const force = parseForceFlag(c.req.query("force"));
       const from = parseDateParam(c.req.query("from"));
       const to = parseDateParam(c.req.query("to"));
+      const delivery = parseBackfillDelivery(c.req.query("delivery"));
       const chunkDays = parseBackfillChunkDays(
         c.req.query("granularity"),
         c.req.query("chunkDays")
@@ -163,6 +173,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
       const result = await startBackfill(c.env, {
         chunkDays,
+        delivery,
         end: to,
         force,
         start: from,
@@ -184,6 +195,72 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return jsonError(400, message);
+    }
+  });
+
+  routes.get("/export/infringements", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    const after = parseNonNegativeInt(c.req.query("after"), 0);
+    const limit = Math.min(parsePositiveInt(c.req.query("limit"), 2000), 5000);
+
+    try {
+      const result = await exportStoredInfringements(c.env, after, limit);
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/import/stored", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const result = await importStoredInfringements(c.env, await c.req.json());
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.get("/export/watermarks", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    const offset = parseNonNegativeInt(c.req.query("offset"), 0);
+    const limit = Math.min(parsePositiveInt(c.req.query("limit"), 2000), 5000);
+
+    try {
+      const result = await exportStoredWatermarks(c.env, offset, limit);
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/import/watermarks", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const result = await importStoredWatermarks(c.env, await c.req.json());
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/import/stored/finalize", async (c) => {
+    assertApiKey(c.req.raw, c.env);
+
+    try {
+      const result = await finalizeStoredImport(c.env);
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
     }
   });
 

@@ -41,18 +41,18 @@ Read:
 
 Then load topic files matching the changed responsibilities:
 
-| Change touches... | Load... |
-|---|---|
-| domain values, invariants, states, transitions | `../coding-standards/DOMAIN_MODELING.md` |
-| expected failures, custom errors, catch/classification | `../coding-standards/ERROR_HANDLING.md` |
-| logs, traces, telemetry, redaction, secrets | `../coding-standards/OBSERVABILITY.md` |
-| modules, interfaces, seams, adapters, dependencies | `../coding-standards/DESIGNING_MODULES.md` |
-| parsing, DTOs, storage rows, config, projections, codecs | `../coding-standards/BOUNDARIES_AND_PARSING.md` |
-| cancellation, promises, concurrency, retries, transactions, workflows | `../coding-standards/ASYNC_AND_WORKFLOWS.md` |
-| tests, real seams, properties, persistence/runtime evidence | `../coding-standards/TESTING_AND_VERIFICATION.md` |
-| casts, `any`, readonly contracts, collections, exports, JSDoc, toolchain | `../coding-standards/TYPESCRIPT_CONTRACTS.md` |
-| Workers, Durable Objects, Agents, D1, KV/R2, Queues, Workflows | `../coding-standards/CLOUDFLARE_ARCHITECTURE.md` |
-| Effect Services/Layers, typed channel, Schema, Redacted, Effect tests | `../coding-standards/EFFECT.md` |
+| Change touches...                                                        | Load...                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------- |
+| domain values, invariants, states, transitions                           | `../coding-standards/DOMAIN_MODELING.md`          |
+| expected failures, custom errors, catch/classification                   | `../coding-standards/ERROR_HANDLING.md`           |
+| logs, traces, telemetry, redaction, secrets                              | `../coding-standards/OBSERVABILITY.md`            |
+| modules, interfaces, seams, adapters, dependencies                       | `../coding-standards/DESIGNING_MODULES.md`        |
+| parsing, DTOs, storage rows, config, projections, codecs                 | `../coding-standards/BOUNDARIES_AND_PARSING.md`   |
+| cancellation, promises, concurrency, retries, transactions, workflows    | `../coding-standards/ASYNC_AND_WORKFLOWS.md`      |
+| tests, real seams, properties, persistence/runtime evidence              | `../coding-standards/TESTING_AND_VERIFICATION.md` |
+| casts, `any`, readonly contracts, collections, exports, JSDoc, toolchain | `../coding-standards/TYPESCRIPT_CONTRACTS.md`     |
+| Workers, Durable Objects, Agents, D1, KV/R2, Queues, Workflows           | `../coding-standards/CLOUDFLARE_ARCHITECTURE.md`  |
+| Effect Services/Layers, typed channel, Schema, Redacted, Effect tests    | `../coding-standards/EFFECT.md`                   |
 
 Inspect local code/docs for conventions around errors, schemas, testing, dependency injection, observability, adapters, and module layout before reporting pattern deviations.
 
@@ -148,7 +148,7 @@ If there are no findings, say so briefly and include the standards areas checked
 
 For each finding:
 
-```md
+````md
 ### <Severity>: <short title>
 
 - **Issue:** <concise explanation of the defect or problem>
@@ -158,12 +158,15 @@ For each finding:
   ```ts
   // real excerpt quoted from the changed file(s)
   ```
+````
+
 - **Proof:** <value flow, reachable state, reproduction with observed result, or missing evidence>
 - **Why it matters:** <behavioral consequence>
 - **Fix direction:** <specific correction shape, followed by a snippet or pseudo-code showing it>
   ```ts
   // snippet or pseudo-code of the fix; not a full patch unless asked
   ```
+
 ```
 
 Include the **Problematic code** block whenever the issue lives in code you can quote; omit it only when the finding is about something absent (e.g. a missing contract or test), and say what is missing instead. Always include a fix-direction snippet or pseudo-code unless the fix is purely a deletion.
@@ -171,3 +174,4 @@ Include the **Problematic code** block whenever the issue lives in code you can 
 Group findings by severity in this order: Blocker, Should Fix, Simplification, Nit, Question.
 
 Completion criterion: the final review is actionable without code edits, every finding includes proof, and no review-only step modified the workspace.
+```

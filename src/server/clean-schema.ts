@@ -30,6 +30,28 @@ export const rawInfringementSchema = z.object({
 
 export type RawInfringement = z.infer<typeof rawInfringementSchema>;
 
+export const cleanInfringementSchema = z.object({
+  additionalCostsCents: z.number(),
+  amountCents: z.number(),
+  closedAt: z.string().nullable(),
+  courtServeMethod: z.string().nullable(),
+  infringementNumber: z.number(),
+  infringementType: z.number().nullable(),
+  isTowed: z.boolean(),
+  occurredAt: z.string(),
+  offenceCategory: z.string().nullable(),
+  offenceCode: z.string(),
+  offenceDescription: z.string(),
+  postCode: z.string().nullable(),
+  street: z.string(),
+  suburb: z.string().nullable(),
+  town: z.string(),
+  vehicleColour: z.string().nullable(),
+  vehicleMake: z.string().nullable(),
+  vehicleModel: z.string().nullable(),
+  vehicleType: z.string().nullable(),
+});
+
 export interface CleanInfringement {
   infringementNumber: number;
   occurredAt: string;

@@ -1,6 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 
 import { LiveCoordinator } from "@/durable-objects/parking-store/live-coordinator.ts";
+import type {
+  ExportInfringementsResult,
+  ExportWatermarksResult,
+  IngestWatermarkExport,
+} from "@/durable-objects/parking-store/replication.ts";
 import { runParkingStoreMigrations } from "@/durable-objects/parking-store/schema.ts";
 import { recomputeStatsLive } from "@/durable-objects/parking-store/stats.ts";
 import { createParkingStoreApi } from "@/durable-objects/parking-store/store-api.ts";
@@ -33,6 +38,7 @@ import type {
   TopWindow,
   VehicleRankItem,
 } from "@/durable-objects/types.ts";
+import type { CleanInfringement } from "@/server/clean-schema.ts";
 
 export class ParkingStore extends DurableObject<Env> {
   private readonly live: LiveCoordinator;
@@ -228,5 +234,29 @@ export class ParkingStore extends DurableObject<Env> {
     chunkDays: number
   ): { end: string; ingestedAt: string; start: string } | null {
     return this.api.getLatestIngestWatermarkInRange(start, end, chunkDays);
+  }
+
+  exportInfringements(after: number, limit: number): ExportInfringementsResult {
+    return this.api.exportInfringements(after, limit);
+  }
+
+  importStoredInfringements(records: CleanInfringement[]): number {
+    return this.api.importStoredInfringements(records);
+  }
+
+  exportWatermarks(offset: number, limit: number): ExportWatermarksResult {
+    return this.api.exportWatermarks(offset, limit);
+  }
+
+  importWatermarks(watermarks: IngestWatermarkExport[]): number {
+    return this.api.importWatermarks(watermarks);
+  }
+
+  finalizeStoredImport(): void {
+    this.api.finalizeStoredImport();
+  }
+
+  countInfringements(): number {
+    return this.api.countInfringements();
   }
 }

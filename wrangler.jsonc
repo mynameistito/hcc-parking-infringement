@@ -44,13 +44,13 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "persist": true,
-      "invocation_logs": true
+      "invocation_logs": true,
     },
     "traces": {
       "enabled": true,
       "persist": true,
-      "head_sampling_rate": 1
-    }
+      "head_sampling_rate": 1,
+    },
   },
   "vars": {
     "HCC_API_BASE": "https://api.hcc.govt.nz/OpenData",

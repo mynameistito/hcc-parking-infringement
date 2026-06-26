@@ -1,5 +1,5 @@
 import { app } from "@/app.ts";
-import type { BackfillMessage } from "@/backfill.ts";
+import type { BackfillMessage, LegacyBackfillMessage } from "@/backfill.ts";
 import { ParkingStore } from "@/durable-objects/parking-store.ts";
 import { processBackfillQueueBatch } from "@/server/backfill-queue.ts";
 import { runScheduledMaintenance } from "@/server/scheduled-tasks.ts";
@@ -15,8 +15,22 @@ export default {
     return await app.fetch(request, env, ctx);
   },
 
-  async queue(batch: MessageBatch<BackfillMessage>, env: Env): Promise<void> {
-    await processBackfillQueueBatch(batch.messages, env);
+  async queue(
+    batch: MessageBatch<BackfillMessage | LegacyBackfillMessage>,
+    env: Env
+  ): Promise<void> {
+    try {
+      await processBackfillQueueBatch(batch.messages, env);
+    } catch (error: unknown) {
+      console.error("[backfill] batch handler failed", {
+        backlog: batch.metadata.metrics.backlogCount,
+        batchSize: batch.messages.length,
+        error: error instanceof Error ? error.message : String(error),
+        queue: batch.queue,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
   },
 
   scheduled(

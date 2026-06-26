@@ -75,7 +75,9 @@ export const applyDashboardSnapshot = (
   queryClient.setQueryData(["public", "infringements", "recent"], {
     data: message.recentInfringements.map((row) => ({
       ...row,
-      offenceDescription: resolvePublicOffenceDescription(row.offenceDescription),
+      offenceDescription: resolvePublicOffenceDescription(
+        row.offenceDescription
+      ),
     })),
     limit: message.recentInfringements.length,
     page: 1,

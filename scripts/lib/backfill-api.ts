@@ -24,6 +24,7 @@ export const postBackfillWave = async (
   options: {
     chunkDays: string | undefined;
     currentFrom: string;
+    delivery: string;
     force: boolean;
     from: string;
     granularity: string;
@@ -34,6 +35,7 @@ export const postBackfillWave = async (
   if (options.force) {
     url.searchParams.set("force", "true");
   }
+  url.searchParams.set("delivery", options.delivery);
   url.searchParams.set("granularity", options.granularity);
   if (options.chunkDays !== undefined) {
     url.searchParams.set("chunkDays", options.chunkDays);
@@ -47,6 +49,7 @@ export const postBackfillWave = async (
     response = await fetchWithTimeout(url.toString(), {
       headers: bearerHeaders(ctx.apiKey),
       method: "POST",
+      timeoutMs: options.delivery === "direct" ? 120_000 : undefined,
     });
   } catch (error) {
     console.error(describeConnectionFailure(error, "POST", url.toString()));
