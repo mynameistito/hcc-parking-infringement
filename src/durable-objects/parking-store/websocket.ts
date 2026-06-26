@@ -31,3 +31,22 @@ export const pushToWebSocket = (ws: WebSocket, payload: string): void => {
     // socket already closed
   }
 };
+
+export const handleWebSocketUpgrade = (
+  request: Request,
+  acceptWebSocket: (ws: WebSocket) => void,
+  resolvePayload: () => string
+): Response => {
+  if (request.headers.get("Upgrade") !== "websocket") {
+    return new Response("Expected WebSocket", { status: 426 });
+  }
+
+  const pair = new WebSocketPair();
+  const [client, server] = Object.values(pair);
+  acceptWebSocket(server);
+  queueMicrotask(() => {
+    pushToWebSocket(server, resolvePayload());
+  });
+
+  return new Response(null, { status: 101, webSocket: client });
+};

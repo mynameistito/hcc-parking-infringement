@@ -1,57 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
 
-import {
-  flushBackfillDerivedState,
-  markBackfillStatsDirty,
-} from "@/durable-objects/parking-store/backfill-state.ts";
-import {
-  browseStreets as queryBrowseStreets,
-  browseSuburbs as queryBrowseSuburbs,
-  browseVehicles as queryBrowseVehicles,
-} from "@/durable-objects/parking-store/browse-queries.ts";
-import {
-  getDailyStats as queryDailyStats,
-  listInfringements as queryInfringements,
-} from "@/durable-objects/parking-store/infringements.ts";
 import { LiveCoordinator } from "@/durable-objects/parking-store/live-coordinator.ts";
-import {
-  countLocationsNeedingGeocode as countPendingGeocodeLocations,
-  fetchGeocodeCandidates,
-  markGeocodeFailed as persistGeocodeFailure,
-  readMapPoints,
-  saveLocationCache as persistLocationCache,
-} from "@/durable-objects/parking-store/locations.ts";
-import {
-  getPublicTop as queryPublicTop,
-  getStreetsInSuburb as queryStreetsInSuburb,
-  getTopStats as queryTopStats,
-  getTopStreets as queryTopStreets,
-  getTopSuburbs as queryTopSuburbs,
-  getTopVehicles as queryTopVehicles,
-} from "@/durable-objects/parking-store/rankings.ts";
 import { runParkingStoreMigrations } from "@/durable-objects/parking-store/schema.ts";
-import {
-  getCacheStatus as readCacheStatus,
-  getLiveStats as readLiveStats,
-  readPublicLiveStats,
-  recomputeStatsLive,
-} from "@/durable-objects/parking-store/stats.ts";
-import {
-  applySyncWindow as ingestSyncWindow,
-  importInfringementBatch as ingestImportBatch,
-  recordBackfillFailure as ingestBackfillFailure,
-} from "@/durable-objects/parking-store/sync-ingest.ts";
-import { getLatestSyncRun as readLatestSyncRun } from "@/durable-objects/parking-store/sync.ts";
-import {
-  countIngestWatermarksInRange as countWatermarksInRange,
-  filterPendingChunks as queryPendingChunks,
-  getBackfillProgressSnapshot as readBackfillProgressSnapshot,
-  getLatestIngestWatermarkInRange as readLatestWatermarkInRange,
-  isWindowIngested as queryWindowIngested,
-} from "@/durable-objects/parking-store/watermarks.ts";
+import { recomputeStatsLive } from "@/durable-objects/parking-store/stats.ts";
+import { createParkingStoreApi } from "@/durable-objects/parking-store/store-api.ts";
+import type { ParkingStoreApi } from "@/durable-objects/parking-store/store-api.ts";
 import {
   handleWebSocketMessage as onWebSocketMessage,
-  pushToWebSocket,
+  handleWebSocketUpgrade,
 } from "@/durable-objects/parking-store/websocket.ts";
 import type {
   BrowseQuery,
@@ -80,28 +36,25 @@ import type {
 
 export class ParkingStore extends DurableObject<Env> {
   private readonly live: LiveCoordinator;
+  private readonly api: ParkingStoreApi;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.live = new LiveCoordinator(this.sql, () => this.ctx.getWebSockets());
+    this.api = createParkingStoreApi(() => this.sql, this.live);
     void ctx.blockConcurrencyWhile(async () => {
       await this.migrate();
     });
   }
 
   fetch(request: Request): Response {
-    if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Expected WebSocket", { status: 426 });
-    }
-
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
-    this.ctx.acceptWebSocket(server);
-    queueMicrotask(() => {
-      pushToWebSocket(server, this.live.resolveSnapshotPayload());
-    });
-
-    return new Response(null, { status: 101, webSocket: client });
+    return handleWebSocketUpgrade(
+      request,
+      (ws) => {
+        this.ctx.acceptWebSocket(ws);
+      },
+      () => this.live.resolveSnapshotPayload()
+    );
   }
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
@@ -136,36 +89,27 @@ export class ParkingStore extends DurableObject<Env> {
   }
 
   applySyncWindow(payload: SyncWindowPayload): SyncWindowResult {
-    return ingestSyncWindow(this.sql, payload, {
-      markBackfillStatsDirty: () => {
-        markBackfillStatsDirty(this.sql);
-      },
-      onIncrementalSuccess: () => {
-        this.live.recomputeAndBroadcast();
-      },
-    });
+    return this.api.applySyncWindow(payload);
   }
 
   recordBackfillFailure(start: string, end: string, error: string): void {
-    ingestBackfillFailure(this.sql, start, end, error);
+    this.api.recordBackfillFailure(start, end, error);
   }
 
   importInfringementBatch(payload: ImportBatchPayload): ImportBatchResult {
-    return ingestImportBatch(this.sql, payload, () => {
-      this.live.recomputeAndBroadcast();
-    });
+    return this.api.importInfringementBatch(payload);
   }
 
   getPublicLiveStats(): PublicLiveStats {
-    return readPublicLiveStats(this.sql);
+    return this.api.getPublicLiveStats();
   }
 
   getLiveStats(): LiveStats {
-    return readLiveStats(this.sql);
+    return this.api.getLiveStats();
   }
 
   getDailyStats(from: string, to: string): DailyStatRow[] {
-    return queryDailyStats(this.sql, from, to);
+    return this.api.getDailyStats(from, to);
   }
 
   getTopStats(
@@ -173,85 +117,84 @@ export class ParkingStore extends DurableObject<Env> {
     window: TopWindow,
     limit: number
   ): TopStatRow[] {
-    return queryTopStats(this.sql, groupBy, window, limit);
+    return this.api.getTopStats(groupBy, window, limit);
   }
 
   getPublicTop(groupBy: "street" | "offence", limit: number): PublicTopItem[] {
-    return queryPublicTop(this.sql, groupBy, limit);
+    return this.api.getPublicTop(groupBy, limit);
   }
 
   getTopStreets(limit: number): LocationRankItem[] {
-    return queryTopStreets(this.sql, limit);
+    return this.api.getTopStreets(limit);
   }
 
   getTopSuburbs(limit: number): LocationRankItem[] {
-    return queryTopSuburbs(this.sql, limit);
+    return this.api.getTopSuburbs(limit);
   }
 
   getStreetsInSuburb(suburb: string, limit: number): LocationRankItem[] {
-    return queryStreetsInSuburb(this.sql, suburb, limit);
+    return this.api.getStreetsInSuburb(suburb, limit);
   }
 
   browseSuburbs(query: BrowseQuery): BrowseResult<LocationRankItem> {
-    return queryBrowseSuburbs(this.sql, query);
+    return this.api.browseSuburbs(query);
   }
 
   browseStreets(query: BrowseQuery): BrowseResult<LocationRankItem> {
-    return queryBrowseStreets(this.sql, query);
+    return this.api.browseStreets(query);
   }
 
   browseVehicles(query: BrowseQuery): BrowseResult<VehicleRankItem> {
-    return queryBrowseVehicles(this.sql, query);
+    return this.api.browseVehicles(query);
   }
 
   getTopVehicles(limit: number): VehicleRankItem[] {
-    return queryTopVehicles(this.sql, limit);
+    return this.api.getTopVehicles(limit);
   }
 
   getLocationsNeedingGeocode(
     limit: number
   ): { street: string; suburb: string | null; town: string; count: number }[] {
-    return fetchGeocodeCandidates(this.sql, limit);
+    return this.api.getLocationsNeedingGeocode(limit);
   }
 
   countLocationsNeedingGeocode(): number {
-    return countPendingGeocodeLocations(this.sql);
+    return this.api.countLocationsNeedingGeocode();
   }
 
   markGeocodeFailed(street: string, suburb: string | null, town: string): void {
-    persistGeocodeFailure(this.sql, street, suburb, town);
+    this.api.markGeocodeFailed(street, suburb, town);
   }
 
   saveLocationCache(input: LocationCacheInput): void {
-    persistLocationCache(this.sql, input);
-    this.live.broadcastLiveUpdate();
+    this.api.saveLocationCache(input);
   }
 
   getMapPoints(limit: number): {
     pendingGeocode: number;
     routes: LocationMapPoint[];
   } {
-    return readMapPoints(this.sql, limit);
+    return this.api.getMapPoints(limit);
   }
 
   listInfringements(query: InfringementQuery): InfringementListResult {
-    return queryInfringements(this.sql, query);
+    return this.api.listInfringements(query);
   }
 
   getLatestSyncRun(): SyncRunRow | null {
-    return readLatestSyncRun(this.sql);
+    return this.api.getLatestSyncRun();
   }
 
   isWindowIngested(start: string, end: string): boolean {
-    return queryWindowIngested(this.sql, start, end);
+    return this.api.isWindowIngested(start, end);
   }
 
   filterPendingChunks(windows: DateWindow[]): DateWindow[] {
-    return queryPendingChunks(this.sql, windows);
+    return this.api.filterPendingChunks(windows);
   }
 
   getCacheStatus(): CacheStatus {
-    return readCacheStatus(this.sql);
+    return this.api.getCacheStatus();
   }
 
   getBackfillProgressSnapshot(
@@ -264,13 +207,11 @@ export class ParkingStore extends DurableObject<Env> {
     latestWindow: { end: string; start: string } | null;
     totalRecords: number;
   } {
-    return readBackfillProgressSnapshot(this.sql, start, end, chunkDays);
+    return this.api.getBackfillProgressSnapshot(start, end, chunkDays);
   }
 
   flushBackfillDerivedState(): { flushed: boolean } {
-    return flushBackfillDerivedState(this.sql, () => {
-      this.live.recomputeAndBroadcast();
-    });
+    return this.api.flushBackfillDerivedState();
   }
 
   countIngestWatermarksInRange(
@@ -278,7 +219,7 @@ export class ParkingStore extends DurableObject<Env> {
     end: string,
     chunkDays: number
   ): number {
-    return countWatermarksInRange(this.sql, start, end, chunkDays);
+    return this.api.countIngestWatermarksInRange(start, end, chunkDays);
   }
 
   getLatestIngestWatermarkInRange(
@@ -286,6 +227,6 @@ export class ParkingStore extends DurableObject<Env> {
     end: string,
     chunkDays: number
   ): { end: string; ingestedAt: string; start: string } | null {
-    return readLatestWatermarkInRange(this.sql, start, end, chunkDays);
+    return this.api.getLatestIngestWatermarkInRange(start, end, chunkDays);
   }
 }
