@@ -3,6 +3,10 @@ import type { QueryClient } from "@tanstack/react-query";
 import { parseFullDashboardMessageJson } from "@/contracts/dashboard-snapshot.ts";
 import type { FullDashboardMessage } from "@/contracts/public-api";
 import { parseAucklandInstant } from "@/lib/auckland-time";
+import {
+  resolveChartBreakdowns,
+  resolveChartStreetItems,
+} from "@/lib/chart-breakdowns";
 import { resolveOffenceDescription } from "@/lib/offence-catalog";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
 import { fillDailySeries } from "@/lib/trend";
@@ -38,7 +42,11 @@ export const applyDashboardSnapshot = (
   queryClient: QueryClient,
   message: FullDashboardMessage
 ): void => {
+  const chartBreakdowns = resolveChartBreakdowns(message);
+  const streetChartItems = resolveChartStreetItems(message);
+
   queryClient.setQueryData(["public", "live"], message.live);
+  queryClient.setQueryData(["public", "chart", "breakdowns"], chartBreakdowns);
   queryClient.setQueryData(
     ["public", "stats", "daily"],
     fillDailySeries(message.dailyTrend ?? [], PACE_DAILY_TREND_DAYS)
@@ -48,11 +56,11 @@ export const applyDashboardSnapshot = (
   }
   queryClient.setQueryData(["public", "top", "street"], {
     groupBy: "street",
-    items: message.topStreets,
+    items: streetChartItems,
   });
   queryClient.setQueryData(["public", "top", "offence"], {
     groupBy: "offence",
-    items: message.topOffences.map((item) => ({
+    items: chartBreakdowns.offences.map((item) => ({
       ...item,
       label: resolvePublicOffenceDescription(item.label),
     })),

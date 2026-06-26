@@ -3,6 +3,10 @@ import type {
   PublicDashboardSnapshot,
   PublicPaceTrends,
 } from "@/durable-objects/types/dashboard.ts";
+import {
+  chartBreakdownsFullyPopulated,
+  resolveChartBreakdowns,
+} from "@/lib/chart-breakdowns.ts";
 
 import { fullDashboardMessageSchema } from "./public-api.ts";
 import type { FullDashboardMessage } from "./public-api.ts";
@@ -13,8 +17,8 @@ const EMPTY_PACE_TRENDS: PublicPaceTrends = {
   last7d: { current: 0, direction: "flat", percent: 0, previous: 0 },
 };
 
-/** Parse an unknown value into a validated full-dashboard WebSocket message. */
-export const parseFullDashboardMessage = (
+/** Parse WebSocket payload without synthesizing chart breakdowns. */
+export const parseRawFullDashboardMessage = (
   input: unknown
 ): FullDashboardMessage | null => {
   const parsed = fullDashboardMessageSchema.safeParse(input);
@@ -28,6 +32,9 @@ export const parseFullDashboardMessage = (
   };
 };
 
+/** Parse an unknown value into a validated full-dashboard WebSocket message. */
+export const parseFullDashboardMessage = parseRawFullDashboardMessage;
+
 /** Parse a JSON string into a validated full-dashboard message. */
 export const parseFullDashboardMessageJson = (
   json: string
@@ -40,11 +47,24 @@ export const parseFullDashboardMessageJson = (
   }
 };
 
+/** Parse JSON without enriching chart breakdowns (for cache completeness checks). */
+export const parseRawFullDashboardMessageJson = (
+  json: string
+): FullDashboardMessage | null => {
+  try {
+    const input: unknown = JSON.parse(json);
+    return parseRawFullDashboardMessage(input);
+  } catch {
+    return null;
+  }
+};
+
 /** Map a validated message into the internal dashboard snapshot shape. */
 export const toPublicDashboardSnapshot = (
   message: FullDashboardMessage
 ): PublicDashboardSnapshot => ({
   at: message.at,
+  chartBreakdowns: resolveChartBreakdowns(message),
   dailyTrend: message.dailyTrend ?? [],
   live: message.live,
   map: {
@@ -74,14 +94,19 @@ export const parsePublicDashboardSnapshotJson = (
 /** Heuristic payload weight for choosing the richest cached snapshot. */
 export const getDashboardSnapshotPayloadWeight = (
   message: FullDashboardMessage
-): number =>
-  message.recentInfringements.length +
-  message.topStreets.length +
-  message.topOffences.length +
-  message.streets.length +
-  message.suburbs.length +
-  message.vehicles.length +
-  message.map.routes.length;
+): number => {
+  const breakdowns = resolveChartBreakdowns(message);
+  return (
+    message.recentInfringements.length +
+    message.topStreets.length +
+    message.topOffences.length +
+    message.streets.length +
+    message.suburbs.length +
+    message.vehicles.length +
+    message.map.routes.length +
+    breakdowns.offences.length
+  );
+};
 
 export const getDashboardSnapshotPayloadWeightJson = (json: string): number => {
   const message = parseFullDashboardMessageJson(json);
@@ -99,11 +124,13 @@ export const dashboardSnapshotIsComplete = (
     paceTrends !== undefined &&
     paceTrends.last7d !== undefined &&
     paceTrends.last30d !== undefined &&
-    paceTrends.last365d !== undefined
+    paceTrends.last365d !== undefined &&
+    (message.live.allTimeTotal === 0 ||
+      chartBreakdownsFullyPopulated(message.chartBreakdowns))
   );
 };
 
 export const dashboardSnapshotIsCompleteJson = (json: string): boolean => {
-  const message = parseFullDashboardMessageJson(json);
+  const message = parseRawFullDashboardMessageJson(json);
   return message !== null && dashboardSnapshotIsComplete(message);
 };

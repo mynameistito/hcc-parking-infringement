@@ -194,9 +194,30 @@ export const paceTrendsSchema = z.object({
 
 export type PaceTrends = z.infer<typeof paceTrendsSchema>;
 
+export const chartBreakdownsSchema = z.object({
+  offenceCategories: z.array(topItemSchema),
+  offences: z.array(topItemSchema),
+  suburbs: z.array(topItemSchema),
+  towed: z.array(topItemSchema),
+  vehicleMakes: z.array(topItemSchema),
+  vehicleTypes: z.array(topItemSchema),
+});
+
+export type ChartBreakdowns = z.infer<typeof chartBreakdownsSchema>;
+
+export const EMPTY_CHART_BREAKDOWNS: ChartBreakdowns = {
+  offenceCategories: [],
+  offences: [],
+  suburbs: [],
+  towed: [],
+  vehicleMakes: [],
+  vehicleTypes: [],
+};
+
 /** WebSocket full-dashboard push payload. */
 export const fullDashboardMessageSchema = z.object({
   at: z.string(),
+  chartBreakdowns: chartBreakdownsSchema.optional(),
   dailyTrend: dailyStatPointArraySchema.optional(),
   live: publicLiveStatsSchema,
   map: mapResponseSchema,
@@ -212,6 +233,7 @@ export const fullDashboardMessageSchema = z.object({
 
 export interface FullDashboardMessage {
   readonly at: string;
+  readonly chartBreakdowns?: ChartBreakdowns;
   readonly dailyTrend?: DailyStatPoint[];
   readonly live: PublicLiveStats;
   readonly map: MapResponse;

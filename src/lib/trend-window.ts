@@ -152,3 +152,43 @@ export interface PaceTrends {
   last30d: TrendResult;
   last7d: TrendResult;
 }
+
+export type TrendMetric = "count" | "totalCents";
+
+export interface BuildTrendWindowOptions {
+  aggregateWeekly?: boolean;
+  maxLabels: number;
+}
+
+export const buildTrendWindowChart = (
+  dailyTrend: DailyStatPoint[],
+  windowDays: number,
+  metric: TrendMetric,
+  options: BuildTrendWindowOptions | number
+): PaceWindowChart => {
+  const { aggregateWeekly, maxLabels } =
+    typeof options === "number"
+      ? { aggregateWeekly: windowDays > 90, maxLabels: options }
+      : options;
+  const aggregate = aggregateWeekly === true ? bucketWeekly : undefined;
+  const daily = sliceDays(dailyTrend, windowDays);
+  const series = aggregate?.(daily) ?? daily;
+  return {
+    labels: labelsForSeries(series, maxLabels),
+    values: series.map((point) =>
+      metric === "count" ? point.count : point.totalCents / 100
+    ),
+  };
+};
+
+export const sumTrendWindow = (
+  dailyTrend: DailyStatPoint[],
+  windowDays: number,
+  metric: TrendMetric
+): number => {
+  const daily = sliceDays(dailyTrend, windowDays);
+  if (metric === "count") {
+    return daily.reduce((sum, point) => sum + point.count, 0);
+  }
+  return daily.reduce((sum, point) => sum + point.totalCents, 0) / 100;
+};

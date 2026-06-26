@@ -313,3 +313,64 @@ export const readTopVehicles = (
   sql: SqlStorage,
   limit: number
 ): VehicleRankItem[] => getTopVehicles(sql, limit);
+
+const readGroupedLabelCounts = (
+  sql: SqlStorage,
+  query: string
+): PublicTopItem[] =>
+  sql
+    .exec<{ label: string; count: number }>(query)
+    .toArray()
+    .map((row) => ({
+      count: row.count,
+      label: row.label,
+    }));
+
+export interface ChartBreakdown {
+  offenceCategories: PublicTopItem[];
+  offences: PublicTopItem[];
+  suburbs: PublicTopItem[];
+  towed: PublicTopItem[];
+  vehicleMakes: PublicTopItem[];
+  vehicleTypes: PublicTopItem[];
+}
+
+export const readChartBreakdown = (sql: SqlStorage): ChartBreakdown => ({
+  offenceCategories: readGroupedLabelCounts(
+    sql,
+    `SELECT coalesce(nullif(trim(offence_category), ''), 'Uncategorised') as label,
+            count(*) as count
+     FROM infringements
+     GROUP BY coalesce(nullif(trim(offence_category), ''), 'Uncategorised')
+     ORDER BY count DESC`
+  ),
+  offences: readTopOffencesGrouped(sql, 10_000).map(toOffenceTopItem),
+  suburbs: getTopSuburbs(sql, 10_000).map((row) => ({
+    count: row.count,
+    label: row.label,
+  })),
+  towed: readGroupedLabelCounts(
+    sql,
+    `SELECT CASE WHEN is_towed = 1 THEN 'Towed' ELSE 'Not towed' END as label,
+            count(*) as count
+     FROM infringements
+     GROUP BY is_towed
+     ORDER BY count DESC`
+  ),
+  vehicleMakes: readGroupedLabelCounts(
+    sql,
+    `SELECT coalesce(nullif(trim(vehicle_make), ''), 'Unknown') as label,
+            count(*) as count
+     FROM infringements
+     GROUP BY coalesce(nullif(trim(vehicle_make), ''), 'Unknown')
+     ORDER BY count DESC`
+  ),
+  vehicleTypes: readGroupedLabelCounts(
+    sql,
+    `SELECT coalesce(nullif(trim(vehicle_type), ''), 'Unknown') as label,
+            count(*) as count
+     FROM infringements
+     GROUP BY coalesce(nullif(trim(vehicle_type), ''), 'Unknown')
+     ORDER BY count DESC`
+  ),
+});

@@ -5,10 +5,19 @@ import {
   getDashboardSnapshotPayloadWeight,
   parseFullDashboardMessageJson,
   parsePublicDashboardSnapshotJson,
+  parseRawFullDashboardMessageJson,
 } from "@/contracts/dashboard-snapshot";
 
 const minimalFullMessage = {
   at: "2026-01-01T00:00:00.000+13:00",
+  chartBreakdowns: {
+    offenceCategories: [{ count: 1, label: "Parking" }],
+    offences: [{ count: 1, label: "Parked in a clearway" }],
+    suburbs: [{ count: 1, label: "CBD" }],
+    towed: [{ count: 1, label: "Not towed" }],
+    vehicleMakes: [{ count: 1, label: "Toyota" }],
+    vehicleTypes: [{ count: 1, label: "Car" }],
+  },
   dailyTrend: [{ count: 1, date: "2026-01-01", totalCents: 100 }],
   live: {
     allTimeAmountCents: 100,
@@ -74,6 +83,8 @@ describe("dashboard snapshot helpers", () => {
             vehicleType: null,
           },
         ],
+        suburbs: [{ count: 1, label: "CBD" }],
+        topOffences: [{ count: 1, label: "Parked in a clearway" }],
         topStreets: [{ count: 1, label: "Victoria St" }],
       })
     );
@@ -83,8 +94,31 @@ describe("dashboard snapshot helpers", () => {
       return;
     }
 
-    expect(getDashboardSnapshotPayloadWeight(message)).toBe(2);
+    expect(getDashboardSnapshotPayloadWeight(message)).toBe(5);
     expect(dashboardSnapshotIsComplete(message)).toBe(true);
+  });
+
+  it("treats partial chart breakdowns as incomplete when data exists", () => {
+    const message = parseRawFullDashboardMessageJson(
+      JSON.stringify({
+        ...minimalFullMessage,
+        chartBreakdowns: {
+          offenceCategories: [],
+          offences: [{ count: 1, label: "Parked in a clearway" }],
+          suburbs: [{ count: 1, label: "CBD" }],
+          towed: [],
+          vehicleMakes: [{ count: 1, label: "Toyota" }],
+          vehicleTypes: [],
+        },
+      })
+    );
+
+    expect(message).not.toBeNull();
+    if (message === null) {
+      return;
+    }
+
+    expect(dashboardSnapshotIsComplete(message)).toBe(false);
   });
 
   it("maps to internal snapshot shape with normalized geometry", () => {

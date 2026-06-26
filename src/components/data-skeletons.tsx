@@ -156,3 +156,36 @@ export const InspectorSkeleton = () => (
     <Skeleton className="mt-2 h-4 w-5/6" />
   </aside>
 );
+
+export const ChartAreaSkeleton = ({
+  rows = 5,
+  variant = "bars",
+}: {
+  rows?: number;
+  variant?: "bars" | "donut";
+}) => {
+  if (variant === "donut") {
+    return (
+      <div
+        className="flex h-40 items-center justify-center"
+        aria-busy="true"
+        aria-label="Loading chart"
+      >
+        <Skeleton className="size-36 rounded-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-col justify-center gap-2.5 px-1"
+      style={{ height: rows * 28 + 8 }}
+      aria-busy="true"
+      aria-label="Loading chart"
+    >
+      {Array.from({ length: rows }, (_, index) => (
+        <Skeleton key={index} className="h-3.5 w-full rounded" />
+      ))}
+    </div>
+  );
+};

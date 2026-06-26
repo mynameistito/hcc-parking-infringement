@@ -9,15 +9,17 @@ import {
 } from "lucide-react";
 import { useEffect, useState, lazy, Suspense } from "react";
 
+import { DailyTrendPanel } from "@/components/daily-trend-panel";
 import { MapAreaSkeleton } from "@/components/data-skeletons";
+import { DistributionCharts } from "@/components/distribution-charts";
 import { ExplorePanel } from "@/components/explore-panel";
 import { LatestInstances } from "@/components/latest-instances";
 import { LiveTicker } from "@/components/live-ticker";
-import { TopLists } from "@/components/top-lists";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
+  ChartBreakdowns,
   DailyStatPoint,
   PublicLiveStats,
   LocationRankItem,
@@ -26,6 +28,7 @@ import type {
   TopItem,
   VehicleRankItem,
 } from "@/contracts/public-api";
+import { EMPTY_CHART_BREAKDOWNS } from "@/contracts/public-api";
 import { parseAucklandInstant } from "@/lib/auckland-time";
 import type { PaceTrends } from "@/lib/trend-window";
 
@@ -41,8 +44,8 @@ interface DashboardProps {
   live: PublicLiveStats;
   dailyTrend: DailyStatPoint[];
   paceTrends?: PaceTrends;
+  chartBreakdowns?: ChartBreakdowns;
   streets: TopItem[];
-  offences: TopItem[];
   topStreets: LocationRankItem[];
   topSuburbs: LocationRankItem[];
   topVehicles: VehicleRankItem[];
@@ -182,8 +185,8 @@ export const Dashboard = ({
   live,
   dailyTrend,
   paceTrends,
+  chartBreakdowns = EMPTY_CHART_BREAKDOWNS,
   streets,
-  offences,
   topStreets,
   topSuburbs,
   topVehicles,
@@ -237,20 +240,35 @@ export const Dashboard = ({
         </Alert>
       ) : null}
 
-      <main className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(17.5rem,22.5rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-        <div className="grid gap-6 lg:col-span-2">
+      <main className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+        <div className="grid min-w-0 gap-6">
           <LiveTicker
             stats={live}
             dailyTrend={dailyTrend}
             paceTrends={paceTrends}
             isLoading={dataStatus === "loading"}
           />
+          <DailyTrendPanel
+            dailyTrend={dailyTrend}
+            isLoading={dataStatus === "loading"}
+          />
+          <DistributionCharts
+            breakdowns={chartBreakdowns}
+            streets={streets}
+            isLoading={dataStatus === "loading"}
+          />
           <LatestInstances
             recentInfringements={recentInfringements}
             isLoading={dataStatus === "loading"}
           />
+          <ExplorePanel
+            suburbs={topSuburbs}
+            streets={topStreets}
+            vehicles={topVehicles}
+            isLoading={dataStatus === "loading"}
+          />
         </div>
-        <section className="min-w-0">
+        <section className="min-w-0 lg:sticky lg:top-6 lg:self-start">
           <Suspense fallback={<MapAreaSkeleton />}>
             <LocationMap
               routes={mapRoutes}
@@ -259,22 +277,6 @@ export const Dashboard = ({
             />
           </Suspense>
         </section>
-        <aside className="min-w-0">
-          <TopLists
-            streets={streets}
-            offences={offences}
-            layout="stack"
-            isLoading={dataStatus === "loading"}
-          />
-        </aside>
-        <div className="lg:col-span-2">
-          <ExplorePanel
-            suburbs={topSuburbs}
-            streets={topStreets}
-            vehicles={topVehicles}
-            isLoading={dataStatus === "loading"}
-          />
-        </div>
       </main>
 
       <footer className="mt-8 flex flex-col gap-2 border-t border-border pt-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">

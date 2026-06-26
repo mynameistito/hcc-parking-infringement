@@ -11,6 +11,10 @@ import type {
   PublicPaceTrends,
 } from "@/durable-objects/types.ts";
 import { formatDateInAuckland } from "@/lib/auckland-time.ts";
+import {
+  DASHBOARD_CHART_STREET_LIMIT,
+  DASHBOARD_EXPLORE_RANK_LIMIT,
+} from "@/lib/dashboard-chart-constants.ts";
 import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants.ts";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 
@@ -19,6 +23,7 @@ import { getDailyStats, listInfringements } from "./infringements.ts";
 import { readMapPoints } from "./locations.ts";
 import { readPaceTrends } from "./pace-trends.ts";
 import {
+  readChartBreakdown,
   readTopGrouped,
   readTopStreetsRanked,
   readTopSuburbsRanked,
@@ -31,6 +36,15 @@ export const getDashboardSnapshotPayloadWeight =
 
 export const snapshotIsComplete = dashboardSnapshotIsCompleteJson;
 
+const EMPTY_CHART_BREAKDOWNS = {
+  offenceCategories: [],
+  offences: [],
+  suburbs: [],
+  towed: [],
+  vehicleMakes: [],
+  vehicleTypes: [],
+};
+
 export const buildColdDashboardSnapshotPayload = (
   live: PublicLiveStats,
   paceTrends: PublicPaceTrends,
@@ -38,6 +52,7 @@ export const buildColdDashboardSnapshotPayload = (
 ): string =>
   JSON.stringify({
     at,
+    chartBreakdowns: EMPTY_CHART_BREAKDOWNS,
     dailyTrend: [],
     live,
     map: {
@@ -96,6 +111,7 @@ export const assembleFullDashboardSnapshot = (
 
   return {
     at: isoNow(),
+    chartBreakdowns: readChartBreakdown(sql),
     dailyTrend: getDailyStats(sql, from, to),
     live: readPublicLiveStats(sql),
     map: readMapPoints(sql, 50),
@@ -106,10 +122,10 @@ export const assembleFullDashboardSnapshot = (
         page: 1,
       }).data
     ),
-    streets: readTopStreetsRanked(sql, 10),
-    suburbs: readTopSuburbsRanked(sql, 10),
-    topOffences: readTopGrouped(sql, "offence", 5),
-    topStreets: readTopGrouped(sql, "street", 5),
-    vehicles: readTopVehicles(sql, 10),
+    streets: readTopStreetsRanked(sql, DASHBOARD_CHART_STREET_LIMIT),
+    suburbs: readTopSuburbsRanked(sql, DASHBOARD_EXPLORE_RANK_LIMIT),
+    topOffences: readTopGrouped(sql, "offence", DASHBOARD_CHART_STREET_LIMIT),
+    topStreets: readTopGrouped(sql, "street", DASHBOARD_CHART_STREET_LIMIT),
+    vehicles: readTopVehicles(sql, DASHBOARD_EXPLORE_RANK_LIMIT),
   };
 };

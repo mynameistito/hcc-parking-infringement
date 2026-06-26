@@ -7,7 +7,9 @@ import type {
   DashboardConnectionStatus,
   DashboardDataStatus,
 } from "@/components/dashboard";
+import { EMPTY_CHART_BREAKDOWNS } from "@/contracts/public-api";
 import type {
+  ChartBreakdowns,
   DailyStatPoint,
   InfringementListResponse,
   PublicLiveStats,
@@ -95,11 +97,6 @@ export const App = () => {
     "top",
     "street",
   ]);
-  const { data: offencesData } = useDashboardCache<TopStatsResponse>([
-    "public",
-    "top",
-    "offence",
-  ]);
   const { data: topStreetsData } = useDashboardCache<LocationRankItem[]>([
     "public",
     "locations",
@@ -125,6 +122,11 @@ export const App = () => {
     "infringements",
     "recent",
   ]);
+  const { data: chartBreakdownsData } = useDashboardCache<ChartBreakdowns>([
+    "public",
+    "chart",
+    "breakdowns",
+  ]);
 
   const connectionStatus = resolveConnectionStatus(connected, cached);
   const dataStatus = resolveDataStatus(ready, connected, cached);
@@ -134,8 +136,8 @@ export const App = () => {
       live={liveData ?? EMPTY_LIVE}
       dailyTrend={dailyTrend}
       paceTrends={paceTrendsData}
+      chartBreakdowns={chartBreakdownsData ?? EMPTY_CHART_BREAKDOWNS}
       streets={streetsData?.items ?? []}
-      offences={offencesData?.items ?? []}
       topStreets={topStreetsData ?? []}
       topSuburbs={topSuburbsData ?? []}
       topVehicles={topVehiclesData ?? []}
