@@ -4,7 +4,7 @@
  * Usage:
  *   bun run dev:wrangler
  *   bun run dev:wrangler -- --port 8787
- *   bun run dev:wrangler -- --watch
+ *   bun run dev:wrangler -- --no-watch
  *   bun run dev:wrangler -- --build
  */
 
@@ -32,7 +32,7 @@ const getArg = (name: string): string | undefined => {
 };
 
 const port = getArg("port") ?? "8787";
-const watch = args.includes("--watch");
+const watch = !args.includes("--no-watch");
 const forceBuild = args.includes("--build");
 
 const isCloseEvent = (event: unknown): event is [number | null] =>
