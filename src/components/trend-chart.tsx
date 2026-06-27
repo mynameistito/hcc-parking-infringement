@@ -1,96 +1,14 @@
 import { m, useReducedMotion } from "motion/react";
 import { lazy, Suspense, useId, useMemo } from "react";
 
-import { buildYTicks, formatYTick } from "@/lib/chart-scale";
+import type { ChartConfig } from "@/components/ui/chart";
+import { buildYTicks } from "@/lib/chart-scale";
 import { LOAD_IN_EASE } from "@/lib/motion-ease";
 import { cn } from "@/lib/utils";
 
-const CHART_COLOR = "var(--chart-1)";
-
-const TrendChartArea = lazy(async () => {
-  const { Area, AreaChart, CartesianGrid, XAxis, YAxis } =
-    await import("recharts");
-
-  const Chart = ({
-    compact,
-    data,
-    gradientId,
-    height,
-    margin,
-    valueStyle,
-    yMax,
-  }: {
-    compact: boolean;
-    data: { label: string; value: number }[];
-    gradientId: string;
-    height: number;
-    margin: { bottom: number; left: number; right: number; top: number };
-    valueStyle: "number" | "currency";
-    yMax: number;
-  }) => (
-    <AreaChart
-      data={data}
-      height={height}
-      margin={margin}
-      responsive
-      width="100%"
-    >
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={CHART_COLOR} stopOpacity={0.28} />
-          <stop offset="100%" stopColor={CHART_COLOR} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-
-      <YAxis
-        axisLine={false}
-        domain={[0, yMax]}
-        hide={compact}
-        tick={
-          compact ? false : { fill: "var(--muted-foreground)", fontSize: 9 }
-        }
-        tickFormatter={
-          compact
-            ? undefined
-            : (value: number) => formatYTick(value, valueStyle)
-        }
-        tickLine={false}
-        width={compact ? 0 : 28}
-      />
-
-      {!compact && (
-        <>
-          <CartesianGrid
-            stroke="var(--border)"
-            strokeDasharray="3 4"
-            vertical={false}
-          />
-          <XAxis
-            axisLine={{
-              stroke: "var(--border)",
-              strokeDasharray: "3 4",
-            }}
-            dataKey="label"
-            tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
-            tickLine={{ stroke: "var(--border)" }}
-          />
-        </>
-      )}
-
-      <Area
-        activeDot={false}
-        dataKey="value"
-        dot={false}
-        fill={`url(#${gradientId})`}
-        isAnimationActive={false}
-        stroke={CHART_COLOR}
-        strokeWidth={compact ? 2 : 1.5}
-        type="linear"
-      />
-    </AreaChart>
-  );
-
-  return { default: Chart };
+const TrendChartInner = lazy(async () => {
+  const module = await import("@/components/trend-chart-inner");
+  return { default: module.TrendChartInner };
 });
 
 interface TrendChartProps {
@@ -152,6 +70,17 @@ export const TrendChart = ({
     [values, xLabels]
   );
 
+  const chartConfig = useMemo(
+    () =>
+      ({
+        value: {
+          color: "var(--chart-1)",
+          label: valueStyle === "currency" ? "Fines" : "Tickets",
+        },
+      }) satisfies ChartConfig,
+    [valueStyle]
+  );
+
   if (values.length === 0) {
     return (
       <div
@@ -174,10 +103,10 @@ export const TrendChart = ({
   return (
     <m.div
       animate={{ clipPath: "inset(0 0% 0 0)" }}
-      aria-hidden="true"
+      aria-hidden={compact ? "true" : undefined}
       className={cn(
-        "w-full overflow-hidden",
-        compact ? "h-[40px]" : "h-[112px]",
+        "w-full",
+        compact ? "h-[40px] overflow-hidden" : "h-[112px] overflow-visible",
         className
       )}
       initial={reduceMotion ? false : { clipPath: "inset(0 100% 0 0)" }}
@@ -190,7 +119,8 @@ export const TrendChart = ({
       <Suspense
         fallback={<ChartFallback className={className} compact={compact} />}
       >
-        <TrendChartArea
+        <TrendChartInner
+          chartConfig={chartConfig}
           compact={compact}
           data={data}
           gradientId={gradientId}

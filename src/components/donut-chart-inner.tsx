@@ -1,6 +1,12 @@
 import type { ComponentProps } from "react";
-import { Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from "recharts";
+import { Pie, PieChart, Sector } from "recharts";
 
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
 import { numberFmt } from "@/lib/format";
 
 interface ChartEntry {
@@ -17,32 +23,6 @@ const isChartEntry = (value: unknown): value is ChartEntry =>
   typeof Reflect.get(value, "label") === "string" &&
   typeof Reflect.get(value, "value") === "number";
 
-interface DonutTooltipProps {
-  active?: boolean;
-  payload?: readonly { payload?: unknown }[];
-}
-
-const DonutTooltip = ({ active, payload }: DonutTooltipProps) => {
-  if (active !== true) {
-    return null;
-  }
-  if (payload === undefined || payload.length === 0) {
-    return null;
-  }
-  const entry = payload[0]?.payload;
-  if (!isChartEntry(entry)) {
-    return null;
-  }
-  return (
-    <div className="rounded-[4px] border border-border bg-popover px-2.5 py-1.5 text-xs shadow-sm">
-      <p className="max-w-40 font-medium text-foreground">{entry.label}</p>
-      <p className="mt-0.5 font-mono text-muted-foreground tabular-nums">
-        {numberFmt.format(entry.value)}
-      </p>
-    </div>
-  );
-};
-
 type SectorShapeProps = ComponentProps<typeof Sector> & {
   payload?: ChartEntry;
 };
@@ -52,6 +32,20 @@ const donutSectorShape = (props: SectorShapeProps) => {
     ? props.payload.fill
     : "var(--chart-1)";
   return <Sector {...props} fill={fill} stroke="var(--background)" />;
+};
+
+const donutChartConfig = {
+  value: {
+    color: "var(--chart-1)",
+    label: "Tickets",
+  },
+} satisfies ChartConfig;
+
+const chartEntryLabel = (
+  payload: readonly { payload?: unknown }[] | undefined
+): string => {
+  const raw: unknown = payload?.[0]?.payload;
+  return isChartEntry(raw) ? raw.label : "";
 };
 
 interface DonutChartInnerProps {
@@ -69,7 +63,11 @@ export const DonutChartInner = ({
 
   return (
     <div className="relative h-full w-full">
-      <ResponsiveContainer height="100%" width="100%">
+      <ChartContainer
+        className="aspect-auto h-full w-full"
+        config={donutChartConfig}
+        initialDimension={{ height: 176, width: 176 }}
+      >
         <PieChart>
           <Pie
             cx="50%"
@@ -84,9 +82,21 @@ export const DonutChartInner = ({
             shape={donutSectorShape}
             strokeWidth={2}
           />
-          <Tooltip content={DonutTooltip} />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={(value) =>
+                  typeof value === "number"
+                    ? numberFmt.format(value)
+                    : String(value)
+                }
+                hideIndicator
+                labelFormatter={(_, payload) => chartEntryLabel(payload)}
+              />
+            }
+          />
         </PieChart>
-      </ResponsiveContainer>
+      </ChartContainer>
       {showCenter ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           {centerValue === undefined ? null : (

@@ -1,14 +1,12 @@
 import type { ComponentProps } from "react";
-import {
-  Bar,
-  BarChart,
-  Rectangle,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
 
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
 import { numberFmt } from "@/lib/format";
 
 const truncateLabel = (label: string, maxLength = 22): string =>
@@ -28,32 +26,6 @@ const isChartEntry = (value: unknown): value is ChartEntry =>
   typeof Reflect.get(value, "label") === "string" &&
   typeof Reflect.get(value, "value") === "number";
 
-interface RankedBarTooltipProps {
-  active?: boolean;
-  payload?: readonly { payload?: unknown }[];
-}
-
-const RankedBarTooltip = ({ active, payload }: RankedBarTooltipProps) => {
-  if (active !== true) {
-    return null;
-  }
-  if (payload === undefined || payload.length === 0) {
-    return null;
-  }
-  const entry = payload[0]?.payload;
-  if (!isChartEntry(entry)) {
-    return null;
-  }
-  return (
-    <div className="rounded-[4px] border border-border bg-popover px-2.5 py-1.5 text-xs shadow-sm">
-      <p className="max-w-48 font-medium text-foreground">{entry.label}</p>
-      <p className="mt-0.5 font-mono text-muted-foreground tabular-nums">
-        {numberFmt.format(entry.value)}
-      </p>
-    </div>
-  );
-};
-
 type BarShapeProps = ComponentProps<typeof Rectangle> & {
   payload?: ChartEntry;
 };
@@ -63,17 +35,31 @@ const barFillForIndex = (
   index: string | number | undefined
 ): string => {
   if (index === 0 || index === "0") {
-    return "var(--chart-1)";
+    return "var(--color-value)";
   }
   if (isChartEntry(props.payload)) {
     return props.payload.fill;
   }
-  return "var(--chart-1)";
+  return "var(--color-value)";
 };
 
 const rankedBarShape = (props: BarShapeProps, index?: string | number) => (
   <Rectangle {...props} fill={barFillForIndex(props, index)} />
 );
+
+const rankedBarChartConfig = {
+  value: {
+    color: "var(--chart-1)",
+    label: "Tickets",
+  },
+} satisfies ChartConfig;
+
+const chartEntryLabel = (
+  payload: readonly { payload?: unknown }[] | undefined
+): string => {
+  const raw: unknown = payload?.[0]?.payload;
+  return isChartEntry(raw) ? raw.label : "";
+};
 
 interface RankedBarChartInnerProps {
   data: ChartEntry[];
@@ -84,8 +70,13 @@ export const RankedBarChartInner = ({
   data,
   yMax,
 }: RankedBarChartInnerProps) => (
-  <ResponsiveContainer height="100%" width="100%">
+  <ChartContainer
+    className="aspect-auto h-full w-full"
+    config={rankedBarChartConfig}
+    initialDimension={{ height: 320, width: 640 }}
+  >
     <BarChart
+      accessibilityLayer
       data={data}
       layout="vertical"
       margin={{ bottom: 0, left: 0, right: 12, top: 0 }}
@@ -100,8 +91,18 @@ export const RankedBarChartInner = ({
         type="category"
         width={108}
       />
-      <Tooltip
-        content={RankedBarTooltip}
+      <ChartTooltip
+        content={
+          <ChartTooltipContent
+            formatter={(value) =>
+              typeof value === "number"
+                ? numberFmt.format(value)
+                : String(value)
+            }
+            hideIndicator
+            labelFormatter={(_, payload) => chartEntryLabel(payload)}
+          />
+        }
         cursor={{ fill: "var(--muted)", opacity: 0.35 }}
       />
       <Bar
@@ -112,5 +113,5 @@ export const RankedBarChartInner = ({
         shape={rankedBarShape}
       />
     </BarChart>
-  </ResponsiveContainer>
+  </ChartContainer>
 );

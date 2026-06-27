@@ -14,9 +14,7 @@ import { TableRowsSkeleton } from "@/components/data-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PublicInfringement } from "@/contracts/public-api";
-import {
-  INFRINGEMENTS_DEFAULT_PAGE_SIZE,
-} from "@/lib/dashboard-constants";
+import { INFRINGEMENTS_DEFAULT_PAGE_SIZE } from "@/lib/dashboard-constants";
 import {
   formatOccurrenceInstantShort,
   formatStreetSuburb,
@@ -273,12 +271,7 @@ export const LatestInstances = ({
 
   useEffect(() => {
     const root = scrollRef.current;
-    if (
-      root === null ||
-      isLoading === true ||
-      loadingMore ||
-      !hasMore
-    ) {
+    if (root === null || isLoading === true || loadingMore || !hasMore) {
       return;
     }
 
@@ -290,22 +283,22 @@ export const LatestInstances = ({
   useEffect(() => {
     const root = scrollRef.current;
     const sentinel = sentinelRef.current;
-    if (root === null || sentinel === null || !hasMore || isLoading === true) {
-      return;
+    let observer: IntersectionObserver | undefined;
+
+    if (root !== null && sentinel !== null && hasMore && isLoading !== true) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            void loadMore();
+          }
+        },
+        { root, rootMargin: "240px" }
+      );
+      observer.observe(sentinel);
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          void loadMore();
-        }
-      },
-      { root, rootMargin: "240px" }
-    );
-
-    observer.observe(sentinel);
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
     };
   }, [hasMore, isLoading, loadMore]);
 
