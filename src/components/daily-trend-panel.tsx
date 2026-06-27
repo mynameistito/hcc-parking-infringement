@@ -76,8 +76,13 @@ interface DailyTrendPanelProps {
   isLoading?: boolean;
 }
 
+const CHART_MIN_HEIGHT = "min-h-[280px]";
+
 const ChartSkeleton = () => (
-  <Skeleton className="h-[200px] w-full rounded-[4px]" aria-hidden="true" />
+  <Skeleton
+    className={cn("w-full flex-1 rounded-[4px]", CHART_MIN_HEIGHT)}
+    aria-hidden="true"
+  />
 );
 
 export const DailyTrendPanel = ({
@@ -95,9 +100,8 @@ export const DailyTrendPanel = ({
     () =>
       buildTrendWindowChart(dailyTrend, windowDays, metric, {
         aggregateWeekly: false,
-        maxLabels,
       }),
-    [dailyTrend, maxLabels, metric, windowDays]
+    [dailyTrend, metric, windowDays]
   );
 
   const total = useMemo(
@@ -120,9 +124,9 @@ export const DailyTrendPanel = ({
       className="overflow-hidden py-0"
       aria-label="Daily infringement trend"
     >
-      <CardHeader className="border-b border-border">
+      <CardHeader className="gap-3 border-b border-border p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
+          <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
               <TrendingUp
                 className="size-4 text-[var(--ring)]"
@@ -184,14 +188,16 @@ export const DailyTrendPanel = ({
         </div>
       </CardHeader>
 
-      <CardContent className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_10.5rem] lg:items-end">
-        <div className="min-w-0">
+      <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_10.5rem] lg:items-stretch">
+        <div className={cn("flex min-w-0 flex-col", CHART_MIN_HEIGHT)}>
           {loading ? (
             <ChartSkeleton />
           ) : (
             <Suspense fallback={<ChartSkeleton />}>
               <TrendChart
-                className="h-[200px]"
+                className="h-full min-h-0 w-full flex-1"
+                dates={chart.dates}
+                maxXLabels={maxLabels}
                 revealDelay={120}
                 valueStyle={metric === "totalCents" ? "currency" : "number"}
                 values={chart.values}
@@ -201,7 +207,7 @@ export const DailyTrendPanel = ({
           )}
         </div>
 
-        <dl className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+        <dl className="grid grid-cols-2 gap-2 self-end lg:grid-cols-1 lg:self-stretch">
           <div className="rounded-[6px] border border-border bg-muted/40 px-3 py-2">
             <dt className="text-[11px] text-muted-foreground">
               {WINDOW_LABELS[window]} total

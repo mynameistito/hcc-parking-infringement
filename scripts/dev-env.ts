@@ -16,7 +16,10 @@ export const isLocalWorkerUrl = (url: string): boolean => {
   try {
     const { hostname } = new URL(url);
     return (
-      hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1"
+      hostname === "127.0.0.1" ||
+      hostname === "localhost" ||
+      hostname === "::1" ||
+      hostname.startsWith("100.")
     );
   } catch {
     return false;

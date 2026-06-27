@@ -41,38 +41,44 @@ export const comparePeriods = (
   return toTrendResult(current, previous);
 };
 
-const labelsForSeries = (
-  series: DailyStatPoint[],
-  maxTicks: number
-): string[] => {
-  if (series.length === 0) {
-    return [];
+const formatPointLabel = (dateKey: string, seriesLength: number): string => {
+  if (seriesLength > 60) {
+    return formatAucklandDateKey(dateKey, "d MMM").toUpperCase();
   }
+  if (seriesLength > 14) {
+    return formatAucklandDateKey(dateKey, "d MMM").toUpperCase();
+  }
+  return formatAucklandDateKey(dateKey, "EEE d").toUpperCase();
+};
 
-  const tickCount = Math.min(series.length, maxTicks);
-  const indices =
-    series.length <= tickCount
-      ? series.map((_, index) => index)
-      : Array.from({ length: tickCount }, (_, index) =>
-          Math.round((index / (tickCount - 1)) * (series.length - 1))
-        );
+export const formatTrendAxisDate = (
+  dateKey: string,
+  seriesLength: number
+): string => formatPointLabel(dateKey, seriesLength);
 
-  return indices.map((index) => {
-    const point = series[index];
-    if (point === undefined) {
-      return "";
-    }
-    if (series.length > 60) {
-      return formatAucklandDateKey(point.date, "MMM").toUpperCase();
-    }
-    if (series.length > 14) {
-      return formatAucklandDateKey(point.date, "d MMM").toUpperCase();
-    }
-    return formatAucklandDateKey(point.date, "EEE").toUpperCase();
-  });
+export const formatTrendTooltipDate = (dateKey: string): string =>
+  formatAucklandDateKey(dateKey, "EEE d MMM yyyy").toUpperCase();
+
+/** One formatted label per series point (axis display). */
+const labelsForSeries = (series: DailyStatPoint[]): string[] =>
+  series.map((point) => formatPointLabel(point.date, series.length));
+
+const datesForSeries = (series: DailyStatPoint[]): string[] =>
+  series.map((point) => point.date);
+
+/** Recharts XAxis interval to cap visible tick count. */
+export const xAxisTickInterval = (
+  pointCount: number,
+  maxTicks: number
+): number => {
+  if (pointCount <= maxTicks || maxTicks <= 1) {
+    return 0;
+  }
+  return Math.ceil(pointCount / maxTicks) - 1;
 };
 
 export interface PaceWindowChart {
+  dates: string[];
   values: number[];
   labels: string[];
 }
@@ -97,13 +103,13 @@ const bucketWeekly = (series: DailyStatPoint[]): DailyStatPoint[] => {
 const buildPaceWindow = (
   dailyTrend: DailyStatPoint[],
   windowDays: number,
-  maxLabels: number,
   aggregate?: (series: DailyStatPoint[]) => DailyStatPoint[]
 ): PaceWindowChart => {
   const daily = sliceDays(dailyTrend, windowDays);
   const series = aggregate?.(daily) ?? daily;
   return {
-    labels: labelsForSeries(series, maxLabels),
+    dates: datesForSeries(series),
+    labels: labelsForSeries(series),
     values: series.map((point) => point.count),
   };
 };
@@ -140,9 +146,9 @@ export const buildPacePanelData = (
       last7d: pickValue(live.last7d, sum7),
     },
     windows: {
-      last30d: buildPaceWindow(dailyTrend, 30, 5),
-      last365d: buildPaceWindow(dailyTrend, 365, 6, bucketWeekly),
-      last7d: buildPaceWindow(dailyTrend, 7, 7),
+      last30d: buildPaceWindow(dailyTrend, 30),
+      last365d: buildPaceWindow(dailyTrend, 365, bucketWeekly),
+      last7d: buildPaceWindow(dailyTrend, 7),
     } satisfies Record<string, PaceWindowChart>,
   };
 };
@@ -157,24 +163,23 @@ export type TrendMetric = "count" | "totalCents";
 
 export interface BuildTrendWindowOptions {
   aggregateWeekly?: boolean;
-  maxLabels: number;
 }
 
 export const buildTrendWindowChart = (
   dailyTrend: DailyStatPoint[],
   windowDays: number,
   metric: TrendMetric,
-  options: BuildTrendWindowOptions | number
+  options: BuildTrendWindowOptions | boolean = {}
 ): PaceWindowChart => {
-  const { aggregateWeekly, maxLabels } =
-    typeof options === "number"
-      ? { aggregateWeekly: windowDays > 90, maxLabels: options }
-      : options;
-  const aggregate = aggregateWeekly === true ? bucketWeekly : undefined;
+  const normalized =
+    typeof options === "boolean" ? { aggregateWeekly: options } : options;
+  const aggregateWeekly = normalized.aggregateWeekly ?? windowDays > 90;
+  const aggregate = aggregateWeekly ? bucketWeekly : undefined;
   const daily = sliceDays(dailyTrend, windowDays);
   const series = aggregate?.(daily) ?? daily;
   return {
-    labels: labelsForSeries(series, maxLabels),
+    dates: datesForSeries(series),
+    labels: labelsForSeries(series),
     values: series.map((point) =>
       metric === "count" ? point.count : point.totalCents / 100
     ),

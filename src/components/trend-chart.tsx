@@ -14,9 +14,12 @@ const TrendChartInner = lazy(async () => {
 interface TrendChartProps {
   values: number[];
   xLabels: string[];
+  dates?: string[];
   valueStyle?: "number" | "currency";
   className?: string;
   compact?: boolean;
+  /** Cap how many x-axis ticks are shown (full interactive chart only). */
+  maxXLabels?: number;
   /** Stagger the left-to-right draw animation (ms). */
   revealDelay?: number;
 }
@@ -43,7 +46,7 @@ const ChartFallback = ({
   <div
     className={cn(
       "rounded-[4px] bg-muted/30",
-      compact ? "h-[40px]" : "h-[112px]",
+      compact ? "h-[40px]" : "min-h-0 h-full",
       className
     )}
   />
@@ -52,9 +55,11 @@ const ChartFallback = ({
 export const TrendChart = ({
   values,
   xLabels,
+  dates,
   valueStyle = "number",
   className,
   compact = false,
+  maxXLabels = 7,
   revealDelay = 0,
 }: TrendChartProps) => {
   const gradientId = useId();
@@ -64,10 +69,11 @@ export const TrendChart = ({
   const data = useMemo(
     () =>
       values.map((value, index) => ({
-        label: xLabels[index] ?? "",
+        date: dates?.[index] ?? `idx-${index}`,
+        label: xLabels[index] ?? `point-${index}`,
         value,
       })),
-    [values, xLabels]
+    [dates, values, xLabels]
   );
 
   const chartConfig = useMemo(
@@ -86,7 +92,7 @@ export const TrendChart = ({
       <div
         className={cn(
           "flex items-center justify-center rounded-[4px] bg-muted/30 text-[10px] text-muted-foreground",
-          compact ? "h-[40px]" : "h-[96px]",
+          compact ? "h-[40px]" : "min-h-[200px] h-full",
           className
         )}
       >
@@ -95,10 +101,10 @@ export const TrendChart = ({
     );
   }
 
-  const height = compact ? 40 : 112;
+  const height = compact ? 40 : 200;
   const margin = compact
     ? { bottom: 2, left: 2, right: 2, top: 2 }
-    : { bottom: 22, left: 36, right: 8, top: 8 };
+    : { bottom: 4, left: 0, right: 0, top: 4 };
 
   return (
     <m.div
@@ -106,7 +112,9 @@ export const TrendChart = ({
       aria-hidden={compact ? "true" : undefined}
       className={cn(
         "w-full",
-        compact ? "h-[40px] overflow-hidden" : "h-[112px] overflow-visible",
+        compact
+          ? "h-[40px] overflow-hidden"
+          : "min-h-0 h-full overflow-visible",
         className
       )}
       initial={reduceMotion ? false : { clipPath: "inset(0 100% 0 0)" }}
@@ -126,6 +134,7 @@ export const TrendChart = ({
           gradientId={gradientId}
           height={height}
           margin={margin}
+          maxXLabels={maxXLabels}
           valueStyle={valueStyle}
           yMax={yMax}
         />

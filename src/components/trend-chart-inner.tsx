@@ -8,11 +8,35 @@ import {
 import type { ChartConfig } from "@/components/ui/chart";
 import { formatYTick } from "@/lib/chart-scale";
 import { moneyFmt, numberFmt } from "@/lib/format";
+import {
+  formatTrendAxisDate,
+  formatTrendTooltipDate,
+  xAxisTickInterval,
+} from "@/lib/trend-window";
 
 interface TrendPoint {
+  date: string;
   label: string;
   value: number;
 }
+
+const isTrendPoint = (value: unknown): value is TrendPoint =>
+  typeof value === "object" &&
+  value !== null &&
+  "date" in value &&
+  typeof Reflect.get(value, "date") === "string" &&
+  "value" in value &&
+  typeof Reflect.get(value, "value") === "number";
+
+const trendTooltipLabel = (
+  payload: readonly { payload?: unknown }[] | undefined
+): string => {
+  const raw: unknown = payload?.[0]?.payload;
+  if (!isTrendPoint(raw)) {
+    return "";
+  }
+  return formatTrendTooltipDate(raw.date);
+};
 
 interface CompactTrendChartProps {
   data: TrendPoint[];
@@ -68,6 +92,7 @@ interface InteractiveTrendChartProps {
   chartConfig: ChartConfig;
   data: TrendPoint[];
   gradientId: string;
+  maxXLabels: number;
   valueStyle: "number" | "currency";
   yMax: number;
 }
@@ -89,18 +114,19 @@ const InteractiveTrendChart = ({
   chartConfig,
   data,
   gradientId,
+  maxXLabels,
   valueStyle,
   yMax,
 }: InteractiveTrendChartProps) => (
   <ChartContainer
-    className="aspect-auto h-full w-full"
+    className="aspect-auto h-full min-h-[200px] w-full"
     config={chartConfig}
-    initialDimension={{ height: 200, width: 640 }}
+    initialDimension={{ height: 280, width: 640 }}
   >
     <AreaChart
       accessibilityLayer
       data={data}
-      margin={{ bottom: 22, left: 36, right: 8, top: 8 }}
+      margin={{ bottom: 8, left: 4, right: 8, top: 8 }}
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -117,7 +143,8 @@ const InteractiveTrendChart = ({
         tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
         tickFormatter={(value: number) => formatYTick(value, valueStyle)}
         tickLine={false}
-        width={28}
+        tickMargin={4}
+        width={36}
       />
 
       <XAxis
@@ -125,20 +152,30 @@ const InteractiveTrendChart = ({
           stroke: "var(--border)",
           strokeDasharray: "3 4",
         }}
-        dataKey="label"
+        dataKey="date"
+        height={28}
+        interval={xAxisTickInterval(data.length, maxXLabels)}
+        minTickGap={16}
         tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
+        tickFormatter={(dateKey: string) =>
+          formatTrendAxisDate(dateKey, data.length)
+        }
         tickLine={{ stroke: "var(--border)" }}
+        tickMargin={8}
       />
 
       <ChartTooltip
+        allowEscapeViewBox={{ x: false, y: true }}
         content={
           <ChartTooltipContent
             formatter={(value) => formatTrendValue(value, valueStyle)}
             indicator="line"
-            labelKey="label"
+            labelFormatter={(_, payload) => trendTooltipLabel(payload)}
           />
         }
         cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
+        isAnimationActive={false}
+        shared={false}
       />
 
       <Area
@@ -167,6 +204,7 @@ export interface TrendChartInnerProps {
   gradientId: string;
   height: number;
   margin: { bottom: number; left: number; right: number; top: number };
+  maxXLabels: number;
   valueStyle: "number" | "currency";
   yMax: number;
 }
@@ -178,6 +216,7 @@ export const TrendChartInner = ({
   gradientId,
   height,
   margin,
+  maxXLabels,
   valueStyle,
   yMax,
 }: TrendChartInnerProps) => {
@@ -198,6 +237,7 @@ export const TrendChartInner = ({
       chartConfig={chartConfig}
       data={data}
       gradientId={gradientId}
+      maxXLabels={maxXLabels}
       valueStyle={valueStyle}
       yMax={yMax}
     />
