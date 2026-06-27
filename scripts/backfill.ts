@@ -29,7 +29,7 @@ loadDevVars();
 const args = scriptArgv();
 const force = readFlag(args, "force");
 const track = !readFlag(args, "no-track");
-const delivery = readArg(args, "delivery") ?? "direct";
+const delivery = readArg(args, "delivery") ?? "queue";
 
 let workerUrl: string;
 

@@ -10,13 +10,10 @@ import { formatDateInAuckland } from "@/lib/auckland-time.ts";
 import {
   BACKFILL_CHUNK_DAYS_DEFAULT,
   BACKFILL_EARLIEST,
-  BACKFILL_QUEUE_CONCURRENCY,
-  BACKFILL_QUEUE_WINDOWS_PER_MESSAGE,
-  MAX_BACKFILL_DIRECT_PER_WAVE,
-  MAX_BACKFILL_ENQUEUE_PER_WAVE,
   PAGE_SIZE_LIMIT,
 } from "@/lib/backfill-constants.ts";
 import { addDays } from "@/lib/date-range.ts";
+import { resolveBackfillTuning } from "@/lib/free-tier-limits.ts";
 import { mapWithConcurrency } from "@/lib/map-with-concurrency.ts";
 import type { AppScope } from "@/server/app-scope.ts";
 import { flushBackfillDerivedStateSafely } from "@/server/backfill-flush.ts";
@@ -67,10 +64,12 @@ const sendBackfillMessages = async (
   );
 };
 
-const maxWindowsPerWave = (delivery: BackfillDelivery): number =>
-  delivery === "direct"
-    ? MAX_BACKFILL_DIRECT_PER_WAVE
-    : MAX_BACKFILL_ENQUEUE_PER_WAVE;
+const maxWindowsPerWave = (env: Env, delivery: BackfillDelivery): number => {
+  const tuning = resolveBackfillTuning(env);
+  return delivery === "direct"
+    ? tuning.maxDirectPerWave
+    : tuning.maxEnqueuePerWave;
+};
 
 const listDailyWindows = (
   startDate: string,
@@ -96,12 +95,13 @@ const enqueueDailyWindows = async (
   endDate: string,
   force?: boolean
 ): Promise<void> => {
+  const tuning = resolveBackfillTuning(scope.env);
   const messages = packBackfillQueueMessages(
     listDailyWindows(startDate, endDate),
     {
       delivery: "queue",
       force,
-      windowsPerMessage: BACKFILL_QUEUE_WINDOWS_PER_MESSAGE,
+      windowsPerMessage: tuning.queueWindowsPerMessage,
     }
   );
   await sendBackfillMessages(scope, messages);
@@ -116,9 +116,10 @@ const processDailyWindowsDirect = async (
     windowDelivery: BackfillDelivery
   ) => Promise<Awaited<ReturnType<typeof processBackfillMessage>>>
 ): Promise<void> => {
+  const tuning = resolveBackfillTuning(scope.env);
   await mapWithConcurrency(
     listDailyWindows(startDate, endDate),
-    BACKFILL_QUEUE_CONCURRENCY,
+    tuning.queueConcurrency,
     async (window) => {
       await runWindow(window, "direct");
     }
@@ -239,18 +240,15 @@ export const runBackfillWaveDirect = async (
     return;
   }
 
-  await mapWithConcurrency(
-    windows,
-    BACKFILL_QUEUE_CONCURRENCY,
-    async (window) => {
-      await processBackfillMessage(scope, {
-        delivery: "direct",
-        endDate: window.endDate,
-        force,
-        startDate: window.startDate,
-      });
-    }
-  );
+  const tuning = resolveBackfillTuning(scope.env);
+  await mapWithConcurrency(windows, tuning.queueConcurrency, async (window) => {
+    await processBackfillMessage(scope, {
+      delivery: "direct",
+      endDate: window.endDate,
+      force,
+      startDate: window.startDate,
+    });
+  });
   await flushBackfillDerivedStateSafely(scope.env);
 };
 
@@ -271,6 +269,7 @@ export const startBackfill = async (
 }> => {
   assertParkingStoreWritable(scope);
   const delivery = options?.delivery ?? "queue";
+  const tuning = resolveBackfillTuning(scope.env);
   const today = formatDateInAuckland(new Date());
   const start = options?.start ?? BACKFILL_EARLIEST;
   const end = options?.end ?? today;
@@ -280,7 +279,7 @@ export const startBackfill = async (
 
   const pending =
     options?.force === true ? chunks : await store.filterPendingChunks(chunks);
-  const wave = pending.slice(0, maxWindowsPerWave(delivery));
+  const wave = pending.slice(0, maxWindowsPerWave(scope.env, delivery));
   const lastProcessed = wave.at(-1);
   const backfillWindows = toBackfillWindows(wave);
   let queueMessages = 0;
@@ -291,7 +290,7 @@ export const startBackfill = async (
     const packedMessages = packBackfillQueueMessages(backfillWindows, {
       delivery: "queue",
       force: options?.force,
-      windowsPerMessage: BACKFILL_QUEUE_WINDOWS_PER_MESSAGE,
+      windowsPerMessage: tuning.queueWindowsPerMessage,
     });
     queueMessages = packedMessages.length;
     await sendBackfillMessages(scope, packedMessages);

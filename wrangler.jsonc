@@ -28,9 +28,9 @@
     "consumers": [
       {
         "queue": "hcc-backfill",
-        "max_batch_size": 16,
-        "max_batch_timeout": 1,
-        "max_concurrency": 2,
+        "max_batch_size": 4,
+        "max_batch_timeout": 5,
+        "max_concurrency": 1,
       },
     ],
   },
@@ -54,7 +54,8 @@
   },
   "vars": {
     "HCC_API_BASE": "https://api.hcc.govt.nz/OpenData",
-    "PARKING_STORE_READ_SOURCE": "durable_object",
+    "PARKING_STORE_READ_SOURCE": "seed", // seed | durable_object
+    "FREE_TIER_MODE": "true",
     "PARKING_STORE_SEED_PREFIX": "parking-store/v1/",
     "PARKING_SEED_BUCKET": "hcc-parking-infringement-seed",
     "R2_ACCOUNT_ID": "402722ab1f598e783cd6dcdedc37e1d0",

@@ -5,8 +5,8 @@ import {
 import type { FullDashboardMessage } from "@/contracts/public-api";
 import { nowInAucklandIso } from "@/lib/auckland-time";
 
-const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v6";
-const DASHBOARD_SNAPSHOT_CACHE_VERSION = 6;
+const DASHBOARD_SNAPSHOT_CACHE_KEY = "hcc-dashboard-snapshot:v7";
+const DASHBOARD_SNAPSHOT_CACHE_VERSION = 7;
 const DASHBOARD_SNAPSHOT_DB_NAME = "hcc-dashboard";
 const DASHBOARD_SNAPSHOT_DB_STORE = "snapshots";
 

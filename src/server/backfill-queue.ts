@@ -1,6 +1,6 @@
 import type { BackfillMessage, LegacyBackfillMessage } from "@/backfill.ts";
 import { expandBackfillMessage } from "@/backfill.ts";
-import { BACKFILL_QUEUE_CONCURRENCY } from "@/lib/backfill-constants.ts";
+import { resolveBackfillTuning } from "@/lib/free-tier-limits.ts";
 import { mapWithConcurrency } from "@/lib/map-with-concurrency.ts";
 import { isRetryableError } from "@/lib/transient-error.ts";
 import type { AppScope } from "@/server/app-scope.ts";
@@ -112,11 +112,12 @@ const handleBackfillQueueMessage = async (
   scope: AppScope
 ): Promise<BackfillMessageOutcome[]> => {
   const windows = expandBackfillMessage(message.body);
+  const tuning = resolveBackfillTuning(scope.env);
 
   try {
     const outcomes = await mapWithConcurrency(
       windows,
-      BACKFILL_QUEUE_CONCURRENCY,
+      tuning.queueConcurrency,
       async (window) => {
         const outcome = await processBackfillMessage(scope, {
           delivery: "queue",
@@ -227,10 +228,11 @@ export const processBackfillQueueBatch = async (
   }
 
   const scope = createAppScope(env);
+  const tuning = resolveBackfillTuning(env);
 
   const nestedOutcomes = await mapWithConcurrency(
     messages,
-    BACKFILL_QUEUE_CONCURRENCY,
+    tuning.queueConcurrency,
     async (message) => await handleBackfillQueueMessage(message, scope)
   );
   const outcomes = nestedOutcomes.flat();

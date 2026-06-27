@@ -7,9 +7,9 @@ API_KEY=replace-with-a-long-random-string
 # Optional: allows POST /api/v1/sync without API_KEY
 CRON_SECRET=replace-with-another-random-string
 
-# Used by `bun run backfill` / `bun run sync` when targeting local dev
-# Vite (`bun run dev`):           http://localhost:5173
-# Wrangler (`bun run dev:wrangler`): http://localhost:8787
+# Used by `bun run backfill` / `bun run sync` / `check-data`
+# Production: https://hcc-parking-infringement.<subdomain>.workers.dev
+# Local Vite: http://localhost:5173  |  Wrangler: http://localhost:8787
 WORKER_URL=http://localhost:8787
 
 # Seed reads from R2 via S3 API when PARKING_STORE_READ_SOURCE=seed and no PARKING_SEED binding.

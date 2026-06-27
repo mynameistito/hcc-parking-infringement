@@ -30,14 +30,9 @@ import type {
 } from "@/durable-objects/types.ts";
 import { nowInAucklandIso } from "@/lib/auckland-time.ts";
 import {
-  buildChartBreakdownFromInfringements,
-  chartBreakdownsFullyPopulated,
-  mergeChartBreakdowns,
-  mergeChartStreetItems,
   resolveChartBreakdowns,
   resolveChartStreetItems,
 } from "@/lib/chart-breakdowns.ts";
-import type { InfringementChartRecord } from "@/lib/chart-breakdowns.ts";
 import { migrateOptionalSyncInstant } from "@/lib/migrate-instant-to-auckland.ts";
 import type { CleanInfringement } from "@/server/clean-schema.ts";
 import { readSeedManifest } from "@/server/seed-import.ts";
@@ -50,22 +45,11 @@ import {
 } from "@/server/seed-manifest.ts";
 import { readSeedObjectText } from "@/server/seed-r2-client.ts";
 
-import type { HistoricalChartCache, SeedReadCache } from "./seed-cache.ts";
+import type { SeedReadCache } from "./seed-cache.ts";
 import { emptyBrowseResult } from "./types.ts";
 import type { ParkingStoreReader } from "./types.ts";
 
 export { DASHBOARD_SNAPSHOT_FILE } from "@/server/seed-manifest.ts";
-
-const toChartRecord = (record: CleanInfringement): InfringementChartRecord => ({
-  isTowed: record.isTowed,
-  offenceCategory: record.offenceCategory,
-  offenceCode: record.offenceCode,
-  offenceDescription: record.offenceDescription,
-  street: record.street,
-  suburb: record.suburb,
-  vehicleMake: record.vehicleMake,
-  vehicleType: record.vehicleType,
-});
 
 const toInfringementRow = (
   record: CleanInfringement,
@@ -172,6 +156,23 @@ const matchesInfringementFilters = (
   return true;
 };
 
+const enrichSeedDashboardPayload = (raw: string): string => {
+  const message = parseRawFullDashboardMessageJson(raw);
+  if (message === null) {
+    return raw;
+  }
+
+  const chartBreakdowns = resolveChartBreakdowns(message);
+  const streetItems = resolveChartStreetItems(message);
+
+  return JSON.stringify({
+    ...message,
+    chartBreakdowns,
+    topOffences: chartBreakdowns.offences,
+    topStreets: streetItems,
+  });
+};
+
 export class SeedParkingStoreReader implements ParkingStoreReader {
   readonly source = "seed" as const;
   readonly isSeedMode = true;
@@ -200,67 +201,6 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     );
   }
 
-  private async collectHistoricalChartRecords(): Promise<
-    InfringementChartRecord[]
-  > {
-    const collectPage = async (
-      after: number,
-      records: InfringementChartRecord[]
-    ): Promise<InfringementChartRecord[]> => {
-      const page = await this.exportInfringements(after, 5000);
-      const nextRecords = [
-        ...records,
-        ...page.records.map((record) => toChartRecord(record)),
-      ];
-      if (page.nextCursor === null) {
-        return nextRecords;
-      }
-      return await collectPage(page.nextCursor, nextRecords);
-    };
-
-    return await collectPage(0, []);
-  }
-
-  private async scanHistoricalChartData(): Promise<HistoricalChartCache> {
-    if (this.cache.historicalCharts !== null) {
-      return this.cache.historicalCharts;
-    }
-
-    const records = await this.collectHistoricalChartRecords();
-    const computed = buildChartBreakdownFromInfringements(records);
-    this.cache.historicalCharts = computed;
-    return computed;
-  }
-
-  private async enrichSeedDashboardPayload(raw: string): Promise<string> {
-    const message = parseRawFullDashboardMessageJson(raw);
-    if (message === null) {
-      return raw;
-    }
-
-    let chartBreakdowns = resolveChartBreakdowns(message);
-    let streetItems = resolveChartStreetItems(message);
-
-    if (
-      message.live.allTimeTotal > 0 &&
-      !chartBreakdownsFullyPopulated(message.chartBreakdowns)
-    ) {
-      const historical = await this.scanHistoricalChartData();
-      chartBreakdowns = mergeChartBreakdowns(
-        chartBreakdowns,
-        historical.breakdowns
-      );
-      streetItems = mergeChartStreetItems(streetItems, historical.streets);
-    }
-
-    return JSON.stringify({
-      ...message,
-      chartBreakdowns,
-      topOffences: chartBreakdowns.offences,
-      topStreets: streetItems,
-    });
-  }
-
   async readDashboardSnapshotPayload(): Promise<string> {
     const { manifest, prefix } = await this.loadManifestContext();
     const snapshotKey =
@@ -280,7 +220,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
       const syncedAt =
         migrateOptionalSyncInstant(seedManifest.exportedAt) ??
         nowInAucklandIso();
-      return await this.enrichSeedDashboardPayload(
+      return enrichSeedDashboardPayload(
         JSON.stringify({
           at: syncedAt,
           dailyTrend: [],
@@ -320,7 +260,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     }
 
     this.cache.snapshotKey = objectKey;
-    this.cache.snapshotPayload = await this.enrichSeedDashboardPayload(raw);
+    this.cache.snapshotPayload = enrichSeedDashboardPayload(raw);
     return this.cache.snapshotPayload;
   }
 
