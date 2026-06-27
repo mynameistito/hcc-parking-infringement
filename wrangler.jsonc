@@ -3,6 +3,13 @@
   "name": "hcc-parking-infringement",
   "main": "src/worker.ts",
   "compatibility_date": "2026-06-25",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "hcc-parking-infringement.mynameistito.com",
+      "custom_domain": true,
+    },
+  ],
   "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
     "bindings": [

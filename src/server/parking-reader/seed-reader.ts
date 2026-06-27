@@ -538,8 +538,13 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
     if (!hasInfringementFilters(query) && query.page === 1) {
       const snapshot = await this.readDashboardSnapshot();
-      if (snapshot !== null && snapshot.recentInfringements.length > 0) {
-        const rows = snapshot.recentInfringements
+      const snapshotRows = snapshot?.recentInfringements ?? [];
+      if (
+        snapshot !== null &&
+        snapshotRows.length > 0 &&
+        query.limit <= snapshotRows.length
+      ) {
+        const rows = snapshotRows
           .slice(0, query.limit)
           .map((record) =>
             toInfringementRowFromPublic(record, manifest.exportedAt)

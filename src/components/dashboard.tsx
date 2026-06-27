@@ -7,12 +7,10 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState } from "react";
 
 import { DailyTrendPanel } from "@/components/daily-trend-panel";
-import { MapAreaSkeleton } from "@/components/data-skeletons";
 import { DistributionCharts } from "@/components/distribution-charts";
-import { ExplorePanel } from "@/components/explore-panel";
 import { LatestInstances } from "@/components/latest-instances";
 import { LiveTicker } from "@/components/live-ticker";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -22,20 +20,12 @@ import type {
   ChartBreakdowns,
   DailyStatPoint,
   PublicLiveStats,
-  LocationRankItem,
-  MapRouteItem,
   PublicInfringement,
   TopItem,
-  VehicleRankItem,
 } from "@/contracts/public-api";
 import { EMPTY_CHART_BREAKDOWNS } from "@/contracts/public-api";
 import { parseAucklandInstant } from "@/lib/auckland-time";
 import type { PaceTrends } from "@/lib/trend-window";
-
-const LocationMap = lazy(async () => {
-  const module = await import("@/components/location-map");
-  return { default: module.LocationMap };
-});
 
 export type DashboardConnectionStatus = "live" | "cached" | "connecting";
 export type DashboardDataStatus = "loading" | "ready" | "updating";
@@ -46,12 +36,8 @@ interface DashboardProps {
   paceTrends?: PaceTrends;
   chartBreakdowns?: ChartBreakdowns;
   streets: TopItem[];
-  topStreets: LocationRankItem[];
-  topSuburbs: LocationRankItem[];
-  topVehicles: VehicleRankItem[];
   recentInfringements: PublicInfringement[];
-  mapRoutes: MapRouteItem[];
-  pendingGeocode: number;
+  recentInfringementsTotal?: number;
   connectionStatus?: DashboardConnectionStatus;
   dataStatus?: DashboardDataStatus;
   error?: string | null;
@@ -187,12 +173,8 @@ export const Dashboard = ({
   paceTrends,
   chartBreakdowns = EMPTY_CHART_BREAKDOWNS,
   streets,
-  topStreets,
-  topSuburbs,
-  topVehicles,
   recentInfringements,
-  mapRoutes,
-  pendingGeocode,
+  recentInfringementsTotal,
   connectionStatus = "connecting",
   dataStatus = "loading",
   error,
@@ -210,7 +192,7 @@ export const Dashboard = ({
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
               Live infringement totals, hotspot streets, vehicle trends, and
-              ticket geography for Hamilton, New Zealand.
+              ticket activity for Hamilton, New Zealand.
             </p>
           </div>
 
@@ -240,48 +222,31 @@ export const Dashboard = ({
         </Alert>
       ) : null}
 
-      <main className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
-        <div className="grid min-w-0 gap-6">
-          <LiveTicker
-            stats={live}
-            dailyTrend={dailyTrend}
-            paceTrends={paceTrends}
-            isLoading={dataStatus === "loading"}
-          />
-          <DailyTrendPanel
-            dailyTrend={dailyTrend}
-            isLoading={dataStatus === "loading"}
-          />
-          <DistributionCharts
-            breakdowns={chartBreakdowns}
-            streets={streets}
-            isLoading={dataStatus === "loading"}
-          />
-          <LatestInstances
-            recentInfringements={recentInfringements}
-            isLoading={dataStatus === "loading"}
-          />
-          <ExplorePanel
-            suburbs={topSuburbs}
-            streets={topStreets}
-            vehicles={topVehicles}
-            isLoading={dataStatus === "loading"}
-          />
-        </div>
-        <section className="min-w-0 lg:sticky lg:top-6 lg:self-start">
-          <Suspense fallback={<MapAreaSkeleton />}>
-            <LocationMap
-              routes={mapRoutes}
-              pendingGeocode={pendingGeocode}
-              isLoading={dataStatus === "loading"}
-            />
-          </Suspense>
-        </section>
+      <main className="grid min-w-0 gap-6">
+        <LiveTicker
+          stats={live}
+          dailyTrend={dailyTrend}
+          paceTrends={paceTrends}
+          isLoading={dataStatus === "loading"}
+        />
+        <DailyTrendPanel
+          dailyTrend={dailyTrend}
+          isLoading={dataStatus === "loading"}
+        />
+        <DistributionCharts
+          breakdowns={chartBreakdowns}
+          streets={streets}
+          isLoading={dataStatus === "loading"}
+        />
+        <LatestInstances
+          recentInfringements={recentInfringements}
+          total={recentInfringementsTotal}
+          isLoading={dataStatus === "loading"}
+        />
       </main>
 
-      <footer className="mt-8 flex flex-col gap-2 border-t border-border pt-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <footer className="mt-8 border-t border-border pt-5 text-xs text-muted-foreground">
         <span>Data source: Hamilton City Council Open Data API</span>
-        <span>Map: OpenStreetMap / Overpass (Hamilton)</span>
       </footer>
     </div>
   </div>

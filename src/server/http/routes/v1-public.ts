@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 
 import { toPublicInfringementList } from "@/contracts/projections.ts";
-import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants.ts";
+import {
+  INFRINGEMENTS_DEFAULT_PAGE_SIZE,
+  INFRINGEMENTS_MAX_PAGE_SIZE,
+} from "@/lib/dashboard-constants.ts";
 import { getTopVehicles } from "@/server/explore.ts";
 import { geocodeMissingLocations } from "@/server/geocode.ts";
 import { parsePositiveInt } from "@/server/http/query.ts";
@@ -50,13 +53,14 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
   });
 
   routes.get("/infringements/recent", async (c) => {
+    const page = parsePositiveInt(c.req.query("page"), 1);
     const limit = Math.min(
-      parsePositiveInt(c.req.query("limit"), RECENT_INFRINGEMENTS_LIMIT),
-      RECENT_INFRINGEMENTS_LIMIT
+      parsePositiveInt(c.req.query("limit"), INFRINGEMENTS_DEFAULT_PAGE_SIZE),
+      INFRINGEMENTS_MAX_PAGE_SIZE
     );
     const result = await listInfringements(c.var.scope, {
       limit,
-      page: 1,
+      page,
     });
     return storedJson(c, {
       meta: { source: "stored" },

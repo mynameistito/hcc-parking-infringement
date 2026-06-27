@@ -6,13 +6,17 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import type { Column, SortingState } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { fetchRecentInfringements } from "@/client/api";
 import { TableRowsSkeleton } from "@/components/data-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { PublicInfringement } from "@/contracts/public-api";
+import {
+  INFRINGEMENTS_DEFAULT_PAGE_SIZE,
+} from "@/lib/dashboard-constants";
 import {
   formatOccurrenceInstantShort,
   formatStreetSuburb,
@@ -24,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 interface LatestInstancesProps {
   recentInfringements: PublicInfringement[];
+  total?: number;
   isLoading?: boolean;
 }
 
@@ -42,6 +47,24 @@ const columnHelper = createColumnHelper<PublicInfringement>();
 
 const sortDescFirst = (columnId: string): boolean =>
   columnId === "occurredAt" || columnId === "fine";
+
+const mergeInfringements = (
+  initial: PublicInfringement[],
+  extra: PublicInfringement[]
+): PublicInfringement[] => {
+  const seen = new Set<number>();
+  const merged: PublicInfringement[] = [];
+
+  for (const row of [...initial, ...extra]) {
+    if (seen.has(row.infringementNumber)) {
+      continue;
+    }
+    seen.add(row.infringementNumber);
+    merged.push(row);
+  }
+
+  return merged;
+};
 
 const SortDirectionIcon = ({ sorted }: { sorted: false | "asc" | "desc" }) => {
   if (sorted === "asc") {
@@ -192,15 +215,103 @@ const formatSortSummary = (sorting: SortingState): string => {
   return active.desc ? `${label} Z–A` : `${label} A–Z`;
 };
 
+const getNextInfringementsPage = (loadedCount: number): number =>
+  loadedCount < INFRINGEMENTS_DEFAULT_PAGE_SIZE
+    ? 1
+    : Math.floor(loadedCount / INFRINGEMENTS_DEFAULT_PAGE_SIZE) + 1;
+
 export const LatestInstances = ({
   recentInfringements,
+  total,
   isLoading,
 }: LatestInstancesProps) => {
   const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING);
+  const [extraRows, setExtraRows] = useState<PublicInfringement[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const initialSignatureRef = useRef("");
+
+  const totalCount = total ?? recentInfringements.length;
+  const rows = useMemo(
+    () => mergeInfringements(recentInfringements, extraRows),
+    [extraRows, recentInfringements]
+  );
+  const hasMore = rows.length < totalCount;
+
+  useEffect(() => {
+    const signature = recentInfringements
+      .map((row) => row.infringementNumber)
+      .join(",");
+    if (signature === initialSignatureRef.current) {
+      return;
+    }
+    initialSignatureRef.current = signature;
+    setExtraRows([]);
+  }, [recentInfringements]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+    try {
+      const nextPage = getNextInfringementsPage(rows.length);
+      const result = await fetchRecentInfringements({
+        limit: INFRINGEMENTS_DEFAULT_PAGE_SIZE,
+        page: nextPage,
+      });
+      if (result.data.length === 0) {
+        return;
+      }
+      setExtraRows((current) => [...current, ...result.data]);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, rows.length]);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (
+      root === null ||
+      isLoading === true ||
+      loadingMore ||
+      !hasMore
+    ) {
+      return;
+    }
+
+    if (root.scrollHeight <= root.clientHeight + 8) {
+      void loadMore();
+    }
+  }, [hasMore, isLoading, loadMore, loadingMore, rows.length]);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = sentinelRef.current;
+    if (root === null || sentinel === null || !hasMore || isLoading === true) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { root, rootMargin: "240px" }
+    );
+
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, isLoading, loadMore]);
 
   const table = useReactTable({
     columns,
-    data: recentInfringements,
+    data: rows,
     enableSortingRemoval: false,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -209,16 +320,22 @@ export const LatestInstances = ({
   });
 
   const rowCountLabel = useMemo(() => {
-    if (recentInfringements.length === 0) {
+    if (rows.length === 0) {
       return "No rows yet";
     }
-    return `${numberFmt.format(recentInfringements.length)} shown`;
-  }, [recentInfringements.length]);
+    if (totalCount > rows.length) {
+      return `${numberFmt.format(rows.length)} of ${numberFmt.format(totalCount)} loaded`;
+    }
+    return `${numberFmt.format(rows.length)} shown`;
+  }, [rows.length, totalCount]);
 
   const sortSummary = useMemo(() => formatSortSummary(sorting), [sorting]);
 
   return (
-    <Card className="bg-card" aria-label="Latest parking infringements">
+    <Card
+      className="overflow-visible bg-card"
+      aria-label="Latest parking infringements"
+    >
       <CardContent className="p-4 sm:p-5 lg:p-6">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-primary">
@@ -228,7 +345,10 @@ export const LatestInstances = ({
             {sortSummary} · {rowCountLabel}
           </span>
         </div>
-        <div className="max-h-[min(28rem,60vh)] overflow-auto rounded-[6px] border border-border">
+        <div
+          ref={scrollRef}
+          className="h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border border-border"
+        >
           <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
             <colgroup>
               <col className="w-[7.5rem]" />
@@ -297,6 +417,24 @@ export const LatestInstances = ({
               </tbody>
             )}
           </table>
+          {hasMore ? (
+            <div
+              ref={sentinelRef}
+              className="flex items-center justify-center gap-2 border-t border-border/70 px-3 py-3 text-xs text-muted-foreground"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2
+                    className="size-3.5 animate-spin"
+                    aria-hidden="true"
+                  />
+                  Loading more tickets...
+                </>
+              ) : (
+                "Scroll for more tickets"
+              )}
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>

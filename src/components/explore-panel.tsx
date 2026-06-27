@@ -183,8 +183,7 @@ const Inspector = ({
       </div>
 
       <p className="mt-4 text-sm leading-6 text-muted-foreground">
-        This item is pinned for comparison while you scan the ranking table and
-        hotspot map.
+        This item is pinned for comparison while you scan the ranking table.
       </p>
     </aside>
   );

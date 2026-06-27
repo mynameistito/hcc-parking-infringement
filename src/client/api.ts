@@ -25,7 +25,10 @@ import type {
   TopStatsResponse,
   VehicleRankItem,
 } from "@/contracts/public-api";
-import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants";
+import {
+  INFRINGEMENTS_DEFAULT_PAGE_SIZE,
+  INFRINGEMENTS_MAX_PAGE_SIZE,
+} from "@/lib/dashboard-constants";
 
 export type {
   BrowseParams,
@@ -122,11 +125,23 @@ export const fetchTopVehicles = async (
   );
 
 export const fetchRecentInfringements = async (
-  limit = RECENT_INFRINGEMENTS_LIMIT
-): Promise<InfringementListResponse> =>
-  infringementListResponseSchema.parse(
-    await fetchJson(`/api/v1/infringements/recent?limit=${limit}`)
+  params: { limit?: number; page?: number } = {}
+): Promise<InfringementListResponse> => {
+  const search = new URLSearchParams();
+  search.set("page", String(params.page ?? 1));
+  search.set(
+    "limit",
+    String(
+      Math.min(
+        params.limit ?? INFRINGEMENTS_DEFAULT_PAGE_SIZE,
+        INFRINGEMENTS_MAX_PAGE_SIZE
+      )
+    )
   );
+  return infringementListResponseSchema.parse(
+    await fetchJson(`/api/v1/infringements/recent?${search}`)
+  );
+};
 
 const buildBrowseParams = (params: BrowseParams): URLSearchParams => {
   const search = new URLSearchParams();

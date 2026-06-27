@@ -13,10 +13,7 @@ import type {
   DailyStatPoint,
   InfringementListResponse,
   PublicLiveStats,
-  LocationRankItem,
-  MapResponse,
   TopStatsResponse,
-  VehicleRankItem,
 } from "@/contracts/public-api";
 import type { PaceTrends } from "@/lib/trend-window";
 
@@ -97,26 +94,6 @@ export const App = () => {
     "top",
     "street",
   ]);
-  const { data: topStreetsData } = useDashboardCache<LocationRankItem[]>([
-    "public",
-    "locations",
-    "streets",
-  ]);
-  const { data: topSuburbsData } = useDashboardCache<LocationRankItem[]>([
-    "public",
-    "locations",
-    "suburbs",
-  ]);
-  const { data: topVehiclesData } = useDashboardCache<VehicleRankItem[]>([
-    "public",
-    "vehicles",
-    "top",
-  ]);
-  const { data: mapData } = useDashboardCache<MapResponse>([
-    "public",
-    "locations",
-    "map",
-  ]);
   const { data: recentData } = useDashboardCache<InfringementListResponse>([
     "public",
     "infringements",
@@ -138,12 +115,8 @@ export const App = () => {
       paceTrends={paceTrendsData}
       chartBreakdowns={chartBreakdownsData ?? EMPTY_CHART_BREAKDOWNS}
       streets={streetsData?.items ?? []}
-      topStreets={topStreetsData ?? []}
-      topSuburbs={topSuburbsData ?? []}
-      topVehicles={topVehiclesData ?? []}
       recentInfringements={recentData?.data ?? []}
-      mapRoutes={mapData?.routes ?? []}
-      pendingGeocode={mapData?.pendingGeocode ?? 0}
+      recentInfringementsTotal={recentData?.total}
       connectionStatus={connectionStatus}
       dataStatus={dataStatus}
       error={null}

@@ -86,7 +86,7 @@ The `ParkingStore` SQLite schema is created automatically on first DO invocation
 
 ```powershell
 $env:API_KEY = "your-production-key"
-$env:WORKER_URL = "https://hcc-parking-infringement.<subdomain>.workers.dev"
+$env:WORKER_URL = "https://hcc-parking-infringement.mynameistito.com"
 bun run backfill
 ```
 
@@ -104,7 +104,7 @@ To load a historical export into `ParkingStore`:
 
 ```powershell
 $env:API_KEY = "your-production-key"
-$env:WORKER_URL = "https://hcc-parking-infringement.<subdomain>.workers.dev"
+$env:WORKER_URL = "https://hcc-parking-infringement.mynameistito.com"
 bun run import:csv -- --file=C:\Users\mynameistito\Downloads\Infringement.csv
 ```
 
