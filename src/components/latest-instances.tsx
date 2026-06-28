@@ -13,6 +13,7 @@ import { fetchRecentInfringements } from "@/client/api";
 import { TableRowsSkeleton } from "@/components/data-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { PublicInfringement } from "@/contracts/public-api";
 import { INFRINGEMENTS_DEFAULT_PAGE_SIZE } from "@/lib/dashboard-constants";
 import {
@@ -213,6 +214,69 @@ const formatSortSummary = (sorting: SortingState): string => {
   return active.desc ? `${label} Z–A` : `${label} A–Z`;
 };
 
+const MobileRowsSkeleton = () => (
+  <div className="grid gap-2 md:hidden" aria-label="Loading ticket cards">
+    {Array.from({ length: 4 }, (_, index) => (
+      <div
+        className="rounded-[6px] border border-border bg-background p-3"
+        key={index}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-full max-w-[13rem]" />
+            <Skeleton className="h-3 w-full max-w-[9rem]" />
+          </div>
+          <Skeleton className="h-4 w-14" />
+        </div>
+        <Skeleton className="mt-3 h-3 w-full" />
+      </div>
+    ))}
+  </div>
+);
+
+const MobileInfringementCard = ({
+  infringement,
+}: {
+  infringement: PublicInfringement;
+}) => {
+  const location = formatStreetSuburb(
+    infringement.street,
+    infringement.suburb ?? undefined
+  );
+
+  return (
+    <article className="rounded-[6px] border border-border bg-background p-3 text-xs">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <time
+            className="font-mono text-muted-foreground tabular-nums"
+            dateTime={infringement.occurredAt}
+          >
+            {formatOccurrenceInstantShort(infringement.occurredAt)}
+          </time>
+          <p className="mt-1 break-words font-medium text-foreground">
+            {location.length > 0 ? location : EMPTY_CELL}
+          </p>
+        </div>
+        <strong className="shrink-0 font-mono font-semibold text-foreground tabular-nums">
+          {moneyFmt.format(infringement.amountCents / 100)}
+        </strong>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-muted-foreground">
+        <span>{formatVehicle(infringement)}</span>
+        {infringement.isTowed ? (
+          <Badge variant="destructive" className="text-[0.6rem]">
+            Towed
+          </Badge>
+        ) : null}
+      </div>
+      <p className="mt-2 break-words leading-snug text-muted-foreground">
+        {infringement.offenceDescription}
+      </p>
+    </article>
+  );
+};
+
 const getNextInfringementsPage = (loadedCount: number): number =>
   loadedCount < INFRINGEMENTS_DEFAULT_PAGE_SIZE
     ? 1
@@ -275,6 +339,10 @@ export const LatestInstances = ({
       return;
     }
 
+    if (root.getClientRects().length === 0) {
+      return;
+    }
+
     if (root.scrollHeight <= root.clientHeight + 8) {
       void loadMore();
     }
@@ -285,7 +353,13 @@ export const LatestInstances = ({
     const sentinel = sentinelRef.current;
     let observer: IntersectionObserver | undefined;
 
-    if (root !== null && sentinel !== null && hasMore && isLoading !== true) {
+    if (
+      root !== null &&
+      sentinel !== null &&
+      hasMore &&
+      isLoading !== true &&
+      root.getClientRects().length > 0
+    ) {
       observer = new IntersectionObserver(
         (entries) => {
           if (entries[0]?.isIntersecting) {
@@ -326,21 +400,55 @@ export const LatestInstances = ({
 
   return (
     <Card
-      className="overflow-visible bg-card"
+      className="min-w-0 overflow-visible bg-card"
       aria-label="Latest parking infringements"
     >
       <CardContent className="p-4 sm:p-5 lg:p-6">
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-start justify-between gap-3 sm:items-center">
           <h2 className="text-sm font-semibold text-primary">
             Latest Instances
           </h2>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-right text-xs text-muted-foreground">
             {sortSummary} · {rowCountLabel}
           </span>
         </div>
+
+        {isLoading === true ? (
+          <MobileRowsSkeleton />
+        ) : (
+          <div className="grid gap-2 md:hidden">
+            {table.getRowModel().rows.length === 0 ? (
+              <div className="rounded-[6px] border border-border bg-background px-3 py-6 text-center text-xs text-muted-foreground">
+                Waiting for infringement rows...
+              </div>
+            ) : (
+              table
+                .getRowModel()
+                .rows.map((row) => (
+                  <MobileInfringementCard
+                    infringement={row.original}
+                    key={row.original.infringementNumber}
+                  />
+                ))
+            )}
+            {hasMore ? (
+              <button
+                className="inline-flex min-h-10 items-center justify-center rounded-[6px] border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={loadingMore}
+                onClick={() => {
+                  void loadMore();
+                }}
+                type="button"
+              >
+                {loadingMore ? "Loading more tickets..." : "Load more tickets"}
+              </button>
+            ) : null}
+          </div>
+        )}
+
         <div
           ref={scrollRef}
-          className="h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border border-border"
+          className="hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border border-border md:block"
         >
           <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
             <colgroup>
