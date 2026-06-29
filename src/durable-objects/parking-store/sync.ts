@@ -75,8 +75,8 @@ const UPSERT_ON_CONFLICT = `ON CONFLICT(infringement_number) DO UPDATE SET
   is_towed = excluded.is_towed,
   updated_at = excluded.updated_at`;
 
-/** Rows per INSERT to balance statement size vs. DO SQLite exec overhead. */
-const UPSERT_BATCH_SIZE = 50;
+/** Keep each INSERT under local DO SQLite's bind-variable limit. */
+const UPSERT_BATCH_SIZE = 1;
 
 const infringementToUpsertParams = (
   record: CleanInfringement,

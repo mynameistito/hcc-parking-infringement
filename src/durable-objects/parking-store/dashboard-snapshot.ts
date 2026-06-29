@@ -1,5 +1,3 @@
-import { subDays } from "date-fns";
-
 import {
   dashboardSnapshotIsCompleteJson,
   getDashboardSnapshotPayloadWeightJson,
@@ -16,7 +14,6 @@ import {
   DASHBOARD_EXPLORE_RANK_LIMIT,
 } from "@/lib/dashboard-chart-constants.ts";
 import { RECENT_INFRINGEMENTS_LIMIT } from "@/lib/dashboard-constants.ts";
-import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 
 import { DASHBOARD_SNAPSHOT_CACHE_ID, isoNow } from "./constants.ts";
 import { getDailyStats, listInfringements } from "./infringements.ts";
@@ -44,6 +41,8 @@ const EMPTY_CHART_BREAKDOWNS = {
   vehicleMakes: [],
   vehicleTypes: [],
 };
+
+const FULL_DAILY_TREND_START = "1970-01-01";
 
 export const buildColdDashboardSnapshotPayload = (
   live: PublicLiveStats,
@@ -106,13 +105,12 @@ export const assembleFullDashboardSnapshot = (
   sql: SqlStorage
 ): PublicDashboardSnapshot => {
   const now = new Date();
-  const from = formatDateInAuckland(subDays(now, PACE_DAILY_TREND_DAYS - 1));
   const to = formatDateInAuckland(now);
 
   return {
     at: isoNow(),
     chartBreakdowns: readChartBreakdown(sql),
-    dailyTrend: getDailyStats(sql, from, to),
+    dailyTrend: getDailyStats(sql, FULL_DAILY_TREND_START, to),
     live: readPublicLiveStats(sql),
     map: readMapPoints(sql, 50),
     paceTrends: readPaceTrends(sql),

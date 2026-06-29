@@ -1,5 +1,7 @@
+import { differenceInCalendarDays, parseISO } from "date-fns";
+
 import type { DailyStatPoint } from "@/contracts/public-api";
-import { formatAucklandDateKey } from "@/lib/auckland-time";
+import { formatAucklandDateKey, todayInAuckland } from "@/lib/auckland-time";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
 import {
   dailyTrendCoversDays,
@@ -14,6 +16,26 @@ export const sliceDays = (
   dailyTrend: DailyStatPoint[],
   days: number
 ): DailyStatPoint[] => fillDailySeries(dailyTrend, days).slice(-days);
+
+export const dailyTrendSpanDays = (
+  dailyTrend: DailyStatPoint[],
+  endDate = todayInAuckland()
+): number => {
+  let earliest: string | null = null;
+  for (const point of dailyTrend) {
+    if (earliest === null || point.date < earliest) {
+      earliest = point.date;
+    }
+  }
+  if (earliest === null) {
+    return PACE_DAILY_TREND_DAYS;
+  }
+
+  return Math.max(
+    1,
+    differenceInCalendarDays(parseISO(endDate), parseISO(earliest)) + 1
+  );
+};
 
 export const sumWindow = (dailyTrend: DailyStatPoint[], days: number): number =>
   sliceDays(dailyTrend, days).reduce((sum, point) => sum + point.count, 0);

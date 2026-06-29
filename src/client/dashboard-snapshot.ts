@@ -8,8 +8,6 @@ import {
   resolveChartStreetItems,
 } from "@/lib/chart-breakdowns";
 import { resolveOffenceDescription } from "@/lib/offence-catalog";
-import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
-import { fillDailySeries } from "@/lib/trend";
 
 export type { FullDashboardMessage };
 
@@ -49,7 +47,7 @@ export const applyDashboardSnapshot = (
   queryClient.setQueryData(["public", "chart", "breakdowns"], chartBreakdowns);
   queryClient.setQueryData(
     ["public", "stats", "daily"],
-    fillDailySeries(message.dailyTrend ?? [], PACE_DAILY_TREND_DAYS)
+    message.dailyTrend ?? []
   );
   if (message.paceTrends !== undefined) {
     queryClient.setQueryData(["public", "pace", "trends"], message.paceTrends);
