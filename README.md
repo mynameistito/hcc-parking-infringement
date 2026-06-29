@@ -15,7 +15,9 @@ geocoding.
 
 ## Data Source
 
-The infringement records come from Hamilton City Council open data. This project
+The infringement records come from the [HCC infringement
+dataset](https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about)
+published by Hamilton City Council on Waikato LASS Open Data. This project
 does not proxy dashboard traffic directly to HCC; data is fetched by scheduled or
 manual sync jobs, normalized, stored, and served from the app cache.
 
@@ -122,5 +124,6 @@ later. See [`LICENSE`](./LICENSE).
 
 Copyright (C) 2026 mynameistito.
 
-Parking infringement data is provided by Hamilton City Council under [CC BY
-4.0](https://creativecommons.org/licenses/by/4.0/).
+Parking infringement data is provided by Hamilton City Council via the [HCC
+infringement dataset](https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about),
+licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

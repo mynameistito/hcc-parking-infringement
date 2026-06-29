@@ -250,11 +250,11 @@ export const Dashboard = ({
           Parking infringement data from{" "}
           <a
             className="underline underline-offset-2 hover:text-foreground"
-            href="https://api.hcc.govt.nz/OpenData"
+            href="https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about"
             rel="noopener noreferrer"
             target="_blank"
           >
-            Hamilton City Council Open Data
+            HCC infringement dataset
           </a>
           , licensed under{" "}
           <a
