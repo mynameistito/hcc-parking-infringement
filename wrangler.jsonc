@@ -9,6 +9,10 @@
       "pattern": "hcc-parking-infringement.mynameistito.com",
       "custom_domain": true,
     },
+    {
+      "pattern": "hcc-parking-infringement.honetito.com",
+      "custom_domain": true,
+    },
   ],
   "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
