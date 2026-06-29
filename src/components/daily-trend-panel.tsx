@@ -26,9 +26,10 @@ const TrendChart = lazy(async () => {
   return { default: module.TrendChart };
 });
 
-type TrendWindow = "30" | "90" | "365" | "all";
+type TrendWindow = "7" | "30" | "90" | "365" | "all";
 
 const WINDOW_DAYS: Record<TrendWindow, number> = {
+  "7": 7,
   "30": 30,
   "365": 365,
   "90": 90,
@@ -36,6 +37,7 @@ const WINDOW_DAYS: Record<TrendWindow, number> = {
 };
 
 const WINDOW_LABELS: Record<TrendWindow, string> = {
+  "7": "7 days",
   "30": "30 days",
   "365": "12 months",
   "90": "90 days",
@@ -43,7 +45,11 @@ const WINDOW_LABELS: Record<TrendWindow, string> = {
 };
 
 const isTrendWindow = (value: string): value is TrendWindow =>
-  value === "30" || value === "90" || value === "365" || value === "all";
+  value === "7" ||
+  value === "30" ||
+  value === "90" ||
+  value === "365" ||
+  value === "all";
 
 const isTrendMetric = (value: string): value is TrendMetric =>
   value === "count" || value === "totalCents";
@@ -57,6 +63,9 @@ const maxLabelsForWindow = (window: TrendWindow): number => {
   }
   if (window === "90") {
     return 6;
+  }
+  if (window === "7") {
+    return 7;
   }
   return 7;
 };
@@ -175,6 +184,9 @@ export const DailyTrendPanel = ({
               }}
             >
               <TabsList className="h-8">
+                <TabsTrigger value="7" className="px-2.5 text-xs">
+                  7D
+                </TabsTrigger>
                 <TabsTrigger value="30" className="px-2.5 text-xs">
                   30D
                 </TabsTrigger>
