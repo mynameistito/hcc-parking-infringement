@@ -246,7 +246,27 @@ export const Dashboard = ({
       </main>
 
       <footer className="mt-8 border-t border-border pt-5 text-xs text-muted-foreground">
-        <span>Data source: Hamilton City Council Open Data API</span>
+        <p>
+          Parking infringement data from{" "}
+          <a
+            className="underline underline-offset-2 hover:text-foreground"
+            href="https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            HCC infringement dataset
+          </a>
+          , licensed under{" "}
+          <a
+            className="underline underline-offset-2 hover:text-foreground"
+            href="https://creativecommons.org/licenses/by/4.0/"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            CC BY 4.0
+          </a>
+          .
+        </p>
       </footer>
     </div>
   </div>
