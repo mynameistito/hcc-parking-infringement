@@ -111,6 +111,12 @@ Before making the repository public:
 
 At the time this README was updated, `.dev.vars` was ignored and not tracked.
 
+## Disclaimer
+
+This is an independent project and is not affiliated with, endorsed by, sponsored by, or officially associated with Hamilton City Council.
+
+The information displayed is based on publicly available data and is provided for convenience and informational purposes only.
+
 ## License
 
 Code is licensed under the GNU Affero General Public License v3.0 or later. See
