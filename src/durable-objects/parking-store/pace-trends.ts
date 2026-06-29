@@ -2,6 +2,7 @@ import { parseISO, subDays } from "date-fns";
 
 import type { PublicPaceTrends } from "@/durable-objects/types.ts";
 import { dateBounds, formatDateInAuckland } from "@/lib/auckland-time.ts";
+import { rollingCalendarWindowStart } from "@/lib/rolling-window.ts";
 import { toTrendResult } from "@/lib/trend.ts";
 import type { TrendResult } from "@/lib/trend.ts";
 
@@ -14,7 +15,7 @@ export const computePaceTrend = (
   const now = new Date();
   const today = formatDateInAuckland(now);
   const todayWindow = dateBounds(today);
-  const currentStart = formatDateInAuckland(subDays(now, days));
+  const currentStart = rollingCalendarWindowStart(now, days);
   const current = aggregateWindow(
     sql,
     dateBounds(currentStart).start,

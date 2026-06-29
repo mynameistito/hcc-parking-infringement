@@ -13,7 +13,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { DailyStatPoint } from "@/contracts/public-api";
 import { moneyFmt, numberFmt } from "@/lib/format";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
-import { buildTrendWindowChart, sumTrendWindow } from "@/lib/trend-window";
+import {
+  buildTrendWindowChart,
+  dailyTrendSpanDays,
+  sumTrendWindow,
+} from "@/lib/trend-window";
 import type { TrendMetric } from "@/lib/trend-window";
 import { cn } from "@/lib/utils";
 
@@ -93,7 +97,8 @@ export const DailyTrendPanel = ({
   const [window, setWindow] = useState<TrendWindow>("365");
   const [metric, setMetric] = useState<TrendMetric>("count");
 
-  const windowDays = WINDOW_DAYS[window];
+  const windowDays =
+    window === "all" ? dailyTrendSpanDays(dailyTrend) : WINDOW_DAYS[window];
   const maxLabels = maxLabelsForWindow(window);
 
   const chart = useMemo(

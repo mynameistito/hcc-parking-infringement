@@ -1,5 +1,3 @@
-import { subDays } from "date-fns";
-
 import type { PublicLiveStats } from "@/durable-objects/types.ts";
 import {
   dateBounds,
@@ -10,6 +8,7 @@ import {
   startOfDayInAucklandIso,
   yearBoundsInAuckland,
 } from "@/lib/auckland-time.ts";
+import { rollingCalendarWindowStart } from "@/lib/rolling-window.ts";
 
 import { isoNow, STATS_LIVE_ID } from "./constants.ts";
 import { aggregateWindow } from "./stats-aggregates.ts";
@@ -69,9 +68,9 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
   const monthBounds = monthBoundsInAuckland(now);
   const yearBounds = yearBoundsInAuckland(now);
   const last24hBounds = rollingHoursBoundsInAuckland(now, 24);
-  const last7dStart = formatDateInAuckland(subDays(now, 7));
-  const last30dStart = formatDateInAuckland(subDays(now, 30));
-  const last365dStart = formatDateInAuckland(subDays(now, 365));
+  const last7dStart = rollingCalendarWindowStart(now, 7);
+  const last30dStart = rollingCalendarWindowStart(now, 30);
+  const last365dStart = rollingCalendarWindowStart(now, 365);
 
   const allTime = aggregateWindow(
     sql,

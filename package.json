@@ -2,6 +2,7 @@
   "name": "hcc-parking-infringement",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -18,6 +19,7 @@
     "check": "ultracite check",
     "fix": "ultracite fix",
     "test": "vitest run",
+    "daily:refresh": "bun run scripts/daily-refresh.ts",
     "backfill": "bun run scripts/backfill.ts",
     "push:local": "bun run scripts/push-local.ts",
     "push:json": "bun run scripts/push-json.ts",
