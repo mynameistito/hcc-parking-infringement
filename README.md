@@ -19,6 +19,10 @@ The infringement records come from Hamilton City Council open data. This project
 does not proxy dashboard traffic directly to HCC; data is fetched by scheduled or
 manual sync jobs, normalized, stored, and served from the app cache.
 
+The underlying data is licensed under [Creative Commons Attribution 4.0
+International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) by
+Hamilton City Council.
+
 Public data remains subject to the original publisher's terms. Verify the HCC
 open data terms before redistributing exported datasets or derived data bundles.
 
@@ -113,7 +117,10 @@ At the time this README was updated, `.dev.vars` was ignored and not tracked.
 
 ## License
 
-Code is licensed under the GNU Affero General Public License v3.0 or later. See
-[`LICENSE`](./LICENSE).
+Application code is licensed under the GNU Affero General Public License v3.0 or
+later. See [`LICENSE`](./LICENSE).
 
 Copyright (C) 2026 mynameistito.
+
+Parking infringement data is provided by Hamilton City Council under [CC BY
+4.0](https://creativecommons.org/licenses/by/4.0/).
