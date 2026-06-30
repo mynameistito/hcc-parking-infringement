@@ -1,10 +1,15 @@
 /**
- * Run the daily local backfill -> R2 seed upload/apply -> live verification flow.
+ * Run the daily local backfill -> R2 seed upload -> live verification flow.
+ *
+ * The deployed worker reads from the R2 seed, but the local worker must use the
+ * Durable Object read source so write routes remain enabled during backfill.
  *
  * @example
  * bun run daily:refresh
- * bun run daily:refresh -- --from=2026-06-29
+ * bun run daily:refresh -- --from=2026-06-17
  * bun run daily:refresh -- --from=2026-06-29 --to=2026-06-30 --deploy
+ * bun run daily:refresh -- --chunk-records=2000
+ * bun run daily:refresh -- --apply-remote-do
  */
 
 import { spawn } from "node:child_process";
@@ -64,6 +69,8 @@ const startWranglerDev = (port: string): ReturnType<typeof spawn> => {
       port,
       "--ip",
       "127.0.0.1",
+      "--var",
+      "PARKING_STORE_READ_SOURCE:durable_object",
     ],
     {
       cwd: rootDir,
@@ -131,10 +138,12 @@ loadDevVars();
 const args = scriptArgv();
 const port = readArgValue(args, "port") ?? "8787";
 const to = readArgValue(args, "to") ?? todayInAuckland();
-const from = readArgValue(args, "from") ?? addDaysInAuckland(to, -1);
+const from = readArgValue(args, "from") ?? addDaysInAuckland(to, -14);
+const chunkRecords = readArgValue(args, "chunk-records") ?? "2000";
 const importUrl = readArgValue(args, "import-url") ?? DEFAULT_IMPORT_URL;
 const liveUrl = readArgValue(args, "live-url") ?? DEFAULT_LIVE_URL;
 const deploy = readFlag(args, "deploy");
+const applyRemoteDo = readFlag(args, "apply-remote-do");
 const localUrl = `http://127.0.0.1:${port}`;
 
 let wranglerDev: ReturnType<typeof spawn> | undefined;
@@ -159,17 +168,24 @@ try {
     "--delivery=direct",
     `--from=${from}`,
     `--to=${to}`,
+    "--force",
     "--no-track",
   ]);
 
-  await run("seed upload and apply", "bun", [
+  const seedArgs = [
     "run",
     "seed:from-local",
     "--",
     `--from-port=${port}`,
-    "--apply",
-    `--to=${importUrl}`,
-  ]);
+    `--chunk-records=${chunkRecords}`,
+    ...(applyRemoteDo ? ["--apply", `--to=${importUrl}`] : []),
+  ];
+
+  await run(
+    applyRemoteDo ? "seed upload and remote DO apply" : "seed upload to R2",
+    "bun",
+    seedArgs
+  );
 
   await verifyLive(liveUrl.replace(/\/$/u, ""));
   console.log("\n[daily] complete");
