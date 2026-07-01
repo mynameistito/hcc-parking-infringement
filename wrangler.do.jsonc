@@ -16,6 +16,36 @@
     },
   ],
   "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PARKING_STORE",
+        "class_name": "ParkingStore",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ParkingStore"],
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "BACKFILL_QUEUE",
+        "queue": "hcc-backfill",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "hcc-backfill",
+        "max_batch_size": 4,
+        "max_batch_timeout": 5,
+        "max_concurrency": 1,
+      },
+    ],
+  },
   "triggers": {
     "crons": ["0 */6 * * *"],
   },
@@ -23,20 +53,20 @@
     "enabled": false,
     "head_sampling_rate": 1,
     "logs": {
-      "enabled": false,
+      "enabled": true,
       "head_sampling_rate": 1,
-      "persist": false,
-      "invocation_logs": false,
+      "persist": true,
+      "invocation_logs": true,
     },
     "traces": {
-      "enabled": false,
-      "persist": false,
+      "enabled": true,
+      "persist": true,
       "head_sampling_rate": 1,
     },
   },
   "vars": {
     "HCC_API_BASE": "https://api.hcc.govt.nz/OpenData",
-    "PARKING_STORE_READ_SOURCE": "seed", // seed | durable_object
+    "PARKING_STORE_READ_SOURCE": "durable_object",
     "FREE_TIER_MODE": "true",
     "PARKING_AUTO_REFRESH_DAYS": "400",
     "PARKING_SEED_CACHE_SECONDS": "60",

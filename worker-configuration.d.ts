@@ -7,6 +7,8 @@ interface __BaseEnv_Env {
 	HCC_API_BASE: "https://api.hcc.govt.nz/OpenData";
 	PARKING_STORE_READ_SOURCE: "seed";
 	FREE_TIER_MODE: "true";
+	PARKING_AUTO_REFRESH_DAYS: "400";
+	PARKING_SEED_CACHE_SECONDS: "60";
 	PARKING_STORE_SEED_PREFIX: "parking-store/v1/";
 	PARKING_SEED_BUCKET: "hcc-parking-infringement-seed";
 	R2_ACCOUNT_ID: "402722ab1f598e783cd6dcdedc37e1d0";
@@ -27,7 +29,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "HCC_API_BASE" | "PARKING_STORE_READ_SOURCE" | "FREE_TIER_MODE" | "PARKING_STORE_SEED_PREFIX" | "PARKING_SEED_BUCKET" | "R2_ACCOUNT_ID" | "API_KEY" | "CRON_SECRET" | "WORKER_URL">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "HCC_API_BASE" | "PARKING_STORE_READ_SOURCE" | "FREE_TIER_MODE" | "PARKING_AUTO_REFRESH_DAYS" | "PARKING_SEED_CACHE_SECONDS" | "PARKING_STORE_SEED_PREFIX" | "PARKING_SEED_BUCKET" | "R2_ACCOUNT_ID" | "API_KEY" | "CRON_SECRET" | "WORKER_URL">> {}
 }
 
 // Begin runtime types

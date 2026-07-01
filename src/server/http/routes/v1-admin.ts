@@ -22,6 +22,8 @@ import {
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 import { importInfringements } from "@/server/import.ts";
+import { refreshLiveSeedFromHcc } from "@/server/live-seed-refresh.ts";
+import { resetSeedReadCache } from "@/server/parking-reader/index.ts";
 import {
   exportStoredInfringements,
   exportStoredWatermarks,
@@ -122,6 +124,19 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const result = await hourlySync(c.var.scope, "manual");
+      return c.json({ ok: true, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.post("/seed/refresh", async (c) => {
+    assertApiKeyOrCronSecret(c.req.raw, c.env);
+
+    try {
+      const result = await refreshLiveSeedFromHcc(c.env);
+      resetSeedReadCache(c.var.scope.seedCache);
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -1,6 +1,7 @@
 import { AwsClient } from "aws4fetch";
 
 const DEFAULT_SEED_BUCKET = "hcc-parking-infringement-seed";
+const SEED_OBJECT_CACHE = "parking-seed-objects";
 
 export interface SeedR2Env {
   PARKING_SEED?: R2Bucket;
@@ -8,8 +9,11 @@ export interface SeedR2Env {
   R2_ACCESS_KEY?: string;
   R2_SECRET_ACCESS_KEY?: string;
   PARKING_SEED_BUCKET?: string;
+  PARKING_SEED_CACHE_SECONDS?: string;
   R2_ACCOUNT_ID?: string;
 }
+
+const DEFAULT_SEED_CACHE_SECONDS = 60;
 
 const resolveR2AccessKeyId = (env: SeedR2Env): string | undefined => {
   const accessKeyId = env.R2_ACCESS_KEY_ID ?? env.R2_ACCESS_KEY;
@@ -78,6 +82,65 @@ const buildS3ObjectUrl = (
   return `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${encodedKey}`;
 };
 
+const resolveSeedCacheSeconds = (env: SeedR2Env): number => {
+  const value = Number.parseInt(env.PARKING_SEED_CACHE_SECONDS ?? "", 10);
+  if (!Number.isFinite(value) || value < 0) {
+    return DEFAULT_SEED_CACHE_SECONDS;
+  }
+
+  return value;
+};
+
+const readCachedObjectText = async (url: string): Promise<string | null> => {
+  if (typeof caches === "undefined") {
+    return null;
+  }
+
+  const cache = await caches.open(SEED_OBJECT_CACHE);
+  const response = await cache.match(url);
+  if (response === undefined) {
+    return null;
+  }
+
+  return await response.text();
+};
+
+const writeCachedObjectText = async (
+  url: string,
+  env: SeedR2Env,
+  text: string
+): Promise<void> => {
+  if (typeof caches === "undefined") {
+    return;
+  }
+
+  const cache = await caches.open(SEED_OBJECT_CACHE);
+  const maxAge = resolveSeedCacheSeconds(env);
+  if (maxAge === 0) {
+    await cache.delete(url);
+    return;
+  }
+
+  await cache.put(
+    url,
+    new Response(text, {
+      headers: {
+        "Cache-Control": `public, max-age=${maxAge}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+    })
+  );
+};
+
+const deleteCachedObjectText = async (url: string): Promise<void> => {
+  if (typeof caches === "undefined") {
+    return;
+  }
+
+  const cache = await caches.open(SEED_OBJECT_CACHE);
+  await cache.delete(url);
+};
+
 const readViaS3Api = async (
   env: SeedR2Env,
   key: string
@@ -99,6 +162,11 @@ const readViaS3Api = async (
     resolveSeedBucketName(env),
     key
   );
+  const cached = await readCachedObjectText(url);
+  if (cached !== null) {
+    return cached;
+  }
+
   const response = await client.fetch(url);
 
   if (response.status === 404) {
@@ -111,7 +179,58 @@ const readViaS3Api = async (
     );
   }
 
-  return await response.text();
+  const text = await response.text();
+  await writeCachedObjectText(url, env, text);
+  return text;
+};
+
+const writeViaBinding = async (
+  bucket: R2Bucket,
+  key: string,
+  value: string,
+  contentType: string
+): Promise<void> => {
+  await bucket.put(key, value, {
+    httpMetadata: { contentType },
+  });
+};
+
+const writeViaS3Api = async (
+  env: SeedR2Env,
+  key: string,
+  value: string,
+  contentType: string
+): Promise<void> => {
+  const accessKeyId = resolveR2AccessKeyId(env);
+  const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+  if (accessKeyId === undefined || secretAccessKey === undefined) {
+    throw new Error("R2 S3 credentials are not configured.");
+  }
+
+  const client = new AwsClient({
+    accessKeyId,
+    region: "auto",
+    secretAccessKey,
+    service: "s3",
+  });
+  const url = buildS3ObjectUrl(
+    resolveR2AccountId(env),
+    resolveSeedBucketName(env),
+    key
+  );
+  const response = await client.fetch(url, {
+    body: value,
+    headers: { "Content-Type": contentType },
+    method: "PUT",
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `R2 S3 PUT ${key} failed: ${response.status} ${response.statusText}`
+    );
+  }
+
+  await deleteCachedObjectText(url);
 };
 
 export const readSeedObjectText = async (
@@ -125,4 +244,20 @@ export const readSeedObjectText = async (
   }
 
   return await readViaS3Api(env, key);
+};
+
+export const writeSeedObjectText = async (
+  env: SeedR2Env,
+  key: string,
+  value: string,
+  contentType = "application/json; charset=utf-8"
+): Promise<void> => {
+  assertSeedR2Configured(env);
+
+  if (hasR2Binding(env)) {
+    await writeViaBinding(env.PARKING_SEED, key, value, contentType);
+    return;
+  }
+
+  await writeViaS3Api(env, key, value, contentType);
 };
