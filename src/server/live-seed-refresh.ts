@@ -36,6 +36,7 @@ import {
 
 const DEFAULT_REFRESH_DAYS = 400;
 const RECENT_SEED_CHUNK = "infringements-recent.ndjson";
+export const SEED_REFRESH_CHUNK_PREFIX = "infringements-refresh-";
 const RANK_LIMIT = 50;
 const RECENT_LIMIT = 50;
 
@@ -43,6 +44,49 @@ interface ExistingSeedState {
   readonly manifest: SeedManifest | null;
   readonly prefix: string;
   readonly snapshotLive: PublicLiveStats | null;
+}
+
+export interface LiveSeedRefreshWindow {
+  readonly end: string;
+  readonly start: string;
+}
+
+export interface LiveSeedRefreshChunkSummary {
+  readonly amountCents: number;
+  readonly chartOffenceCategories: [string, number][];
+  readonly chartOffences: [string, number][];
+  readonly chartStreets: [string, number][];
+  readonly chartSuburbs: [string, number][];
+  readonly chartTowed: [string, number][];
+  readonly chartVehicleMakes: [string, number][];
+  readonly chartVehicleTypes: [string, number][];
+  readonly chunk: string;
+  readonly dailyTrend: DailyStatPoint[];
+  readonly last24h: number;
+  readonly last30d: number;
+  readonly last365d: number;
+  readonly last7d: number;
+  readonly lastRecordAt: string | null;
+  readonly recentInfringements: PublicInfringement[];
+  readonly records: number;
+  readonly skipped: number;
+  readonly streetCounts: [string, number][];
+  readonly suburbCounts: [string, number][];
+  readonly thisMonth: number;
+  readonly today: number;
+  readonly topOffences: [string, number][];
+  readonly towedToday: number;
+  readonly vehicles: [string, number][];
+}
+
+export interface LiveSeedRefreshPlan {
+  readonly existingLive: PublicLiveStats | null;
+  readonly existingManifest: SeedManifest | null;
+  readonly from: string;
+  readonly prefix: string;
+  readonly syncedAt: string;
+  readonly to: string;
+  readonly windows: LiveSeedRefreshWindow[];
 }
 
 export interface RefreshLiveSeedResult {
@@ -63,6 +107,22 @@ const parseRefreshDays = (value: string | undefined): number => {
 
 const toDateKey = (record: CleanInfringement): string =>
   record.occurredAt.slice(0, 10);
+
+const mapEntries = (counts: Map<string, number>): [string, number][] => [
+  ...counts.entries(),
+];
+
+const topItemEntries = (items: readonly TopItem[]): [string, number][] =>
+  items.map((item) => [item.label, item.count]);
+
+const mergeEntryCounts = (
+  target: Map<string, number>,
+  entries: readonly (readonly [string, number])[]
+): void => {
+  for (const [key, count] of entries) {
+    target.set(key, (target.get(key) ?? 0) + count);
+  }
+};
 
 const incrementRank = <T extends string>(
   counts: Map<T, number>,
@@ -126,6 +186,25 @@ const buildVehicles = (
     });
 };
 
+const vehiclesFromMap = (
+  counts: Map<string, number>,
+  limit: number
+): VehicleRankItem[] =>
+  [...counts.entries()]
+    .toSorted((left, right) => right[1] - left[1])
+    .slice(0, limit)
+    .map(([key, count]) => {
+      const [make, model] = key.split("\u0000");
+      const safeMake = make ?? "Unknown";
+      const safeModel = model ?? "Unknown";
+      return {
+        count,
+        label: `${safeMake} ${safeModel}`.trim(),
+        make: safeMake,
+        model: safeModel,
+      };
+    });
+
 const buildDailyTrend = (
   records: readonly CleanInfringement[],
   from: string,
@@ -167,6 +246,20 @@ const countSinceInstant = (
 ): number =>
   records.filter((record) => Date.parse(record.occurredAt) >= since).length;
 
+const latestInstant = (
+  left: string | null,
+  right: string | null
+): string | null => {
+  if (left === null) {
+    return right;
+  }
+  if (right === null) {
+    return left;
+  }
+
+  return Date.parse(right) > Date.parse(left) ? right : left;
+};
+
 const projectPublicInfringement = (
   record: CleanInfringement
 ): PublicInfringement => ({
@@ -195,6 +288,371 @@ const uniqueByInfringementNumber = (
   return [...byNumber.values()].toSorted(
     (left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt)
   );
+};
+
+const sortRecentPublicInfringements = (
+  records: readonly PublicInfringement[]
+): PublicInfringement[] =>
+  [...records].toSorted(
+    (left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt)
+  );
+
+const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
+  try {
+    const { manifest, prefix } = await readSeedManifest(env);
+    const snapshotKey =
+      manifest.dashboardSnapshotKey ?? DASHBOARD_SNAPSHOT_FILE;
+    const snapshotRaw = await readSeedObjectText(
+      env,
+      seedObjectKey(prefix, snapshotKey)
+    );
+    const snapshotLive =
+      snapshotRaw === null
+        ? null
+        : (parsePublicDashboardSnapshotJson(snapshotRaw)?.live ?? null);
+
+    return { manifest, prefix, snapshotLive };
+  } catch {
+    const prefix = env.PARKING_STORE_SEED_PREFIX;
+    return {
+      manifest: null,
+      prefix:
+        typeof prefix === "string" && prefix.length > 0
+          ? prefix
+          : "parking-store/v1/",
+      snapshotLive: null,
+    };
+  }
+};
+
+const buildManifest = (options: {
+  readonly existing: SeedManifest | null;
+  readonly exportedAt: string;
+  readonly infringementChunks?: readonly string[];
+  readonly recordCount: number;
+}): SeedManifest => {
+  const historicalChunks =
+    options.existing?.infringementChunks.filter(
+      (chunk) =>
+        chunk !== RECENT_SEED_CHUNK &&
+        !chunk.startsWith(SEED_REFRESH_CHUNK_PREFIX)
+    ) ?? [];
+
+  return {
+    dashboardSnapshotKey: DASHBOARD_SNAPSHOT_FILE,
+    exportedAt: options.exportedAt,
+    infringementChunks: [
+      ...historicalChunks,
+      ...(options.infringementChunks ?? [RECENT_SEED_CHUNK]),
+    ],
+    source: "hcc-open-data-worker-refresh",
+    totalInfringements: Math.max(
+      options.existing?.totalInfringements ?? 0,
+      options.recordCount
+    ),
+    version: SEED_MANIFEST_VERSION,
+    watermarksKey: options.existing?.watermarksKey,
+  };
+};
+
+const toNdjson = (records: readonly CleanInfringement[]): string =>
+  `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
+
+export const planLiveSeedRefresh = async (
+  env: Env,
+  chunkDays = 7
+): Promise<LiveSeedRefreshPlan> => {
+  const days = parseRefreshDays(env.PARKING_AUTO_REFRESH_DAYS);
+  const to = todayInAuckland();
+  const from = rollingCalendarWindowStart(new Date(), days);
+  const existing = await loadExistingSeedState(env);
+  const windows: LiveSeedRefreshWindow[] = [];
+  const span = Math.max(1, Math.floor(chunkDays));
+  let cursor = from;
+
+  while (cursor <= to) {
+    const end = addDaysInAuckland(cursor, span - 1);
+    const windowEnd = end > to ? to : end;
+    windows.push({ end: windowEnd, start: cursor });
+    cursor = addDaysInAuckland(windowEnd, 1);
+  }
+
+  return {
+    existingLive: existing.snapshotLive,
+    existingManifest: existing.manifest,
+    from,
+    prefix: existing.prefix,
+    syncedAt: nowInAucklandIso(),
+    to,
+    windows,
+  };
+};
+
+export const refreshLiveSeedChunkFromHcc = async (
+  env: Env,
+  options: {
+    readonly chunk: string;
+    readonly prefix: string;
+    readonly syncedAt: string;
+    readonly to: string;
+    readonly window: LiveSeedRefreshWindow;
+  }
+): Promise<LiveSeedRefreshChunkSummary> => {
+  const fetched = await fetchAllInWindow(
+    env,
+    options.window.start,
+    options.window.end
+  );
+  if (!fetched.ok) {
+    throw new Error(formatHccFetchError(fetched.error));
+  }
+
+  const { cleaned, skipped } = cleanInfringements(fetched.value.records);
+  const records = uniqueByInfringementNumber(cleaned);
+  const todayRecords = records.filter(
+    (record) => toDateKey(record) === options.to
+  );
+  const last24hStart = Date.now() - 24 * 60 * 60 * 1000;
+  const last7dStart = rollingCalendarWindowStart(new Date(), 7);
+  const last30dStart = rollingCalendarWindowStart(new Date(), 30);
+  const last365dStart = rollingCalendarWindowStart(new Date(), 365);
+  const thisMonthStart = `${options.to.slice(0, 7)}-01`;
+  const streetCounts = new Map<string, number>();
+  const suburbCounts = new Map<string, number>();
+  const offenceCounts = new Map<string, number>();
+  const vehicleCounts = new Map<string, number>();
+
+  for (const record of records) {
+    incrementRank(streetCounts, record.street);
+    incrementRank(suburbCounts, record.suburb);
+    incrementRank(offenceCounts, record.offenceDescription);
+    incrementRank(vehicleCounts, vehicleKey(record));
+  }
+
+  const chart = buildChartBreakdownFromInfringements(records);
+  await writeSeedObjectText(
+    env,
+    seedObjectKey(options.prefix, options.chunk),
+    toNdjson(records),
+    "application/x-ndjson; charset=utf-8"
+  );
+
+  return {
+    amountCents: records.reduce((sum, record) => sum + record.amountCents, 0),
+    chartOffenceCategories: topItemEntries(chart.breakdowns.offenceCategories),
+    chartOffences: topItemEntries(chart.breakdowns.offences),
+    chartStreets: topItemEntries(chart.streets),
+    chartSuburbs: topItemEntries(chart.breakdowns.suburbs),
+    chartTowed: topItemEntries(chart.breakdowns.towed),
+    chartVehicleMakes: topItemEntries(chart.breakdowns.vehicleMakes),
+    chartVehicleTypes: topItemEntries(chart.breakdowns.vehicleTypes),
+    chunk: options.chunk,
+    dailyTrend: buildDailyTrend(
+      records,
+      options.window.start,
+      options.window.end
+    ),
+    last24h: countSinceInstant(records, last24hStart),
+    last30d: countSinceDate(records, last30dStart),
+    last365d: countSinceDate(records, last365dStart),
+    last7d: countSinceDate(records, last7dStart),
+    lastRecordAt: records[0]?.occurredAt ?? null,
+    recentInfringements: records
+      .slice(0, RECENT_LIMIT)
+      .map(projectPublicInfringement),
+    records: records.length,
+    skipped,
+    streetCounts: mapEntries(streetCounts),
+    suburbCounts: mapEntries(suburbCounts),
+    thisMonth: countSinceDate(records, thisMonthStart),
+    today: todayRecords.length,
+    topOffences: mapEntries(offenceCounts),
+    towedToday: todayRecords.filter((record) => record.isTowed).length,
+    vehicles: mapEntries(vehicleCounts),
+  };
+};
+
+export const finalizeLiveSeedRefresh = async (
+  env: Env,
+  options: {
+    readonly existingLive: PublicLiveStats | null;
+    readonly existingManifest: SeedManifest | null;
+    readonly from: string;
+    readonly prefix: string;
+    readonly summaries: readonly LiveSeedRefreshChunkSummary[];
+    readonly syncedAt: string;
+    readonly to: string;
+  }
+): Promise<RefreshLiveSeedResult> => {
+  const dailyCounts = new Map<string, { count: number; totalCents: number }>();
+  const streetCounts = new Map<string, number>();
+  const suburbCounts = new Map<string, number>();
+  const offenceCounts = new Map<string, number>();
+  const vehicleCounts = new Map<string, number>();
+  const chartOffenceCategories = new Map<string, number>();
+  const chartOffences = new Map<string, number>();
+  const chartStreets = new Map<string, number>();
+  const chartSuburbs = new Map<string, number>();
+  const chartTowed = new Map<string, number>();
+  const chartVehicleMakes = new Map<string, number>();
+  const chartVehicleTypes = new Map<string, number>();
+  const recent: PublicInfringement[] = [];
+  let amountCents = 0;
+  let last24h = 0;
+  let last30d = 0;
+  let last365d = 0;
+  let last7d = 0;
+  let lastRecordAt: string | null = null;
+  let records = 0;
+  let skipped = 0;
+  let thisMonth = 0;
+  let today = 0;
+  let towedToday = 0;
+
+  for (const summary of options.summaries) {
+    amountCents += summary.amountCents;
+    last24h += summary.last24h;
+    last30d += summary.last30d;
+    last365d += summary.last365d;
+    last7d += summary.last7d;
+    lastRecordAt = latestInstant(lastRecordAt, summary.lastRecordAt);
+    records += summary.records;
+    skipped += summary.skipped;
+    thisMonth += summary.thisMonth;
+    today += summary.today;
+    towedToday += summary.towedToday;
+    recent.push(...summary.recentInfringements);
+    mergeEntryCounts(streetCounts, summary.streetCounts);
+    mergeEntryCounts(suburbCounts, summary.suburbCounts);
+    mergeEntryCounts(offenceCounts, summary.topOffences);
+    mergeEntryCounts(vehicleCounts, summary.vehicles);
+    mergeEntryCounts(chartOffenceCategories, summary.chartOffenceCategories);
+    mergeEntryCounts(chartOffences, summary.chartOffences);
+    mergeEntryCounts(chartStreets, summary.chartStreets);
+    mergeEntryCounts(chartSuburbs, summary.chartSuburbs);
+    mergeEntryCounts(chartTowed, summary.chartTowed);
+    mergeEntryCounts(chartVehicleMakes, summary.chartVehicleMakes);
+    mergeEntryCounts(chartVehicleTypes, summary.chartVehicleTypes);
+
+    for (const point of summary.dailyTrend) {
+      const current = dailyCounts.get(point.date) ?? {
+        count: 0,
+        totalCents: 0,
+      };
+      dailyCounts.set(point.date, {
+        count: current.count + point.count,
+        totalCents: current.totalCents + point.totalCents,
+      });
+    }
+  }
+
+  const dailyTrend: DailyStatPoint[] = [];
+  let cursor = options.from;
+  while (cursor <= options.to) {
+    const point = dailyCounts.get(cursor) ?? { count: 0, totalCents: 0 };
+    dailyTrend.push({
+      count: point.count,
+      date: cursor,
+      totalCents: point.totalCents,
+    });
+    cursor = addDaysInAuckland(cursor, 1);
+  }
+
+  const snapshot: FullDashboardMessage = {
+    at: options.syncedAt,
+    chartBreakdowns: {
+      offenceCategories: topItemsFromMap(chartOffenceCategories, RANK_LIMIT),
+      offences: topItemsFromMap(chartOffences, RANK_LIMIT),
+      suburbs: topItemsFromMap(chartSuburbs, RANK_LIMIT),
+      towed: topItemsFromMap(chartTowed, RANK_LIMIT),
+      vehicleMakes: topItemsFromMap(chartVehicleMakes, RANK_LIMIT),
+      vehicleTypes: topItemsFromMap(chartVehicleTypes, RANK_LIMIT),
+    },
+    dailyTrend,
+    live: {
+      allTimeAmountCents: Math.max(
+        options.existingLive?.allTimeAmountCents ?? 0,
+        amountCents
+      ),
+      allTimeTotal: Math.max(options.existingLive?.allTimeTotal ?? 0, records),
+      last24h,
+      last30d,
+      last365d,
+      last7d,
+      lastRecordAt: lastRecordAt ?? options.existingLive?.lastRecordAt ?? null,
+      lastSyncedAt: options.syncedAt,
+      thisMonth,
+      today,
+      towedToday,
+    },
+    map: { pendingGeocode: 0, routes: [] },
+    paceTrends: {
+      last30d: comparePeriods(dailyTrend, 30),
+      last365d: comparePeriods(dailyTrend, 365),
+      last7d: comparePeriods(dailyTrend, 7),
+    },
+    recentInfringements: sortRecentPublicInfringements(recent).slice(
+      0,
+      RECENT_LIMIT
+    ),
+    streets: locationItemsFromMap(streetCounts, RANK_LIMIT, (label, count) => ({
+      count,
+      label,
+      street: label,
+    })),
+    suburbs: locationItemsFromMap(suburbCounts, RANK_LIMIT, (label, count) => ({
+      count,
+      label,
+      suburb: label,
+    })),
+    topOffences: topItemsFromMap(offenceCounts, RANK_LIMIT),
+    topStreets: topItemsFromMap(chartStreets, RANK_LIMIT),
+    type: "full",
+    vehicles: vehiclesFromMap(vehicleCounts, RANK_LIMIT),
+  };
+  const refreshedChunks = options.summaries.map((summary) => summary.chunk);
+  const historicalChunks =
+    options.existingManifest?.infringementChunks.filter(
+      (chunk) =>
+        chunk !== RECENT_SEED_CHUNK &&
+        !chunk.startsWith(SEED_REFRESH_CHUNK_PREFIX)
+    ) ?? [];
+  const manifest = buildManifest({
+    existing: {
+      dashboardSnapshotKey: DASHBOARD_SNAPSHOT_FILE,
+      exportedAt: options.syncedAt,
+      infringementChunks: historicalChunks,
+      source:
+        options.existingManifest?.source ?? "hcc-open-data-worker-refresh",
+      totalInfringements: Math.max(
+        options.existingManifest?.totalInfringements ?? 0,
+        records
+      ),
+      version: SEED_MANIFEST_VERSION,
+      watermarksKey: options.existingManifest?.watermarksKey,
+    },
+    exportedAt: options.syncedAt,
+    infringementChunks: refreshedChunks,
+    recordCount: records,
+  });
+
+  await writeSeedObjectText(
+    env,
+    seedObjectKey(options.prefix, DASHBOARD_SNAPSHOT_FILE),
+    `${JSON.stringify(snapshot)}\n`
+  );
+  await writeSeedObjectText(
+    env,
+    seedObjectKey(options.prefix, MANIFEST_FILE),
+    `${JSON.stringify(manifest, null, 2)}\n`
+  );
+
+  return {
+    from: options.from,
+    skipped,
+    to: options.to,
+    totalRecentRecords: records,
+  };
 };
 
 const buildLiveStats = (options: {
@@ -302,61 +760,6 @@ export const buildLiveSeedSnapshot = (options: {
     vehicles: buildVehicles(records),
   };
 };
-
-const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
-  try {
-    const { manifest, prefix } = await readSeedManifest(env);
-    const snapshotKey =
-      manifest.dashboardSnapshotKey ?? DASHBOARD_SNAPSHOT_FILE;
-    const snapshotRaw = await readSeedObjectText(
-      env,
-      seedObjectKey(prefix, snapshotKey)
-    );
-    const snapshotLive =
-      snapshotRaw === null
-        ? null
-        : (parsePublicDashboardSnapshotJson(snapshotRaw)?.live ?? null);
-
-    return { manifest, prefix, snapshotLive };
-  } catch {
-    const prefix = env.PARKING_STORE_SEED_PREFIX;
-    return {
-      manifest: null,
-      prefix:
-        typeof prefix === "string" && prefix.length > 0
-          ? prefix
-          : "parking-store/v1/",
-      snapshotLive: null,
-    };
-  }
-};
-
-const buildManifest = (options: {
-  readonly existing: SeedManifest | null;
-  readonly exportedAt: string;
-  readonly recordCount: number;
-}): SeedManifest => {
-  const historicalChunks =
-    options.existing?.infringementChunks.filter(
-      (chunk) => chunk !== RECENT_SEED_CHUNK
-    ) ?? [];
-
-  return {
-    dashboardSnapshotKey: DASHBOARD_SNAPSHOT_FILE,
-    exportedAt: options.exportedAt,
-    infringementChunks: [...historicalChunks, RECENT_SEED_CHUNK],
-    source: "hcc-open-data-worker-refresh",
-    totalInfringements: Math.max(
-      options.existing?.totalInfringements ?? 0,
-      options.recordCount
-    ),
-    version: SEED_MANIFEST_VERSION,
-    watermarksKey: options.existing?.watermarksKey,
-  };
-};
-
-const toNdjson = (records: readonly CleanInfringement[]): string =>
-  `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
 
 export const refreshLiveSeedFromHcc = async (
   env: Env

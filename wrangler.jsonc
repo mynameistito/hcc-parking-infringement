@@ -19,6 +19,13 @@
   "triggers": {
     "crons": ["0 */6 * * *"],
   },
+  "workflows": [
+    {
+      "name": "hcc-seed-refresh",
+      "binding": "SEED_REFRESH_WORKFLOW",
+      "class_name": "SeedRefreshWorkflow",
+    },
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

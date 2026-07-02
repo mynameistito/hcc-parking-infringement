@@ -4,8 +4,10 @@ import { ParkingStore } from "@/durable-objects/parking-store.ts";
 import { createAppScope } from "@/server/app-scope.ts";
 import { processBackfillQueueBatch } from "@/server/backfill-queue.ts";
 import { runScheduledMaintenance } from "@/server/scheduled-tasks.ts";
+import { SeedRefreshWorkflow } from "@/server/seed-refresh-workflow.ts";
 
 export { ParkingStore };
+export { SeedRefreshWorkflow };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
@@ -35,7 +37,7 @@ export default {
   },
 
   scheduled(
-    _controller: ScheduledController,
+    controller: ScheduledController,
     env: Env,
     ctx: ExecutionContext
   ): void {
@@ -43,9 +45,9 @@ export default {
     ctx.waitUntil(
       (async () => {
         try {
-          await runScheduledMaintenance(scope);
+          await runScheduledMaintenance(scope, controller.scheduledTime);
         } catch (error: unknown) {
-          console.error("hourly sync failed", error);
+          console.error("scheduled maintenance failed", error);
         }
       })()
     );

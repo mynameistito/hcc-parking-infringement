@@ -22,8 +22,6 @@ import {
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 import { importInfringements } from "@/server/import.ts";
-import { refreshLiveSeedFromHcc } from "@/server/live-seed-refresh.ts";
-import { resetSeedReadCache } from "@/server/parking-reader/index.ts";
 import {
   exportStoredInfringements,
   exportStoredWatermarks,
@@ -32,6 +30,7 @@ import {
   importStoredInfringements,
   importStoredWatermarks,
 } from "@/server/replication.ts";
+import { startSeedRefreshWorkflow } from "@/server/scheduled-tasks.ts";
 import {
   importSeedInfringementChunk,
   importSeedWatermarks,
@@ -135,9 +134,10 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKeyOrCronSecret(c.req.raw, c.env);
 
     try {
-      const result = await refreshLiveSeedFromHcc(c.env);
-      resetSeedReadCache(c.var.scope.seedCache);
-      return c.json({ ok: true, ...result });
+      const result = await startSeedRefreshWorkflow(c.env, {
+        reason: "manual",
+      });
+      return c.json({ ok: true, workflow: result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return jsonError(500, message);

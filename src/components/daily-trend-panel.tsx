@@ -29,17 +29,17 @@ const TrendChart = lazy(async () => {
 type TrendWindow = "7" | "30" | "90" | "365" | "all";
 
 const WINDOW_DAYS: Record<TrendWindow, number> = {
-  "7": 7,
   "30": 30,
   "365": 365,
+  "7": 7,
   "90": 90,
   all: PACE_DAILY_TREND_DAYS,
 };
 
 const WINDOW_LABELS: Record<TrendWindow, string> = {
-  "7": "7 days",
   "30": "30 days",
   "365": "12 months",
+  "7": "7 days",
   "90": "90 days",
   all: "Full history",
 };
