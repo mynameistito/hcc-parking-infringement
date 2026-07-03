@@ -138,7 +138,7 @@ const useResolvedTheme = (themeProp?: "light" | "dark"): Theme => {
   const detectedTheme = useSyncExternalStore(
     themeProp === undefined ? subscribeToSystemTheme : () => noopUnsubscribe,
     getSystemThemeSnapshot,
-    () => "light" as Theme
+    () => "light"
   );
 
   return themeProp ?? detectedTheme;

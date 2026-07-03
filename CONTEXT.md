@@ -2,12 +2,12 @@
 
 ## Worker composition (`src/server/`)
 
-| Term / module        | Meaning                                                       |
-| -------------------- | ------------------------------------------------------------- |
-| `AppScope`           | Per-request capabilities: `env`, `parking` reader, seed cache |
-| `ParkingStoreReader` | Unified read facade (`durable_object` or `seed` adapter)      |
-| `parking-reader/`    | `DurableObjectParkingStoreReader`, `SeedParkingStoreReader`   |
-| `app-scope.ts`       | Composition seam: `createAppScope(env)`                       |
+| Term / module | Meaning |
+| --- | --- |
+| `AppScope` | Per-request capabilities: `env`, `parking` reader, seed cache |
+| `ParkingStoreReader` | Unified read facade (`durable_object` or `seed` adapter) |
+| `parking-reader/` | `DurableObjectParkingStoreReader`, `SeedParkingStoreReader` |
+| `app-scope.ts` | Composition seam: `createAppScope(env)` |
 
 Seed deploy mode (`PARKING_STORE_READ_SOURCE=seed`) serves dashboard reads from R2; browse/explore SQL is unavailable (`supportsBrowse: false`).
 
@@ -15,12 +15,12 @@ Seed deploy mode (`PARKING_STORE_READ_SOURCE=seed`) serves dashboard reads from 
 
 Shared Zod schemas and TypeScript types for HTTP and WebSocket payloads consumed by the dashboard.
 
-| Term                   | Meaning                                                         |
-| ---------------------- | --------------------------------------------------------------- |
-| `PublicLiveStats`      | Public aggregate counts (today, 7d, 30d, all-time, fines total) |
-| `PublicInfringement`   | Infringement row without internal sync metadata                 |
-| `TopItem`              | Ranked label + count (streets or offences)                      |
-| `FullDashboardMessage` | WebSocket `type: "full"` snapshot pushed after sync             |
+| Term | Meaning |
+| --- | --- |
+| `PublicLiveStats` | Public aggregate counts (today, 7d, 30d, all-time, fines total) |
+| `PublicInfringement` | Infringement row without internal sync metadata |
+| `TopItem` | Ranked label + count (streets or offences) |
+| `FullDashboardMessage` | WebSocket `type: "full"` snapshot pushed after sync |
 
 ## Storage (`ParkingStore` Durable Object)
 
@@ -32,20 +32,20 @@ Shared Zod schemas and TypeScript types for HTTP and WebSocket payloads consumed
 
 ### Module layout (`src/durable-objects/parking-store/`)
 
-| Module                                               | Responsibility                                      |
-| ---------------------------------------------------- | --------------------------------------------------- |
-| `durable-object.ts`                                  | DO class: WebSocket lifecycle, migration, RPC stubs |
-| `store-api.ts`                                       | All RPC business logic (single facade)              |
-| `live-coordinator.ts`                                | Snapshot refresh + recompute + broadcast            |
-| `schema.ts`                                          | SQLite migrations                                   |
-| `sync.ts` / `sync-ingest.ts`                         | Ingestion runs, upserts, watermarks                 |
-| `stats.ts` / `stats-live.ts` / `stats-aggregates.ts` | Live aggregates, cache status, SQL windows          |
-| `browse-queries.ts` / `rankings.ts`                  | Explore and top-list SQL                            |
-| `infringements.ts`                                   | List/filter infringements                           |
-| `locations.ts` / `geocode-candidates.ts`             | Map routes and geocode queue                        |
-| `dashboard-snapshot.ts` / `dashboard-live.ts`        | WebSocket snapshot assembly and cache               |
-| `watermarks.ts` / `backfill-state.ts`                | Backfill progress and dirty flags                   |
-| `websocket.ts`                                       | Upgrade handler, ping/pong, push                    |
+| Module | Responsibility |
+| --- | --- |
+| `durable-object.ts` | DO class: WebSocket lifecycle, migration, RPC stubs |
+| `store-api.ts` | All RPC business logic (single facade) |
+| `live-coordinator.ts` | Snapshot refresh + recompute + broadcast |
+| `schema.ts` | SQLite migrations |
+| `sync.ts` / `sync-ingest.ts` | Ingestion runs, upserts, watermarks |
+| `stats.ts` / `stats-live.ts` / `stats-aggregates.ts` | Live aggregates, cache status, SQL windows |
+| `browse-queries.ts` / `rankings.ts` | Explore and top-list SQL |
+| `infringements.ts` | List/filter infringements |
+| `locations.ts` / `geocode-candidates.ts` | Map routes and geocode queue |
+| `dashboard-snapshot.ts` / `dashboard-live.ts` | WebSocket snapshot assembly and cache |
+| `watermarks.ts` / `backfill-state.ts` | Backfill progress and dirty flags |
+| `websocket.ts` | Upgrade handler, ping/pong, push |
 
 DO types live under `src/durable-objects/types/` (sync, browse, stats, infringements, locations, dashboard) and re-export from `types.ts`.
 
@@ -62,18 +62,18 @@ Worker and sync helpers: `sync-window.ts`, `sync-backfill.ts`, `backfill-queue.t
 
 ## CLI scripts (`scripts/`)
 
-| Path                                                    | Role                                                  |
-| ------------------------------------------------------- | ----------------------------------------------------- |
-| `backfill.ts`, `sync.ts`, `geocode.ts`, `import-csv.ts` | Worker API entrypoints                                |
-| `audit-*.ts`, `check-data.ts`                           | HCC vs ParkingStore audits                            |
-| `lib/cli/args.ts`                                       | Shared argv parsing                                   |
-| `lib/worker/client.ts`                                  | Authenticated worker HTTP client                      |
-| `lib/backfill/`                                         | Backfill queue, progress UI, API schemas              |
-| `lib/replication/`                                      | ParkingStore snapshot export/import, push checkpoints |
-| `lib/seed/`                                             | Seed bundle export, upload, remote apply              |
-| `lib/csv.ts`                                            | CSV parsing for import                                |
-| `lib/geocode-api.ts`                                    | Geocode worker API calls                              |
-| `dev-env.ts`                                            | `.dev.vars`, worker URL, fetch helpers                |
+| Path | Role |
+| --- | --- |
+| `backfill.ts`, `sync.ts`, `geocode.ts`, `import-csv.ts` | Worker API entrypoints |
+| `audit-*.ts`, `check-data.ts` | HCC vs ParkingStore audits |
+| `lib/cli/args.ts` | Shared argv parsing |
+| `lib/worker/client.ts` | Authenticated worker HTTP client |
+| `lib/backfill/` | Backfill queue, progress UI, API schemas |
+| `lib/replication/` | ParkingStore snapshot export/import, push checkpoints |
+| `lib/seed/` | Seed bundle export, upload, remote apply |
+| `lib/csv.ts` | CSV parsing for import |
+| `lib/geocode-api.ts` | Geocode worker API calls |
+| `dev-env.ts` | `.dev.vars`, worker URL, fetch helpers |
 
 New scripts should use `scriptArgv()`, `readArg` / `readArgValue`, and `createWorkerContext()`. Prefer `while` loops over recursive async. Reuse `src/lib` and `src/server/http/query` parsers.
 

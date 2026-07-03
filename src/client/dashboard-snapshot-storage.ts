@@ -50,11 +50,7 @@ const parseCachedSnapshot = (
     return null;
   }
 
-  const candidate = value as {
-    version: unknown;
-    savedAt: unknown;
-    snapshot: unknown;
-  };
+  const candidate = value;
 
   if (
     candidate.version !== DASHBOARD_SNAPSHOT_CACHE_VERSION ||
