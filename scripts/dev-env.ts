@@ -291,7 +291,7 @@ const extractErrorMessage = (rawBody: unknown): string | undefined => {
   }
 
   if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
-    const { error } = rawBody as { error: unknown };
+    const { error } = rawBody;
     if (typeof error === "string" && error.length > 0) {
       return error;
     }
