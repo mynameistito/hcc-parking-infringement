@@ -1,17 +1,6 @@
-import { handleWebSocketUpgrade } from "@/durable-objects/parking-store/websocket.ts";
-import type { AppScope } from "@/server/app-scope.ts";
+import { getSeedRefreshCoordinator } from "@/server/seed-refresh-coordinator.ts";
 
 export const handleSeedDashboardWebSocket = async (
   request: Request,
-  scope: AppScope
-): Promise<Response> => {
-  const payload = await scope.parking.readDashboardSnapshotPayload();
-
-  return handleWebSocketUpgrade(
-    request,
-    (ws) => {
-      ws.accept();
-    },
-    () => payload
-  );
-};
+  env: Env
+): Promise<Response> => await getSeedRefreshCoordinator(env).fetch(request);
