@@ -88,7 +88,7 @@ Unauthenticated routes power the public dashboard:
 - `GET /api/public/locations/suburbs`
 - `GET /api/public/locations/map`
 
-Key-gated `/api/v1/*` routes are used for administration, backfills, imports, syncs, geocoding, and raw exploration.
+The dashboard also uses read-only `/api/v1/*` routes for live statistics, recent infringements, browsing, and health checks. Mutating `/api/v1/*` administration, backfill, import, sync, and geocoding routes are key-gated.
 
 ## Public Repository Checklist
 
