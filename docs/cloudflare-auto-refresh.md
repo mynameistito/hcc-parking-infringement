@@ -14,6 +14,8 @@ That does not fit the Workers Free plan. A free Workflow is limited to 10 ms of 
 
 The former `daily:refresh` command had an independent defect. It started the seed-mode local Worker, which intentionally has no `PARKING_STORE` binding, and then called a Durable Object backfill route. It failed at `getByName` before any seed could be published.
 
+The first live coordinator run also exposed that the legacy R2 S3 credential could read objects but returned `403 Forbidden` on every write. Production now uses the native `PARKING_SEED` Worker binding, so refreshes no longer depend on external S3 credentials or their separate permission scope.
+
 ## Target architecture
 
 ```text
