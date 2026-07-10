@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import { parsePublicDashboardSnapshotJson } from "@/contracts/dashboard-snapshot.ts";
 import type {
   ChartBreakdowns,
@@ -21,7 +19,6 @@ import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 import { rollingCalendarWindowStart } from "@/lib/rolling-window.ts";
 import { comparePeriods } from "@/lib/trend-window.ts";
 import type { CleanInfringement } from "@/server/clean-schema.ts";
-import { cleanInfringementSchema } from "@/server/clean-schema.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
 import { readSeedManifest } from "@/server/seed-import.ts";
@@ -45,22 +42,12 @@ const RANK_LIMIT = 50;
 const RECENT_LIMIT = 50;
 
 interface ExistingSeedState {
+  readonly bootstrapAfter: string | null;
   readonly manifest: SeedManifest | null;
   readonly prefix: string;
-  readonly previouslyCountedAbove: number | null;
   readonly publishedInfringementNumbers: number[];
   readonly snapshotLive: PublicLiveStats | null;
 }
-
-const refreshCursorSchema = z.object({
-  publishedInfringementNumbers: z.array(z.number().int().nonnegative()),
-  updatedAt: z.string(),
-  version: z.literal(2),
-});
-const legacyRefreshCursorSchema = z.object({
-  maxInfringementNumber: z.number().int().nonnegative(),
-  updatedAt: z.string(),
-});
 
 export interface LiveSeedRefreshWindow {
   readonly end: string;
@@ -99,11 +86,11 @@ export interface LiveSeedRefreshChunkSummary {
 }
 
 export interface LiveSeedRefreshPlan {
+  readonly bootstrapAfter: string | null;
   readonly existingLive: PublicLiveStats | null;
   readonly existingManifest: SeedManifest | null;
   readonly from: string;
   readonly prefix: string;
-  readonly previouslyCountedAbove: number | null;
   readonly publishedInfringementNumbers: number[];
   readonly syncedAt: string;
   readonly to: string;
@@ -318,81 +305,45 @@ const sortRecentPublicInfringements = (
     (left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt)
   );
 
-const maxInfringementNumber = (
-  records: readonly { readonly infringementNumber: number }[]
-): number | null => {
-  let maximum: number | null = null;
-  for (const record of records) {
-    maximum =
-      maximum === null
-        ? record.infringementNumber
-        : Math.max(maximum, record.infringementNumber);
-  }
-  return maximum;
-};
-
-interface RefreshCursorBaseline {
-  readonly previouslyCountedAbove: number | null;
-  readonly publishedInfringementNumbers: number[];
-}
-
-const parseInfringementNumbers = (raw: string): number[] =>
-  raw
-    .split("\n")
-    .filter((line) => line.length > 0)
-    .map(
-      (line) =>
-        cleanInfringementSchema.parse(JSON.parse(line)).infringementNumber
-    );
-
 const readRefreshCursor = async (
   env: Env,
-  prefix: string,
-  snapshotRecent: readonly PublicInfringement[]
-): Promise<RefreshCursorBaseline> => {
+  prefix: string
+): Promise<number[] | null> => {
   const cursorRaw = await readSeedObjectText(
     env,
     seedObjectKey(prefix, REFRESH_CURSOR_FILE)
   );
-  if (cursorRaw !== null) {
-    const parsed: unknown = JSON.parse(cursorRaw);
-    const currentCursor = refreshCursorSchema.safeParse(parsed);
-    if (currentCursor.success) {
-      return {
-        previouslyCountedAbove: null,
-        publishedInfringementNumbers:
-          currentCursor.data.publishedInfringementNumbers,
-      };
-    }
-
-    legacyRefreshCursorSchema.parse(parsed);
+  if (cursorRaw === null) {
+    return null;
   }
 
-  const recentRaw = await readSeedObjectText(
-    env,
-    seedObjectKey(prefix, RECENT_SEED_CHUNK)
-  );
-  if (recentRaw === null) {
-    return {
-      previouslyCountedAbove: null,
-      publishedInfringementNumbers: snapshotRecent.map(
-        (record) => record.infringementNumber
-      ),
-    };
+  const parsed: unknown = JSON.parse(cursorRaw);
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("version" in parsed) ||
+    parsed.version !== 2 ||
+    !("publishedInfringementNumbers" in parsed)
+  ) {
+    return null;
   }
 
-  const publishedInfringementNumbers = parseInfringementNumbers(recentRaw);
-  return {
-    previouslyCountedAbove:
-      cursorRaw === null
-        ? null
-        : maxInfringementNumber(
-            publishedInfringementNumbers.map((infringementNumber) => ({
-              infringementNumber,
-            }))
-          ),
-    publishedInfringementNumbers,
-  };
+  const candidate: unknown = parsed.publishedInfringementNumbers;
+  if (!Array.isArray(candidate)) {
+    return null;
+  }
+
+  const values: unknown[] = candidate;
+  if (
+    !values.every(
+      (value): value is number =>
+        typeof value === "number" && Number.isSafeInteger(value)
+    )
+  ) {
+    return null;
+  }
+
+  return values;
 };
 
 const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
@@ -409,28 +360,34 @@ const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
         ? null
         : parsePublicDashboardSnapshotJson(snapshotRaw);
     const snapshotLive = snapshot?.live ?? null;
-    const cursor = await readRefreshCursor(
-      env,
-      prefix,
-      snapshot?.recentInfringements ?? []
-    );
+    let publishedInfringementNumbers: number[] = [];
+    try {
+      publishedInfringementNumbers =
+        (await readRefreshCursor(env, prefix)) ?? [];
+    } catch {
+      // A malformed cursor must not discard the valid manifest or snapshot.
+    }
+    const bootstrapAfter =
+      publishedInfringementNumbers.length === 0
+        ? (snapshotLive?.lastRecordAt ?? null)
+        : null;
 
     return {
+      bootstrapAfter,
       manifest,
       prefix,
-      previouslyCountedAbove: cursor.previouslyCountedAbove,
-      publishedInfringementNumbers: cursor.publishedInfringementNumbers,
+      publishedInfringementNumbers,
       snapshotLive,
     };
   } catch {
     const prefix = env.PARKING_STORE_SEED_PREFIX;
     return {
+      bootstrapAfter: null,
       manifest: null,
       prefix:
         typeof prefix === "string" && prefix.length > 0
           ? prefix
           : "parking-store/v1/",
-      previouslyCountedAbove: null,
       publishedInfringementNumbers: [],
       snapshotLive: null,
     };
@@ -490,11 +447,11 @@ export const planLiveSeedRefresh = async (
   }
 
   return {
+    bootstrapAfter: existing.bootstrapAfter,
     existingLive: existing.snapshotLive,
     existingManifest: existing.manifest,
     from,
     prefix: existing.prefix,
-    previouslyCountedAbove: existing.previouslyCountedAbove,
     publishedInfringementNumbers: existing.publishedInfringementNumbers,
     syncedAt: nowInAucklandIso(),
     to,
@@ -505,9 +462,9 @@ export const planLiveSeedRefresh = async (
 export const refreshLiveSeedChunkFromHcc = async (
   env: Env,
   options: {
+    readonly bootstrapAfter: string | null;
     readonly chunk: string;
     readonly prefix: string;
-    readonly previouslyCountedAbove: number | null;
     readonly publishedInfringementNumbers: readonly number[];
     readonly syncedAt: string;
     readonly to: string;
@@ -529,8 +486,8 @@ export const refreshLiveSeedChunkFromHcc = async (
   const newRecords = records.filter(
     (record) =>
       !published.has(record.infringementNumber) &&
-      (options.previouslyCountedAbove === null ||
-        record.infringementNumber <= options.previouslyCountedAbove)
+      (options.bootstrapAfter === null ||
+        record.occurredAt > options.bootstrapAfter)
   );
   const todayRecords = records.filter(
     (record) => toDateKey(record) === options.to

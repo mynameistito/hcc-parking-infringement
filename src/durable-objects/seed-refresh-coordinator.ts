@@ -38,11 +38,11 @@ const refreshWindowSchema = z.object({
   start: z.string(),
 });
 const refreshPlanSchema = z.object({
+  bootstrapAfter: z.string().nullable(),
   existingLive: publicLiveStatsSchema.nullable(),
   existingManifest: seedManifestSchema.nullable(),
   from: z.string(),
   prefix: z.string(),
-  previouslyCountedAbove: z.number().nullable(),
   publishedInfringementNumbers: z.array(z.number()),
   syncedAt: z.string(),
   to: z.string(),
@@ -271,9 +271,9 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     }
 
     const summary = await refreshLiveSeedChunkFromHcc(this.env, {
+      bootstrapAfter: plan.bootstrapAfter,
       chunk: chunkName(window),
       prefix: plan.prefix,
-      previouslyCountedAbove: plan.previouslyCountedAbove,
       publishedInfringementNumbers: plan.publishedInfringementNumbers,
       syncedAt: plan.syncedAt,
       to: plan.to,
