@@ -33,4 +33,6 @@ export interface StartSeedRefreshInput {
 export const getSeedRefreshCoordinator = (
   env: Env
 ): DurableObjectStub<SeedRefreshCoordinator> =>
-  env.SEED_REFRESH_COORDINATOR.getByName(SEED_REFRESH_COORDINATOR_NAME);
+  env.SEED_REFRESH_COORDINATOR.getByName(SEED_REFRESH_COORDINATOR_NAME, {
+    locationHint: "oc",
+  });
