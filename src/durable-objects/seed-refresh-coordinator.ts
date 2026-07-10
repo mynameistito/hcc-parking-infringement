@@ -242,6 +242,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     });
     const validatedResult: RefreshLiveSeedResult =
       refreshResultSchema.parse(result);
+    await this.broadcastCurrentSnapshot();
     this.ctx.storage.sql.exec(
       `UPDATE refresh_state
        SET status = 'complete', finished_at = ?, attempts = 0,
@@ -250,7 +251,25 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       nowIso(),
       JSON.stringify(validatedResult)
     );
-    await this.broadcastCurrentSnapshot();
+  }
+
+  private async finishPlanning(): Promise<SeedRefreshStatusDto> {
+    const state = this.readState();
+    if (state === null || state.status !== "planning") {
+      return SeedRefreshCoordinator.statusFromState(state);
+    }
+
+    const plan = await planLiveSeedRefresh(this.env, DEFAULT_WORK_CHUNK_DAYS);
+    const validatedPlan: LiveSeedRefreshPlan = refreshPlanSchema.parse(plan);
+    this.ctx.storage.sql.exec(
+      `UPDATE refresh_state
+       SET status = 'running', plan_json = ?
+       WHERE id = 1 AND status = 'planning' AND job_id = ?`,
+      JSON.stringify(validatedPlan),
+      state.job_id
+    );
+    await this.ctx.storage.setAlarm(Date.now() + NEXT_ALARM_DELAY_MS);
+    return SeedRefreshCoordinator.statusFromState(this.readState());
   }
 
   private async processNextSlice(): Promise<void> {
@@ -344,9 +363,12 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     input: StartSeedRefreshInput
   ): Promise<SeedRefreshStatusDto> {
     const current = this.readState();
-    if (current?.status === "planning" || current?.status === "running") {
+    if (current?.status === "running") {
       await this.repairAlarm();
       return SeedRefreshCoordinator.statusFromState(current);
+    }
+    if (current?.status === "planning") {
+      return await this.finishPlanning();
     }
 
     const jobId = workflowInstanceId(input);
@@ -374,14 +396,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     );
 
     try {
-      const plan = await planLiveSeedRefresh(this.env, DEFAULT_WORK_CHUNK_DAYS);
-      const validatedPlan: LiveSeedRefreshPlan = refreshPlanSchema.parse(plan);
-      this.ctx.storage.sql.exec(
-        "UPDATE refresh_state SET status = 'running', plan_json = ? WHERE id = 1",
-        JSON.stringify(validatedPlan)
-      );
-      await this.ctx.storage.setAlarm(Date.now() + NEXT_ALARM_DELAY_MS);
-      return SeedRefreshCoordinator.statusFromState(this.readState());
+      return await this.finishPlanning();
     } catch (error: unknown) {
       this.ctx.storage.sql.exec(
         `UPDATE refresh_state
@@ -408,6 +423,10 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
   /** Process one bounded HCC/R2 slice per alarm invocation. */
   async alarm(): Promise<void> {
     try {
+      if (this.readState()?.status === "planning") {
+        await this.finishPlanning();
+        return;
+      }
       await this.processNextSlice();
     } catch (error: unknown) {
       await this.recordFailure(error);
@@ -425,7 +444,11 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    server.send(payload);
+    try {
+      server.send(payload);
+    } catch {
+      // The client can disconnect while the initial snapshot is loading.
+    }
     return new Response(null, { status: 101, webSocket: client });
   }
 
