@@ -50,11 +50,24 @@ const liveStatsResponseSchema = z.object({
 type CoordinatorStatus = z.infer<typeof coordinatorStatusSchema>;
 
 const requiredApiKey = (): string => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.API_KEY ?? process.env.CRON_SECRET;
   if (apiKey === undefined || apiKey.trim().length === 0) {
-    throw new Error("Set API_KEY in .dev.vars or the environment.");
+    throw new Error(
+      "Set API_KEY or CRON_SECRET in .dev.vars or the environment."
+    );
   }
   return apiKey;
+};
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const parseInstant = (value: string, label: string): number => {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    throw new TypeError(`Invalid ${label}: ${value}`);
+  }
+  return parsed;
 };
 
 const parseTimeoutMinutes = (value: string | undefined): number => {
@@ -113,7 +126,14 @@ const waitForRefresh = async (
   let lastProgress = "";
 
   while (Date.now() < deadline) {
-    const status = await requestCoordinator(liveUrl, apiKey, "GET");
+    let status: CoordinatorStatus;
+    try {
+      status = await requestCoordinator(liveUrl, apiKey, "GET");
+    } catch (error: unknown) {
+      console.warn(`[daily] status poll failed: ${errorMessage(error)}`);
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
     if (status.id !== jobId) {
       throw new Error(
         `Refresh job changed from ${jobId} to ${status.id ?? "none"}.`
@@ -151,14 +171,18 @@ const verifyPublishedSnapshot = async (
   }
 
   const { lastRecordAt, lastSyncedAt } = parsed.data.data;
-  if (
-    expectedSyncedAfter !== null &&
-    (lastSyncedAt === null ||
-      Date.parse(lastSyncedAt) < Date.parse(expectedSyncedAfter))
-  ) {
-    throw new Error(
-      `Published snapshot is stale: lastSyncedAt=${lastSyncedAt ?? "null"}.`
-    );
+  if (expectedSyncedAfter !== null) {
+    if (lastSyncedAt === null) {
+      throw new Error("Published snapshot is stale: lastSyncedAt=null.");
+    }
+    if (
+      parseInstant(lastSyncedAt, "lastSyncedAt") <
+      parseInstant(expectedSyncedAfter, "expected sync time")
+    ) {
+      throw new Error(
+        `Published snapshot is stale: lastSyncedAt=${lastSyncedAt}.`
+      );
+    }
   }
   console.log(`[daily] published lastSyncedAt=${lastSyncedAt ?? "null"}`);
   console.log(`[daily] upstream lastRecordAt=${lastRecordAt ?? "null"}`);
