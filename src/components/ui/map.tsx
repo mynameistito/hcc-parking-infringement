@@ -135,7 +135,7 @@ const noopUnsubscribe = () => {
 };
 
 const useResolvedTheme = (themeProp?: "light" | "dark"): Theme => {
-  const detectedTheme = useSyncExternalStore(
+  const detectedTheme = useSyncExternalStore<Theme>(
     themeProp === undefined ? subscribeToSystemTheme : () => noopUnsubscribe,
     getSystemThemeSnapshot,
     () => "light"
