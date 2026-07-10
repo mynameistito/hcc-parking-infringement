@@ -16,6 +16,20 @@
     },
   ],
   "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SEED_REFRESH_COORDINATOR",
+        "class_name": "SeedRefreshCoordinator",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["SeedRefreshCoordinator"],
+    },
+  ],
   "triggers": {
     "crons": ["0 */6 * * *"],
   },

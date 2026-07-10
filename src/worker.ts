@@ -1,12 +1,14 @@
 import { app } from "@/app.ts";
 import type { BackfillMessage, LegacyBackfillMessage } from "@/backfill.ts";
 import { ParkingStore } from "@/durable-objects/parking-store.ts";
+import { SeedRefreshCoordinator } from "@/durable-objects/seed-refresh-coordinator.ts";
 import { createAppScope } from "@/server/app-scope.ts";
 import { processBackfillQueueBatch } from "@/server/backfill-queue.ts";
 import { runScheduledMaintenance } from "@/server/scheduled-tasks.ts";
 import { SeedRefreshWorkflow } from "@/server/seed-refresh-workflow.ts";
 
 export { ParkingStore };
+export { SeedRefreshCoordinator };
 export { SeedRefreshWorkflow };
 
 export default {

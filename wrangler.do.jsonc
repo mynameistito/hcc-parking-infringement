@@ -22,12 +22,20 @@
         "name": "PARKING_STORE",
         "class_name": "ParkingStore",
       },
+      {
+        "name": "SEED_REFRESH_COORDINATOR",
+        "class_name": "SeedRefreshCoordinator",
+      },
     ],
   },
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["ParkingStore"],
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["SeedRefreshCoordinator"],
     },
   ],
   "queues": {
