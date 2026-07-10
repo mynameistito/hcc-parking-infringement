@@ -38,7 +38,7 @@ Browser
 
 Each alarm performs bounded work and has its own Durable Object invocation budget. SQLite preserves progress through eviction or deployment. An active refresh is deduplicated, and constructor/heartbeat repair restores a missing alarm. A failed slice retries six times and exposes its last error through the authenticated status endpoint.
 
-All-time totals advance from a small `refresh-cursor.json` R2 object containing the highest published infringement number. The first coordinator run bootstraps that cursor from the legacy recent-data object; each slice counts only records above the persisted maximum. Finalization writes the snapshot, manifest, and then the new cursor. Because every retry recomputes from the plan's original baseline, a repeated finalization writes the same totals, while the next scheduled job sees the new cursor and adds zero for already-published records.
+All-time totals advance from a compact `refresh-cursor.json` R2 object containing the exact set of infringement numbers already published by the rolling refresh. HCC uses multiple number sequences, so a single high-water mark is not sufficient. The first coordinator run bootstraps the set from the legacy recent-data object; each slice counts only records absent from that persisted set. Finalization writes the snapshot, manifest, and then the union of the prior and current ID sets. Because every retry recomputes from the plan's original baseline, a repeated finalization writes the same totals, while the next scheduled job adds zero for already-published records.
 
 The WebSocket path remains push-first. It does not add REST polling to the browser. Cloudflare's hibernation API allows idle sockets to remain connected without keeping the object active.
 
