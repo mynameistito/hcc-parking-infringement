@@ -40,6 +40,7 @@ const refreshWindowSchema = z.object({
 const refreshPlanSchema = z.object({
   existingLive: publicLiveStatsSchema.nullable(),
   existingManifest: seedManifestSchema.nullable(),
+  existingMaxInfringementNumber: z.number().nullable(),
   from: z.string(),
   prefix: z.string(),
   syncedAt: z.string(),
@@ -62,6 +63,9 @@ const refreshSummarySchema = z.object({
   last365d: z.number(),
   last7d: z.number(),
   lastRecordAt: z.string().nullable(),
+  maxInfringementNumber: z.number().nullable(),
+  newAmountCents: z.number(),
+  newRecords: z.number(),
   recentInfringements: z.array(publicInfringementSchema),
   records: z.number(),
   skipped: z.number(),
@@ -228,6 +232,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     const result = await finalizeLiveSeedRefresh(this.env, {
       existingLive: plan.existingLive,
       existingManifest: plan.existingManifest,
+      existingMaxInfringementNumber: plan.existingMaxInfringementNumber,
       from: plan.from,
       prefix: plan.prefix,
       summaries: this.readSummaries(),
@@ -266,6 +271,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
     const summary = await refreshLiveSeedChunkFromHcc(this.env, {
       chunk: chunkName(window),
+      existingMaxInfringementNumber: plan.existingMaxInfringementNumber,
       prefix: plan.prefix,
       syncedAt: plan.syncedAt,
       to: plan.to,
