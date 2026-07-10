@@ -49,8 +49,10 @@ At the configured six-hour cadence, a 400-day refresh is approximately:
 - 4 refreshes per day.
 - 58 slice alarms plus planning/finalization per refresh.
 - About 240 Durable Object invocations per day before client connections.
-- About 7,000 R2 writes per month, plus a small number of manifest/snapshot reads and writes.
+- 61 normal R2 writes per refresh: 58 refreshed slice objects plus the snapshot, manifest, and cursor. At four runs per day, that is about 7,320 Class A writes per 30-day month before retries.
 - A few megabytes of coordinator SQLite state at most; summaries are replaced at the start of the next job.
+
+The manifest can list 388 historical chunks, but those existing objects are not rewritten by a refresh; only the 58 rolling slice objects are. Even the deliberately pessimistic case of five extra successful slice writes for every window would add about 34,800 monthly writes, still well below R2's free Class A allowance.
 
 This is comfortably below the published free allowances of 100,000 Durable Object requests per day, 5 GB aggregate Durable Object storage, 10 GB-month of R2 Standard storage, one million monthly R2 Class A operations, and ten million monthly R2 Class B operations. Treat these as operational guardrails and re-check Cloudflare's current limits before materially increasing cadence, history, or traffic:
 
@@ -67,7 +69,7 @@ Cloudflare starts refreshes automatically from `0 */6 * * *` (UTC). A manual run
 bun run daily:refresh
 ```
 
-The command reads `API_KEY` from `.dev.vars`, triggers production, follows checkpoint progress, fails on a terminal coordinator error, and verifies that the published `lastSyncedAt` advanced. Use `--no-wait` to trigger without following it, `--timeout-minutes=30` to change the deadline, or `--live-url=...` to target another deployment.
+The command reads `API_KEY` or `CRON_SECRET` from `.dev.vars`, triggers production, follows checkpoint progress through transient request failures, fails on a terminal coordinator error, and verifies that the published `lastSyncedAt` advanced. Use `--no-wait` to trigger without following it, `--timeout-minutes=30` to change the deadline, or `--live-url=...` to target another deployment.
 
 Authenticated endpoints:
 
