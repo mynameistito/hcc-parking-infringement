@@ -1,197 +1,199 @@
 /**
- * Run the daily local backfill -> R2 seed upload -> live verification flow.
+ * Trigger and optionally follow the Cloudflare-hosted seed refresh.
  *
- * The deployed worker reads from the R2 seed, but the local worker must use the
- * Durable Object read source so write routes remain enabled during backfill.
+ * The refresh itself runs entirely on Cloudflare through a Cron-triggered,
+ * alarm-driven Durable Object. This command is an operational client only.
  *
  * @example
  * bun run daily:refresh
- * bun run daily:refresh -- --from=2026-06-17
- * bun run daily:refresh -- --from=2026-06-29 --to=2026-06-30 --deploy
- * bun run daily:refresh -- --chunk-records=2000
- * bun run daily:refresh -- --apply-remote-do
+ * bun run daily:refresh -- --no-wait
+ * bun run daily:refresh -- --live-url=https://example.workers.dev
+ * bun run daily:refresh -- --timeout-minutes=30
  */
 
-import { spawn } from "node:child_process";
-import { once } from "node:events";
-import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-import { assertWorkerReachable, loadDevVars } from "@scripts/dev-env.ts";
+import {
+  describeFetchFailure,
+  fetchWithTimeout,
+  loadDevVars,
+} from "@scripts/dev-env.ts";
 import { readArgValue, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
+import { z } from "zod";
 
-import { addDaysInAuckland, todayInAuckland } from "@/lib/auckland-time.ts";
-
-const rootDir = path.resolve(import.meta.dirname, "..");
 const DEFAULT_LIVE_URL = "https://hcc-parking-infringement.mynameistito.com";
-const DEFAULT_IMPORT_URL =
-  "https://hcc-parking-infringement.mynameistito.workers.dev";
+const DEFAULT_TIMEOUT_MINUTES = 30;
+const POLL_INTERVAL_MS = 5000;
 
-const isCloseEvent = (event: unknown): event is [number | null] =>
-  Array.isArray(event) && event.length > 0;
+const coordinatorStatusSchema = z.object({
+  attempts: z.number(),
+  completedWindows: z.number(),
+  finishedAt: z.string().nullable(),
+  id: z.string().nullable(),
+  lastError: z.string().nullable(),
+  reason: z.enum(["cron", "manual"]).nullable(),
+  startedAt: z.string().nullable(),
+  status: z.enum(["idle", "planning", "running", "complete", "errored"]),
+  totalWindows: z.number(),
+});
+const coordinatorResponseSchema = z.object({
+  coordinator: coordinatorStatusSchema,
+  ok: z.literal(true),
+});
+const liveStatsResponseSchema = z.object({
+  data: z.object({
+    lastRecordAt: z.string().nullable(),
+    lastSyncedAt: z.string().nullable(),
+  }),
+});
 
-const waitForClose = async (
-  child: ReturnType<typeof spawn>
-): Promise<number> => {
-  const event: unknown = await once(child, "close");
-  if (!isCloseEvent(event)) {
-    return 1;
+type CoordinatorStatus = z.infer<typeof coordinatorStatusSchema>;
+
+const requiredApiKey = (): string => {
+  const apiKey = process.env.API_KEY;
+  if (apiKey === undefined || apiKey.trim().length === 0) {
+    throw new Error("Set API_KEY in .dev.vars or the environment.");
   }
-
-  const [code] = event;
-  return typeof code === "number" ? code : 1;
+  return apiKey;
 };
 
-const run = async (label: string, command: string, args: string[]) => {
-  console.log(`\n[daily] ${label}`);
-  const child = spawn(command, args, {
-    cwd: rootDir,
-    shell: true,
-    stdio: "inherit",
+const parseTimeoutMinutes = (value: string | undefined): number => {
+  if (value === undefined) {
+    return DEFAULT_TIMEOUT_MINUTES;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid --timeout-minutes value: ${value}`);
+  }
+  return parsed;
+};
+
+const requestCoordinator = async (
+  liveUrl: string,
+  apiKey: string,
+  method: "GET" | "POST"
+): Promise<CoordinatorStatus> => {
+  const path =
+    method === "POST" ? "/api/v1/seed/refresh" : "/api/v1/seed/refresh/status";
+  const url = `${liveUrl}${path}`;
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    method,
+    timeoutMs: 60_000,
   });
-  const code = await waitForClose(child);
-
-  if (code !== 0) {
-    throw new Error(`${label} failed with exit code ${code}`);
+  const rawBody: unknown = await response.json().catch(() => null);
+  const parsed = coordinatorResponseSchema.safeParse(rawBody);
+  if (!response.ok || !parsed.success) {
+    throw new Error(describeFetchFailure(response, rawBody, method, url));
   }
+  return parsed.data.coordinator;
 };
 
-const startWranglerDev = (port: string): ReturnType<typeof spawn> => {
-  console.log(`\n[daily] starting local wrangler dev on port ${port}`);
-  return spawn(
-    "bunx",
-    [
-      "wrangler",
-      "dev",
-      "-c",
-      "wrangler.jsonc",
-      "--port",
-      port,
-      "--ip",
-      "127.0.0.1",
-      "--var",
-      "PARKING_STORE_READ_SOURCE:durable_object",
-    ],
-    {
-      cwd: rootDir,
-      shell: true,
-      stdio: "inherit",
-    }
+const printStatus = (status: CoordinatorStatus): void => {
+  const progress =
+    status.totalWindows === 0
+      ? "planning"
+      : `${status.completedWindows}/${status.totalWindows} windows`;
+  console.log(
+    `[daily] ${status.status} | ${progress} | attempts ${status.attempts}`
   );
 };
 
-const stopProcessTree = async (child: ReturnType<typeof spawn>) => {
-  if (child.pid === undefined || child.killed) {
-    return;
-  }
+const waitForRefresh = async (
+  liveUrl: string,
+  apiKey: string,
+  jobId: string,
+  timeoutMs: number
+): Promise<CoordinatorStatus> => {
+  const deadline = Date.now() + timeoutMs;
+  let lastProgress = "";
 
-  if (process.platform === "win32") {
-    const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
-      stdio: "ignore",
-    });
-    await once(killer, "close").catch((error: unknown) => {
-      console.warn(
-        "[daily] taskkill failed:",
-        error instanceof Error ? error.message : String(error)
+  while (Date.now() < deadline) {
+    const status = await requestCoordinator(liveUrl, apiKey, "GET");
+    if (status.id !== jobId) {
+      throw new Error(
+        `Refresh job changed from ${jobId} to ${status.id ?? "none"}.`
       );
-      return [1];
-    });
-    return;
-  }
-
-  child.kill("SIGTERM");
-};
-
-const waitForLocalWorker = async (workerUrl: string) => {
-  const startedAt = Date.now();
-  const timeoutMs = 120_000;
-
-  while (Date.now() - startedAt < timeoutMs) {
-    try {
-      await assertWorkerReachable(workerUrl, { timeoutMs: 3000 });
-      console.log(`[daily] local worker reachable at ${workerUrl}`);
-      return;
-    } catch {
-      await sleep(1000);
     }
+
+    const progress = `${status.status}:${status.completedWindows}:${status.attempts}`;
+    if (progress !== lastProgress) {
+      printStatus(status);
+      lastProgress = progress;
+    }
+
+    if (status.status === "complete") {
+      return status;
+    }
+    if (status.status === "errored") {
+      throw new Error(status.lastError ?? "Cloudflare seed refresh failed.");
+    }
+    await sleep(POLL_INTERVAL_MS);
   }
 
-  throw new Error(`Timed out waiting for local worker at ${workerUrl}`);
+  throw new Error(`Timed out waiting for refresh ${jobId}.`);
 };
 
-const verifyLive = async (liveUrl: string) => {
-  console.log(`\n[daily] verifying live ${liveUrl}`);
-  const response = await fetch(`${liveUrl}/api/v1/health`);
-  const body: unknown = await response.json().catch(() => null);
+const verifyPublishedSnapshot = async (
+  liveUrl: string,
+  expectedSyncedAfter: string | null
+): Promise<void> => {
+  const url = `${liveUrl}/api/v1/stats/live`;
+  const response = await fetchWithTimeout(url, { timeoutMs: 60_000 });
+  const rawBody: unknown = await response.json().catch(() => null);
+  const parsed = liveStatsResponseSchema.safeParse(rawBody);
+  if (!response.ok || !parsed.success) {
+    throw new Error(describeFetchFailure(response, rawBody, "GET", url));
+  }
 
-  if (!response.ok) {
+  const { lastRecordAt, lastSyncedAt } = parsed.data.data;
+  if (
+    expectedSyncedAfter !== null &&
+    (lastSyncedAt === null ||
+      Date.parse(lastSyncedAt) < Date.parse(expectedSyncedAfter))
+  ) {
     throw new Error(
-      `Live health failed (${response.status}): ${JSON.stringify(body)}`
+      `Published snapshot is stale: lastSyncedAt=${lastSyncedAt ?? "null"}.`
     );
   }
-
-  console.log("[daily] live health", body);
+  console.log(`[daily] published lastSyncedAt=${lastSyncedAt ?? "null"}`);
+  console.log(`[daily] upstream lastRecordAt=${lastRecordAt ?? "null"}`);
 };
 
 loadDevVars();
 
 const args = scriptArgv();
-const port = readArgValue(args, "port") ?? "8787";
-const to = readArgValue(args, "to") ?? todayInAuckland();
-const from = readArgValue(args, "from") ?? addDaysInAuckland(to, -14);
-const chunkRecords = readArgValue(args, "chunk-records") ?? "2000";
-const importUrl = readArgValue(args, "import-url") ?? DEFAULT_IMPORT_URL;
-const liveUrl = readArgValue(args, "live-url") ?? DEFAULT_LIVE_URL;
-const deploy = readFlag(args, "deploy");
-const applyRemoteDo = readFlag(args, "apply-remote-do");
-const localUrl = `http://127.0.0.1:${port}`;
+const liveUrl = (
+  readArgValue(args, "live-url") ??
+  process.env.WORKER_URL ??
+  DEFAULT_LIVE_URL
+).replace(/\/$/u, "");
+const timeoutMinutes = parseTimeoutMinutes(
+  readArgValue(args, "timeout-minutes")
+);
+const noWait = readFlag(args, "no-wait");
+const apiKey = requiredApiKey();
 
-let wranglerDev: ReturnType<typeof spawn> | undefined;
+console.log(`[daily] triggering Cloudflare refresh at ${liveUrl}`);
+const started = await requestCoordinator(liveUrl, apiKey, "POST");
+printStatus(started);
+if (started.id === null) {
+  throw new Error("Cloudflare did not return a refresh job id.");
+}
 
-try {
-  console.log(`[daily] date range ${from} -> ${to}`);
-
-  await run("build", "bun", ["run", "build"]);
-
-  if (deploy) {
-    await run("deploy patched worker", "bun", ["run", "deploy:seed"]);
-  }
-
-  wranglerDev = startWranglerDev(port);
-  await waitForLocalWorker(localUrl);
-
-  await run("local backfill", "bun", [
-    "run",
-    "backfill",
-    "--",
-    `--port=${port}`,
-    "--delivery=direct",
-    `--from=${from}`,
-    `--to=${to}`,
-    "--force",
-    "--no-track",
-  ]);
-
-  const seedArgs = [
-    "run",
-    "seed:from-local",
-    "--",
-    `--from-port=${port}`,
-    `--chunk-records=${chunkRecords}`,
-    ...(applyRemoteDo ? ["--apply", `--to=${importUrl}`] : []),
-  ];
-
-  await run(
-    applyRemoteDo ? "seed upload and remote DO apply" : "seed upload to R2",
-    "bun",
-    seedArgs
+if (noWait) {
+  console.log(`[daily] refresh accepted: ${started.id}`);
+} else {
+  const completed = await waitForRefresh(
+    liveUrl,
+    apiKey,
+    started.id,
+    timeoutMinutes * 60_000
   );
-
-  await verifyLive(liveUrl.replace(/\/$/u, ""));
-  console.log("\n[daily] complete");
-} finally {
-  if (wranglerDev !== undefined) {
-    console.log("\n[daily] stopping local wrangler dev");
-    await stopProcessTree(wranglerDev);
-  }
+  await verifyPublishedSnapshot(liveUrl, completed.startedAt);
+  console.log(`[daily] refresh complete: ${completed.id}`);
 }
