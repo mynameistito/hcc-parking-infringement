@@ -32,7 +32,7 @@ import {
 } from "@/server/replication.ts";
 import {
   getSeedRefreshStatus,
-  startSeedRefreshWorkflow,
+  startSeedRefresh,
 } from "@/server/scheduled-tasks.ts";
 import {
   importSeedInfringementChunk,
@@ -137,7 +137,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKeyOrCronSecret(c.req.raw, c.env);
 
     try {
-      const result = await startSeedRefreshWorkflow(c.env, {
+      const result = await startSeedRefresh(c.env, {
         reason: "manual",
       });
       return c.json({ coordinator: result, ok: true });

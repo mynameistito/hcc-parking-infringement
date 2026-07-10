@@ -8,7 +8,7 @@ import type {
 import { hourlySync } from "@/server/sync.ts";
 
 /** Start or deduplicate the Cloudflare-native seed refresh coordinator. */
-export const startSeedRefreshWorkflow = async (
+export const startSeedRefresh = async (
   env: Env,
   options: StartSeedRefreshInput
 ): Promise<SeedRefreshStatusDto> =>
@@ -25,7 +25,7 @@ export const runScheduledMaintenance = async (
   scheduledTime?: number
 ): Promise<void> => {
   if (scope.isSeedMode) {
-    const result = await startSeedRefreshWorkflow(scope.env, {
+    const result = await startSeedRefresh(scope.env, {
       reason: "cron",
       scheduledTime,
     });
