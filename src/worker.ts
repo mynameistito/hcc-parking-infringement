@@ -5,11 +5,9 @@ import { SeedRefreshCoordinator } from "@/durable-objects/seed-refresh-coordinat
 import { createAppScope } from "@/server/app-scope.ts";
 import { processBackfillQueueBatch } from "@/server/backfill-queue.ts";
 import { runScheduledMaintenance } from "@/server/scheduled-tasks.ts";
-import { SeedRefreshWorkflow } from "@/server/seed-refresh-workflow.ts";
 
 export { ParkingStore };
 export { SeedRefreshCoordinator };
-export { SeedRefreshWorkflow };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
