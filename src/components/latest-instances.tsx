@@ -406,7 +406,7 @@ export const LatestInstances = ({
       <CardContent className="p-4 sm:p-5 lg:p-6">
         <div className="mb-3 flex items-start justify-between gap-3 sm:items-center">
           <h2 className="text-sm font-semibold text-primary">
-            Latest Instances
+            Latest recorded tickets
           </h2>
           <span className="text-right text-xs text-muted-foreground">
             {sortSummary} · {rowCountLabel}

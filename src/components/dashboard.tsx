@@ -2,6 +2,9 @@ import { formatDistanceToNow } from "date-fns";
 import {
   Activity,
   AlertCircle,
+  CalendarDays,
+  CalendarRange,
+  CarFront,
   Clock3,
   Database,
   Moon,
@@ -25,6 +28,7 @@ import type {
 } from "@/contracts/public-api";
 import { EMPTY_CHART_BREAKDOWNS } from "@/contracts/public-api";
 import { parseAucklandInstant } from "@/lib/auckland-time";
+import { numberFmt } from "@/lib/format";
 import type { PaceTrends } from "@/lib/trend-window";
 
 export type DashboardConnectionStatus = "live" | "cached" | "connecting";
@@ -167,6 +171,86 @@ const LiveStatusBadge = ({
   );
 };
 
+const AtAGlance = ({
+  live,
+  isLoading,
+}: {
+  live: PublicLiveStats;
+  isLoading: boolean;
+}) => {
+  const lastRecordLabel = (() => {
+    if (live.lastRecordAt === null || live.lastRecordAt.length === 0) {
+      return "Awaiting records";
+    }
+
+    try {
+      return formatDistanceToNow(parseAucklandInstant(live.lastRecordAt), {
+        addSuffix: true,
+      });
+    } catch {
+      return "Awaiting records";
+    }
+  })();
+
+  const metrics = [
+    {
+      description: "Recorded in the current local day",
+      icon: CalendarDays,
+      label: "Today",
+      value: numberFmt.format(live.today),
+    },
+    {
+      description: "Recorded since the first of the month",
+      icon: CalendarRange,
+      label: "This month",
+      value: numberFmt.format(live.thisMonth),
+    },
+    {
+      description: "Marked as towed in today's records",
+      icon: CarFront,
+      label: "Towed today",
+      value: numberFmt.format(live.towedToday),
+    },
+    {
+      description: "Time since the newest record in the feed",
+      icon: Clock3,
+      label: "Latest record",
+      value: lastRecordLabel,
+    },
+  ];
+
+  return (
+    <section
+      aria-label="Latest reporting snapshot"
+      className="overflow-hidden rounded-[6px] border border-border bg-muted/20"
+    >
+      <div className="grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+        {metrics.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <div className="min-w-0 px-4 py-3.5" key={metric.label}>
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Icon className="size-3.5" aria-hidden="true" />
+                {metric.label}
+              </div>
+              {isLoading ? (
+                <Skeleton className="mt-2 h-7 w-24" />
+              ) : (
+                <p className="mt-1 font-mono text-xl font-semibold tracking-[-0.035em] text-foreground tabular-nums">
+                  {metric.value}
+                </p>
+              )}
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {metric.description}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
 export const Dashboard = ({
   live,
   dailyTrend,
@@ -191,8 +275,8 @@ export const Dashboard = ({
               Parking Infringement Dashboard
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Live infringement totals, hotspot streets, vehicle trends, and
-              ticket activity for Hamilton, New Zealand.
+              A clear view of recorded parking infringements: what is happening
+              now, how activity is changing, and where tickets are concentrated.
             </p>
           </div>
 
@@ -223,6 +307,7 @@ export const Dashboard = ({
       ) : null}
 
       <main className="grid min-w-0 gap-6">
+        <AtAGlance live={live} isLoading={dataStatus === "loading"} />
         <LiveTicker
           stats={live}
           dailyTrend={dailyTrend}
