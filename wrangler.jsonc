@@ -70,4 +70,45 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/v1/*"],
   },
+  "env": {
+    "dev": {
+      // A separate Workers.dev deployment: no custom domains, schedules, or
+      // production data bindings are inherited by this environment.
+      "workers_dev": true,
+      "routes": [],
+      "triggers": {
+        "crons": [],
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "SEED_REFRESH_COORDINATOR",
+            "class_name": "SeedRefreshCoordinator",
+          },
+        ],
+      },
+      "migrations": [
+        {
+          "tag": "v2",
+          "new_sqlite_classes": ["SeedRefreshCoordinator"],
+        },
+      ],
+      "vars": {
+        "HCC_API_BASE": "https://api.hcc.govt.nz/OpenData",
+        "PARKING_STORE_READ_SOURCE": "seed",
+        "FREE_TIER_MODE": "true",
+        "PARKING_AUTO_REFRESH_DAYS": "400",
+        "PARKING_SEED_CACHE_SECONDS": "60",
+        "PARKING_STORE_SEED_PREFIX": "parking-store/v1/",
+        "PARKING_SEED_BUCKET": "hcc-parking-infringement-seed-dev",
+        "R2_ACCOUNT_ID": "402722ab1f598e783cd6dcdedc37e1d0",
+      },
+      "r2_buckets": [
+        {
+          "binding": "PARKING_SEED",
+          "bucket_name": "hcc-parking-infringement-seed-dev",
+        },
+      ],
+    },
+  },
 }
