@@ -194,16 +194,16 @@ const AtAGlance = ({
 
   const metrics = [
     {
-      description: "Recorded in the current local day",
+      description: "All records available in the current seven-day window",
       icon: CalendarDays,
-      label: "Today",
-      value: numberFmt.format(live.today),
+      label: "Last 7 days",
+      value: numberFmt.format(live.last7d),
     },
     {
-      description: "Recorded since the first of the month",
+      description: "All records available in the current 30-day window",
       icon: CalendarRange,
-      label: "This month",
-      value: numberFmt.format(live.thisMonth),
+      label: "Last 30 days",
+      value: numberFmt.format(live.last30d),
     },
     {
       description: "Marked as towed in today's records",
