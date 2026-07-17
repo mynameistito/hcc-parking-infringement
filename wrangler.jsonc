@@ -76,6 +76,11 @@
       // production data bindings are inherited by this environment.
       "workers_dev": true,
       "routes": [],
+      // Review deployments should not create persistent telemetry costs. Use local
+      // Wrangler development or production observability when diagnostics are needed.
+      "observability": {
+        "enabled": false,
+      },
       "triggers": {
         "crons": [],
       },
