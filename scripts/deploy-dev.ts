@@ -12,6 +12,9 @@ const generatedConfig = path.join(
   "wrangler.json"
 );
 
+const isCloseEvent = (event: unknown): event is [number | null] =>
+  Array.isArray(event) && event.length > 0;
+
 const run = async (command: string, args: string[]): Promise<void> => {
   const child = spawn(command, args, {
     cwd: rootDir,
@@ -19,7 +22,11 @@ const run = async (command: string, args: string[]): Promise<void> => {
     shell: true,
     stdio: "inherit",
   });
-  const [exitCode] = (await once(child, "close")) as [number | null];
+  const event: unknown = await once(child, "close");
+  if (!isCloseEvent(event)) {
+    process.exit(1);
+  }
+  const [exitCode] = event;
   if (exitCode !== 0) {
     process.exit(exitCode ?? 1);
   }
