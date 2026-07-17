@@ -242,7 +242,6 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     });
     const validatedResult: RefreshLiveSeedResult =
       refreshResultSchema.parse(result);
-    await this.broadcastCurrentSnapshot();
     this.ctx.storage.sql.exec(
       `UPDATE refresh_state
        SET status = 'complete', finished_at = ?, attempts = 0,
@@ -251,6 +250,14 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       nowIso(),
       JSON.stringify(validatedResult)
     );
+    try {
+      await this.broadcastCurrentSnapshot();
+    } catch (error: unknown) {
+      console.warn("[seed-refresh] snapshot broadcast failed", {
+        error: errorMessage(error),
+        jobId: this.readState()?.job_id ?? null,
+      });
+    }
   }
 
   private async finishPlanning(): Promise<SeedRefreshStatusDto> {
@@ -263,7 +270,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     const validatedPlan: LiveSeedRefreshPlan = refreshPlanSchema.parse(plan);
     this.ctx.storage.sql.exec(
       `UPDATE refresh_state
-       SET status = 'running', plan_json = ?
+       SET status = 'running', plan_json = ?, attempts = 0, last_error = NULL
        WHERE id = 1 AND status = 'planning' AND job_id = ?`,
       JSON.stringify(validatedPlan),
       state.job_id
@@ -368,6 +375,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       return SeedRefreshCoordinator.statusFromState(current);
     }
     if (current?.status === "planning") {
+      await this.repairAlarm();
       return await this.finishPlanning();
     }
 
