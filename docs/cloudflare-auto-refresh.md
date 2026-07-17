@@ -89,7 +89,7 @@ Public verification endpoints:
 3. Trigger `bun run daily:refresh -- --no-wait`.
 4. Poll the authenticated status endpoint until `complete`.
 5. Confirm `lastSyncedAt` advanced. Do not require `lastRecordAt` to advance when HCC has not published newer rows.
-6. Trigger a second run and confirm the all-time total is unchanged when HCC returns no higher infringement numbers.
+6. Trigger a second run and confirm the all-time total is unchanged when HCC returns no IDs absent from the persisted cursor.
 7. Hold an open dashboard WebSocket during finalization and confirm it receives the new full snapshot without reconnecting.
 8. Leave the six-hour Cron Trigger enabled and inspect status after the next scheduled window.
 
