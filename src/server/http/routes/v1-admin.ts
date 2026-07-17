@@ -30,7 +30,10 @@ import {
   importStoredInfringements,
   importStoredWatermarks,
 } from "@/server/replication.ts";
-import { startSeedRefreshWorkflow } from "@/server/scheduled-tasks.ts";
+import {
+  getSeedRefreshStatus,
+  startSeedRefresh,
+} from "@/server/scheduled-tasks.ts";
 import {
   importSeedInfringementChunk,
   importSeedWatermarks,
@@ -134,11 +137,25 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKeyOrCronSecret(c.req.raw, c.env);
 
     try {
-      const result = await startSeedRefreshWorkflow(c.env, {
+      const result = await startSeedRefresh(c.env, {
         reason: "manual",
       });
-      return c.json({ ok: true, workflow: result });
+      return c.json({ coordinator: result, ok: true });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return jsonError(500, message);
+    }
+  });
+
+  routes.get("/seed/refresh/status", async (c) => {
+    assertApiKeyOrCronSecret(c.req.raw, c.env);
+
+    try {
+      return c.json({
+        coordinator: await getSeedRefreshStatus(c.env),
+        ok: true,
+      });
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return jsonError(500, message);
     }

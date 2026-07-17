@@ -86,7 +86,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
     const { scope } = c.var;
 
     if (scope.isSeedMode) {
-      return await handleSeedDashboardWebSocket(c.req.raw, scope);
+      return await handleSeedDashboardWebSocket(c.req.raw, c.env);
     }
 
     const stub = getParkingStore(c.env);

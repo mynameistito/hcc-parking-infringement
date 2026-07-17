@@ -36,13 +36,16 @@ import {
 
 const DEFAULT_REFRESH_DAYS = 400;
 const RECENT_SEED_CHUNK = "infringements-recent.ndjson";
+const REFRESH_CURSOR_FILE = "refresh-cursor.json";
 export const SEED_REFRESH_CHUNK_PREFIX = "infringements-refresh-";
 const RANK_LIMIT = 50;
 const RECENT_LIMIT = 50;
 
 interface ExistingSeedState {
+  readonly bootstrapAfter: string | null;
   readonly manifest: SeedManifest | null;
   readonly prefix: string;
+  readonly publishedInfringementNumbers: number[];
   readonly snapshotLive: PublicLiveStats | null;
 }
 
@@ -67,6 +70,9 @@ export interface LiveSeedRefreshChunkSummary {
   readonly last365d: number;
   readonly last7d: number;
   readonly lastRecordAt: string | null;
+  readonly infringementNumbers: number[];
+  readonly newAmountCents: number;
+  readonly newRecords: number;
   readonly recentInfringements: PublicInfringement[];
   readonly records: number;
   readonly skipped: number;
@@ -80,10 +86,12 @@ export interface LiveSeedRefreshChunkSummary {
 }
 
 export interface LiveSeedRefreshPlan {
+  readonly bootstrapAfter: string | null;
   readonly existingLive: PublicLiveStats | null;
   readonly existingManifest: SeedManifest | null;
   readonly from: string;
   readonly prefix: string;
+  readonly publishedInfringementNumbers: number[];
   readonly syncedAt: string;
   readonly to: string;
   readonly windows: LiveSeedRefreshWindow[];
@@ -297,6 +305,47 @@ const sortRecentPublicInfringements = (
     (left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt)
   );
 
+const readRefreshCursor = async (
+  env: Env,
+  prefix: string
+): Promise<number[] | null> => {
+  const cursorRaw = await readSeedObjectText(
+    env,
+    seedObjectKey(prefix, REFRESH_CURSOR_FILE)
+  );
+  if (cursorRaw === null) {
+    return null;
+  }
+
+  const parsed: unknown = JSON.parse(cursorRaw);
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("version" in parsed) ||
+    parsed.version !== 2 ||
+    !("publishedInfringementNumbers" in parsed)
+  ) {
+    return null;
+  }
+
+  const candidate: unknown = parsed.publishedInfringementNumbers;
+  if (!Array.isArray(candidate)) {
+    return null;
+  }
+
+  const values: unknown[] = candidate;
+  if (
+    !values.every(
+      (value): value is number =>
+        typeof value === "number" && Number.isSafeInteger(value)
+    )
+  ) {
+    return null;
+  }
+
+  return values;
+};
+
 const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
   try {
     const { manifest, prefix } = await readSeedManifest(env);
@@ -306,20 +355,40 @@ const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
       env,
       seedObjectKey(prefix, snapshotKey)
     );
-    const snapshotLive =
+    const snapshot =
       snapshotRaw === null
         ? null
-        : (parsePublicDashboardSnapshotJson(snapshotRaw)?.live ?? null);
+        : parsePublicDashboardSnapshotJson(snapshotRaw);
+    const snapshotLive = snapshot?.live ?? null;
+    let publishedInfringementNumbers: number[] = [];
+    try {
+      publishedInfringementNumbers =
+        (await readRefreshCursor(env, prefix)) ?? [];
+    } catch {
+      // A malformed cursor must not discard the valid manifest or snapshot.
+    }
+    const bootstrapAfter =
+      publishedInfringementNumbers.length === 0
+        ? (snapshotLive?.lastRecordAt ?? null)
+        : null;
 
-    return { manifest, prefix, snapshotLive };
+    return {
+      bootstrapAfter,
+      manifest,
+      prefix,
+      publishedInfringementNumbers,
+      snapshotLive,
+    };
   } catch {
     const prefix = env.PARKING_STORE_SEED_PREFIX;
     return {
+      bootstrapAfter: null,
       manifest: null,
       prefix:
         typeof prefix === "string" && prefix.length > 0
           ? prefix
           : "parking-store/v1/",
+      publishedInfringementNumbers: [],
       snapshotLive: null,
     };
   }
@@ -378,10 +447,12 @@ export const planLiveSeedRefresh = async (
   }
 
   return {
+    bootstrapAfter: existing.bootstrapAfter,
     existingLive: existing.snapshotLive,
     existingManifest: existing.manifest,
     from,
     prefix: existing.prefix,
+    publishedInfringementNumbers: existing.publishedInfringementNumbers,
     syncedAt: nowInAucklandIso(),
     to,
     windows,
@@ -391,8 +462,10 @@ export const planLiveSeedRefresh = async (
 export const refreshLiveSeedChunkFromHcc = async (
   env: Env,
   options: {
+    readonly bootstrapAfter: string | null;
     readonly chunk: string;
     readonly prefix: string;
+    readonly publishedInfringementNumbers: readonly number[];
     readonly syncedAt: string;
     readonly to: string;
     readonly window: LiveSeedRefreshWindow;
@@ -409,6 +482,13 @@ export const refreshLiveSeedChunkFromHcc = async (
 
   const { cleaned, skipped } = cleanInfringements(fetched.value.records);
   const records = uniqueByInfringementNumber(cleaned);
+  const published = new Set(options.publishedInfringementNumbers);
+  const newRecords = records.filter(
+    (record) =>
+      !published.has(record.infringementNumber) &&
+      (options.bootstrapAfter === null ||
+        record.occurredAt > options.bootstrapAfter)
+  );
   const todayRecords = records.filter(
     (record) => toDateKey(record) === options.to
   );
@@ -452,11 +532,17 @@ export const refreshLiveSeedChunkFromHcc = async (
       options.window.start,
       options.window.end
     ),
+    infringementNumbers: records.map((record) => record.infringementNumber),
     last24h: countSinceInstant(records, last24hStart),
     last30d: countSinceDate(records, last30dStart),
     last365d: countSinceDate(records, last365dStart),
     last7d: countSinceDate(records, last7dStart),
     lastRecordAt: records[0]?.occurredAt ?? null,
+    newAmountCents: newRecords.reduce(
+      (sum, record) => sum + record.amountCents,
+      0
+    ),
+    newRecords: newRecords.length,
     recentInfringements: records
       .slice(0, RECENT_LIMIT)
       .map(projectPublicInfringement),
@@ -479,6 +565,7 @@ export const finalizeLiveSeedRefresh = async (
     readonly existingManifest: SeedManifest | null;
     readonly from: string;
     readonly prefix: string;
+    readonly publishedInfringementNumbers: readonly number[];
     readonly summaries: readonly LiveSeedRefreshChunkSummary[];
     readonly syncedAt: string;
     readonly to: string;
@@ -504,6 +591,11 @@ export const finalizeLiveSeedRefresh = async (
   let last7d = 0;
   let lastRecordAt: string | null = null;
   let records = 0;
+  let newAmountCents = 0;
+  let newRecords = 0;
+  const publishedInfringementNumbers = new Set(
+    options.publishedInfringementNumbers
+  );
   let skipped = 0;
   let thisMonth = 0;
   let today = 0;
@@ -517,6 +609,11 @@ export const finalizeLiveSeedRefresh = async (
     last7d += summary.last7d;
     lastRecordAt = latestInstant(lastRecordAt, summary.lastRecordAt);
     records += summary.records;
+    newAmountCents += summary.newAmountCents;
+    newRecords += summary.newRecords;
+    for (const infringementNumber of summary.infringementNumbers) {
+      publishedInfringementNumbers.add(infringementNumber);
+    }
     skipped += summary.skipped;
     thisMonth += summary.thisMonth;
     today += summary.today;
@@ -570,11 +667,14 @@ export const finalizeLiveSeedRefresh = async (
     },
     dailyTrend,
     live: {
-      allTimeAmountCents: Math.max(
-        options.existingLive?.allTimeAmountCents ?? 0,
-        amountCents
-      ),
-      allTimeTotal: Math.max(options.existingLive?.allTimeTotal ?? 0, records),
+      allTimeAmountCents:
+        options.existingLive === null
+          ? amountCents
+          : options.existingLive.allTimeAmountCents + newAmountCents,
+      allTimeTotal:
+        options.existingLive === null
+          ? records
+          : options.existingLive.allTimeTotal + newRecords,
       last24h,
       last30d,
       last365d,
@@ -624,10 +724,10 @@ export const finalizeLiveSeedRefresh = async (
       infringementChunks: historicalChunks,
       source:
         options.existingManifest?.source ?? "hcc-open-data-worker-refresh",
-      totalInfringements: Math.max(
-        options.existingManifest?.totalInfringements ?? 0,
-        records
-      ),
+      totalInfringements:
+        options.existingManifest === null
+          ? records
+          : options.existingManifest.totalInfringements + newRecords,
       version: SEED_MANIFEST_VERSION,
       watermarksKey: options.existingManifest?.watermarksKey,
     },
@@ -645,6 +745,15 @@ export const finalizeLiveSeedRefresh = async (
     env,
     seedObjectKey(options.prefix, MANIFEST_FILE),
     `${JSON.stringify(manifest, null, 2)}\n`
+  );
+  await writeSeedObjectText(
+    env,
+    seedObjectKey(options.prefix, REFRESH_CURSOR_FILE),
+    `${JSON.stringify({
+      publishedInfringementNumbers: [...publishedInfringementNumbers],
+      updatedAt: options.syncedAt,
+      version: 2,
+    })}\n`
   );
 
   return {
