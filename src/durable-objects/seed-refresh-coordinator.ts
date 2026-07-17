@@ -217,6 +217,31 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       .map((row) => refreshSummarySchema.parse(JSON.parse(row.summary_json)));
   }
 
+  private readPublishedInfringementNumbers(
+    plan: LiveSeedRefreshPlan,
+    beforeWindowIndex: number
+  ): number[] {
+    const published = new Set(plan.publishedInfringementNumbers);
+    const summaries = this.ctx.storage.sql
+      .exec<SummaryRow>(
+        `SELECT summary_json
+         FROM refresh_summaries
+         WHERE window_index < ?
+         ORDER BY window_index`,
+        beforeWindowIndex
+      )
+      .toArray();
+
+    for (const row of summaries) {
+      const summary = refreshSummarySchema.parse(JSON.parse(row.summary_json));
+      for (const infringementNumber of summary.infringementNumbers) {
+        published.add(infringementNumber);
+      }
+    }
+
+    return [...published];
+  }
+
   private async broadcastCurrentSnapshot(): Promise<void> {
     const parking = createParkingStoreReader(this.env, createSeedReadCache());
     const payload = await parking.readDashboardSnapshotPayload();
@@ -300,7 +325,10 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       bootstrapAfter: plan.bootstrapAfter,
       chunk: chunkName(window),
       prefix: plan.prefix,
-      publishedInfringementNumbers: plan.publishedInfringementNumbers,
+      publishedInfringementNumbers: this.readPublishedInfringementNumbers(
+        plan,
+        state.next_index
+      ),
       syncedAt: plan.syncedAt,
       to: plan.to,
       window,
