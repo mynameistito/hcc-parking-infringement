@@ -36,7 +36,7 @@ Browser
   -> fresh R2 snapshot on connect and after every completed refresh
 ```
 
-Each alarm performs bounded work and has its own Durable Object invocation budget. SQLite preserves progress through eviction or deployment. An active refresh is deduplicated, and constructor/heartbeat repair restores a missing alarm. A failed slice retries six times and exposes its last error through the authenticated status endpoint.
+Each alarm performs bounded work and has its own Durable Object invocation budget. SQLite preserves progress through eviction or deployment. An active refresh is deduplicated, and constructor/heartbeat repair restores a missing alarm. A transient slice failure retries with capped exponential backoff and exposes its last error through the authenticated status endpoint; non-transient failures stop the job for investigation.
 
 All-time totals advance from a compact `refresh-cursor.json` R2 object containing the exact set of infringement numbers already published by the rolling refresh. HCC uses multiple number sequences, so a single high-water mark is not sufficient. When no valid cursor exists, the first coordinator run counts records later than the existing snapshot's `lastRecordAt`; subsequent slices count only IDs absent from the persisted set. Finalization writes the snapshot, manifest, and then the union of the prior and current ID sets. Because every retry recomputes from the plan's original baseline, a repeated finalization writes the same totals, while the next scheduled job adds zero for already-published records.
 

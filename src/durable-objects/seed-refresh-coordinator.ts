@@ -6,6 +6,7 @@ import {
   publicInfringementSchema,
   publicLiveStatsSchema,
 } from "@/contracts/public-api.ts";
+import { isRetryableError } from "@/lib/transient-error.ts";
 import {
   finalizeLiveSeedRefresh,
   planLiveSeedRefresh,
@@ -28,9 +29,9 @@ import type {
 } from "@/server/seed-refresh-coordinator.ts";
 
 const DEFAULT_WORK_CHUNK_DAYS = 7;
-const MAX_ATTEMPTS = 6;
 const NEXT_ALARM_DELAY_MS = 1000;
 const RETRY_BASE_DELAY_MS = 30_000;
+const MAX_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 
 const countEntrySchema = z.tuple([z.string(), z.number()]);
 const refreshWindowSchema = z.object({
@@ -359,7 +360,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
     const attempts = state.attempts + 1;
     const message = errorMessage(error);
-    if (attempts >= MAX_ATTEMPTS) {
+    if (!isRetryableError(error)) {
       this.ctx.storage.sql.exec(
         `UPDATE refresh_state
          SET status = 'errored', attempts = ?, last_error = ?, finished_at = ?
@@ -368,7 +369,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
         message,
         nowIso()
       );
-      console.error("[seed-refresh] coordinator exhausted retries", {
+      console.error("[seed-refresh] coordinator failed permanently", {
         attempts,
         error: message,
         jobId: state.job_id,
@@ -382,11 +383,14 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       attempts,
       message
     );
-    await this.ctx.storage.setAlarm(
-      Date.now() + RETRY_BASE_DELAY_MS * attempts
+    const delayMs = Math.min(
+      RETRY_BASE_DELAY_MS * 2 ** (attempts - 1),
+      MAX_RETRY_DELAY_MS
     );
-    console.warn("[seed-refresh] coordinator scheduled retry", {
+    await this.ctx.storage.setAlarm(Date.now() + delayMs);
+    console.warn("[seed-refresh] coordinator scheduled transient retry", {
       attempts,
+      delayMs,
       error: message,
       jobId: state.job_id,
       windowIndex: state.next_index,

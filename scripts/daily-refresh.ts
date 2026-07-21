@@ -191,11 +191,10 @@ const verifyPublishedSnapshot = async (
 loadDevVars();
 
 const args = scriptArgv();
-const liveUrl = (
-  readArgValue(args, "live-url") ??
-  process.env.WORKER_URL ??
-  DEFAULT_LIVE_URL
-).replace(/\/$/u, "");
+const liveUrl = (readArgValue(args, "live-url") ?? DEFAULT_LIVE_URL).replace(
+  /\/$/u,
+  ""
+);
 const timeoutMinutes = parseTimeoutMinutes(
   readArgValue(args, "timeout-minutes")
 );
