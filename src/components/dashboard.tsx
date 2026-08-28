@@ -214,6 +214,20 @@ export const Dashboard = ({
         </div>
       </header>
 
+      <Alert
+        variant="destructive"
+        className="mb-6 rounded-full border-destructive/30 bg-destructive/5 px-4 py-2.5"
+      >
+        <AlertCircle className="size-4" aria-hidden="true" />
+        <AlertDescription className="text-destructive/90">
+          <span className="font-medium text-destructive">
+            Data feed temporarily unavailable.
+          </span>{" "}
+          The Hamilton City Council API is not responding, so dashboard data may
+          be stale while the issue is investigated.
+        </AlertDescription>
+      </Alert>
+
       {error !== null && error !== undefined && error.length > 0 ? (
         <Alert variant="destructive" className="mb-6 bg-background">
           <AlertCircle className="size-4" aria-hidden="true" />
