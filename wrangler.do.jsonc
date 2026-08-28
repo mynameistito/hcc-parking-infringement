@@ -54,9 +54,6 @@
       },
     ],
   },
-  "triggers": {
-    "crons": ["0 */6 * * *"],
-  },
   "observability": {
     "enabled": false,
     "head_sampling_rate": 1,
