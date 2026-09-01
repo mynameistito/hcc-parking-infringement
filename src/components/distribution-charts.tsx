@@ -74,11 +74,11 @@ export const DistributionCharts = ({
             className="size-4 text-[var(--ring)]"
             aria-hidden="true"
           />
-          Distributions
+          Where and why tickets are recorded
         </CardTitle>
         <CardDescription>
-          Full breakdowns across suburbs, offences, vehicles, and enforcement
-          outcomes. Every category is listed in the legend.
+          Start with the street hotspots, then compare the suburb, offence,
+          vehicle, and enforcement breakdowns below.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 p-4">
@@ -86,11 +86,11 @@ export const DistributionCharts = ({
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
             <div>
               <h3 className="text-sm font-semibold text-foreground">
-                All streets
+                Street hotspots
               </h3>
               <p className="text-xs text-muted-foreground">
-                {numberFmt.format(streets.length)} locations ·{" "}
-                {numberFmt.format(streetTotal)} tickets
+                Ranked by recorded tickets · {numberFmt.format(streets.length)}{" "}
+                locations · {numberFmt.format(streetTotal)} tickets
               </p>
             </div>
           </div>

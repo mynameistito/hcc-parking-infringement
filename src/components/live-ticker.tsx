@@ -65,7 +65,7 @@ export const LiveTicker = ({
           <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
             <div className="flex min-h-4 items-center gap-2 text-xs font-medium text-muted-foreground uppercase">
               <Sigma className="size-4 text-[var(--ring)]" aria-hidden="true" />
-              All-time infringements
+              All recorded infringements
             </div>
 
             <div>
