@@ -5,6 +5,9 @@
   "compatibility_date": "2026-06-25",
   "account_id": "402722ab1f598e783cd6dcdedc37e1d0",
   "workers_dev": true,
+  "triggers": {
+    "crons": [],
+  },
   "routes": [
     {
       "pattern": "hcc-parking-infringement.mynameistito.com",
