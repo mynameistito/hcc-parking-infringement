@@ -146,11 +146,11 @@ export const DailyTrendPanel = ({
                 className="size-4 text-[var(--ring)]"
                 aria-hidden="true"
               />
-              Volume trend
+              Activity over time
             </CardTitle>
             <CardDescription>
-              Every day in the selected window —{" "}
-              {numberFmt.format(chart.values.length)} data points.
+              Compare daily ticket volume or fine value across the selected
+              period — {numberFmt.format(chart.values.length)} data points.
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">

@@ -76,6 +76,18 @@ bun run sync
 bun run geocode
 ```
 
+## Development deployments
+
+`bun run deploy:dev` builds and deploys the isolated `dev` Worker environment to a `*.workers.dev` URL. It has no custom domains or scheduled jobs and uses the separate `hcc-parking-infringement-seed-dev` R2 bucket, so it cannot write to production dashboard data.
+
+Create that bucket once before the first deployment:
+
+```powershell
+bunx wrangler r2 bucket create hcc-parking-infringement-seed-dev
+```
+
+Deploy changes to this environment for review before running a production deployment.
+
 ## Public API
 
 Unauthenticated routes power the public dashboard:

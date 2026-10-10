@@ -136,7 +136,7 @@ export const PacePanel = ({
   return (
     <aside className="border-t border-border p-3 sm:p-4 lg:border-t-0 lg:border-l">
       <div className="mb-2 flex min-h-5 items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-primary">Current pace</h2>
+        <h2 className="text-sm font-semibold text-primary">Recent activity</h2>
         <span className="text-[11px] text-muted-foreground">Live snapshot</span>
       </div>
       <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3 lg:grid-cols-1">

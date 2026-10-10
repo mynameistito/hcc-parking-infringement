@@ -9,6 +9,7 @@
     "dev:wrangler": "bun run scripts/wrangler-dev.ts -- --watch",
     "dev:ts": "bun run scripts/dev-ts.ts",
     "deploy": "vite build && wrangler deploy -c dist/hcc_parking_infringement/wrangler.json --var PARKING_STORE_READ_SOURCE:seed --var FREE_TIER_MODE:true",
+    "deploy:dev": "bun run scripts/deploy-dev.ts",
     "deploy:do": "vite build && wrangler deploy -c wrangler.do.jsonc --var PARKING_STORE_READ_SOURCE:durable_object --var FREE_TIER_MODE:true",
     "deploy:seed": "vite build && wrangler deploy -c dist/hcc_parking_infringement/wrangler.json --var PARKING_STORE_READ_SOURCE:seed --var FREE_TIER_MODE:true",
     "enrich:seed-dashboard": "bun run scripts/enrich-seed-dashboard.ts",
