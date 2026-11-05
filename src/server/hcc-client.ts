@@ -208,12 +208,16 @@ export const hccTransportLayer = (
         page: number
       ) {
         const result = yield* Effect.promise(
-          async () =>
+          async (signal) =>
             await fetchInfringements(env, {
               endDate,
               page,
               startDate,
               ...options,
+              signal:
+                options.signal === undefined
+                  ? signal
+                  : AbortSignal.any([signal, options.signal]),
             })
         );
         return yield* result.ok
