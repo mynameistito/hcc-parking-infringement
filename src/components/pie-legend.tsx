@@ -21,7 +21,8 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
   }
 
   return (
-    <section
+    <div
+      role="group"
       aria-label="Chart legend"
       tabIndex={0}
       className={cn(
@@ -55,6 +56,6 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
           );
         })}
       </ul>
-    </section>
+    </div>
   );
 };
