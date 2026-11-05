@@ -8,7 +8,6 @@ import path from "node:path";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
 const DEFAULT_WORKER_URL = "http://127.0.0.1:5173";
-const WRANGLER_DEV_URL = "http://127.0.0.1:8787";
 const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 
 /** Whether a worker URL targets a local dev server (not workers.dev). */
@@ -146,12 +145,6 @@ export const getWorkerUrl = (): string =>
 export const getHccClientEnv = (): Pick<Env, "HCC_API_BASE"> => ({
   HCC_API_BASE: process.env.HCC_API_BASE,
 });
-
-/** Default wrangler dev listen port (`8787`). */
-export const WRANGLER_DEV_PORT = "8787";
-
-/** Default wrangler dev base URL (`http://127.0.0.1:8787`). */
-export const WRANGLER_DEV_DEFAULT_URL = WRANGLER_DEV_URL;
 
 /** Resolve worker URL from CLI `--port` / `--port=`, then `WORKER_URL`, then default. */
 export const resolveWorkerUrl = (args: string[] = []): string => {

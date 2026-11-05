@@ -40,3 +40,12 @@ rg -n 'mergeChartStreetItems|snapshotHasNativeChartBreakdowns|locationRankItemsT
 ```
 
 Keep `enabled: false` in `src/client/app.tsx`: the query observes the cache that `applyDashboardSnapshot` populates using `queryClient.setQueryData` in `src/client/dashboard-snapshot.ts`; it intentionally does not fetch. A search for commented-out statements and literal `if (false)`/`if (true)` found no other dead branch candidates. The standalone full-refresh operation is retained pending lifecycle review; the server contract is distinct from client-only exports.
+
+## Skeleton and constant batch
+
+A hidden-file-inclusive repository search excluding `.git`, dependencies, build output, lockfile and this audit found exactly one line per named skeleton and constant, all declarations: `TopListSkeleton`, `ExploreListSkeleton`, `InfringementCardsSkeleton`, `MapAreaSkeleton`, `InspectorSkeleton`, `WRANGLER_DEV_PORT`, `WRANGLER_DEV_DEFAULT_URL`, `BACKFILL_QUEUE_CONCURRENCY`, `MAX_BACKFILL_ENQUEUE_PER_WAVE`, `MAX_BACKFILL_DIRECT_PER_WAVE`, `BACKFILL_QUEUE_WINDOWS_PER_MESSAGE`, and `FREE_TIER_DO_SQLITE_READS_PER_DAY`. No tests, configuration, documentation, or string registrations reference them. The remaining `InfringementCardSkeleton` is referenced only by the unused plural skeleton, and the private `WRANGLER_DEV_URL` only by the unused default export; both become dead with their sole caller. Other skeletons have live imports. Package metadata declares `private: true`, with no package `main`/`exports`. The limits are internal constants, not HTTP or environment contracts; configuration and operational behavior are preserved.
+
+```powershell
+rg -n 'TopListSkeleton|ExploreListSkeleton|InfringementCardsSkeleton|MapAreaSkeleton|InspectorSkeleton|WRANGLER_DEV_PORT|WRANGLER_DEV_DEFAULT_URL|BACKFILL_QUEUE_CONCURRENCY|MAX_BACKFILL_ENQUEUE_PER_WAVE|MAX_BACKFILL_DIRECT_PER_WAVE|BACKFILL_QUEUE_WINDOWS_PER_MESSAGE|FREE_TIER_DO_SQLITE_READS_PER_DAY' . -g '!bun.lock' -g '!docs/dead-code-graph-audit.md'
+rg -n '\b(WRANGLER_DEV_URL|InfringementCardSkeleton|StatPillLoading|TableRowsSkeleton|ChartAreaSkeleton)\b' src scripts
+```

@@ -1,7 +1,6 @@
 /** Cloudflare Workers Free plan budgets (headroom below hard limits). */
 
 export const FREE_TIER_DO_SQLITE_WRITES_PER_DAY = 100_000;
-export const FREE_TIER_DO_SQLITE_READS_PER_DAY = 5_000_000;
 export const FREE_TIER_QUEUE_OPS_PER_DAY = 10_000;
 
 /** Leave room for hourly sync, stats flush, and dashboard reads. */
