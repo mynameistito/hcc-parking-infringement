@@ -119,7 +119,7 @@ describe("HCC pagination", () => {
   it("waits for all pages and reports the earliest page failure", async () => {
     const pageTwo = Promise.withResolvers<Response>();
     const pageThree = Promise.withResolvers<Response>();
-    const bothStarted = Promise.withResolvers<void>();
+    const bothStarted = Promise.withResolvers<null>();
     let started = 0;
     const fetchPage: typeof fetch = async (input) => {
       const url = input instanceof Request ? input.url : input;
@@ -130,7 +130,9 @@ describe("HCC pagination", () => {
         });
       }
       started += 1;
-      if (started === 2) bothStarted.resolve();
+      if (started === 2) {
+        bothStarted.resolve(null);
+      }
       return await (page === 2 ? pageTwo.promise : pageThree.promise);
     };
     let settled = false;
@@ -146,8 +148,8 @@ describe("HCC pagination", () => {
     expect(settled).toBe(false);
     pageTwo.resolve(new Response("page 2", { status: 429 }));
     expect(await result).toEqual({
+      error: { body: "page 2", status: 429, tag: "http" },
       ok: false,
-      error: { tag: "http", status: 429, body: "page 2" },
     });
   });
 });

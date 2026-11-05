@@ -40,8 +40,8 @@ describe("buildLiveSeedSnapshot", () => {
   it("uses one supplied instant for rolling windows across Auckland midnight", () => {
     const snapshot = buildLiveSeedSnapshot({
       existingLive: null,
-      now: new Date("2026-06-30T12:00:00Z"),
       from: "2026-06-24",
+      now: new Date("2026-06-30T12:00:00Z"),
       records: [
         makeRecord(1, "2026-06-24T23:59:59+12:00"),
         makeRecord(2, "2026-06-25T00:00:00+12:00"),
@@ -72,8 +72,8 @@ describe("buildLiveSeedSnapshot", () => {
         today: 0,
         towedToday: 0,
       },
-      now: new Date("2026-07-01T00:00:00Z"),
       from: "2026-06-29",
+      now: new Date("2026-07-01T00:00:00Z"),
       records: [
         makeRecord(1, "2026-06-29T10:00:00+12:00"),
         makeRecord(2, "2026-07-01T09:00:00+12:00", { isTowed: true }),

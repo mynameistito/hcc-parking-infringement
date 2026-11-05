@@ -790,7 +790,7 @@ const buildLiveStats = (options: {
   readonly today: string;
   readonly syncedAt: string;
 }): PublicLiveStats => {
-  const now = options.now;
+  const { now } = options;
   const recentAmountCents = options.records.reduce(
     (sum, record) => sum + record.amountCents,
     0
@@ -913,8 +913,8 @@ export const refreshLiveSeedFromHcc = async (
   const syncedAt = nowInAucklandIso();
   const snapshot = buildLiveSeedSnapshot({
     existingLive: existing.snapshotLive,
-    now,
     from,
+    now,
     records,
     syncedAt,
     to,
