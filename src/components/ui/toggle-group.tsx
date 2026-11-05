@@ -18,7 +18,7 @@ const ToggleGroupItem = ({ className, ...props }: TogglePrimitive.Props) => (
   <TogglePrimitive
     data-slot="toggle-group-item"
     className={cn(
-      "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50",
+      "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3",
       className
     )}
     {...props}

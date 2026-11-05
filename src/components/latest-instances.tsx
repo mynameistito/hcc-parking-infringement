@@ -249,7 +249,7 @@ const MobileInfringementCard = ({
   );
 
   return (
-    <Card className="gap-2 py-3">
+    <Card role="article" className="gap-2 py-3">
       <CardHeader className="flex items-start justify-between gap-3 px-3 text-xs">
         <div className="min-w-0">
           <time
