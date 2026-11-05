@@ -39,7 +39,7 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
               style={{ backgroundColor: chartColorAt(index) }}
               aria-hidden="true"
             />
-            <span className="truncate text-foreground" title={item.label}>
+            <span className="min-w-0 break-words text-foreground">
               {item.label}
             </span>
             <span className="font-mono text-muted-foreground tabular-nums">

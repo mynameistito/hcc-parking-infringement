@@ -461,6 +461,9 @@ export const LatestInstances = ({
 
         <div
           ref={scrollRef}
+          role="region"
+          aria-label="Latest infringements table"
+          tabIndex={0}
           className="hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border border-border md:block"
         >
           <table className="w-full min-w-[56rem] border-collapse text-left text-xs">

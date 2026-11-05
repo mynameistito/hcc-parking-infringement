@@ -111,7 +111,7 @@ export const DistributionCharts = ({
 
         <div
           className={cn(
-            "grid gap-4 sm:grid-cols-2 xl:grid-cols-3",
+            "grid gap-4 lg:grid-cols-2 xl:grid-cols-3",
             "2xl:grid-cols-3"
           )}
         >
