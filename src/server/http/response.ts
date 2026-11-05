@@ -24,6 +24,4 @@ export const storedJson = (
 export const jsonError = (status: number, message: string) =>
   Response.json({ error: message }, { status });
 
-export const scopeFromContext = (c: Context<AppEnv>): AppScope => c.var.scope;
-
 export type { AppEnv };

@@ -30,3 +30,13 @@ rg -n 'fetch(LiveStats|TopStats|TopStreets|TopSuburbs|MapPoints|TopVehicles|Rece
 ```
 
 Before map deletion, the import search returned 10 lines, all inside the map group; the test-symbol search returned zero. After each of the explore and map deletion batches, `bun run test` passed 16 files and 82 tests and `bun run build` passed. The build emitted existing Zod/Rolldown annotation warnings. The graph counts are from before either batch and include concurrent checkout changes at that snapshot.
+
+## Subsequent unused helper batch
+
+Full-repository symbol search (excluding this audit, lockfile and JSON) returned one definition line and no callers or tests for `mergeChartStreetItems`, `snapshotHasNativeChartBreakdowns`, `locationRankItemsToTopItems`, `formatChartValue`, `formatOccurrenceInstant`, `formatLocationSubtitle`, `forEachWithConcurrency`, `compareTrailingWindows`, `hasDailyTrendData`, and `scopeFromContext`. These are internal helpers in a private package, not HTTP routes or contracts. `formatOccurrenceInstantShort` is a distinct live helper used by latest-instances. `mapWithConcurrency`, `formatYTick`, chart breakdown resolution, and the remaining trend utilities retain callers and must remain. `formatChartValue`'s two formatters are exclusive to it. Search command:
+
+```powershell
+rg -n 'mergeChartStreetItems|snapshotHasNativeChartBreakdowns|locationRankItemsToTopItems|formatChartValue|formatOccurrenceInstant\b|formatLocationSubtitle|forEachWithConcurrency|compareTrailingWindows|hasDailyTrendData|scopeFromContext' . -g '!docs/dead-code-graph-audit.md' -g '!bun.lock' -g '!*.json'
+```
+
+Keep `enabled: false` in `src/client/app.tsx`: the query observes the cache that `applyDashboardSnapshot` populates using `queryClient.setQueryData` in `src/client/dashboard-snapshot.ts`; it intentionally does not fetch. A search for commented-out statements and literal `if (false)`/`if (true)` found no other dead branch candidates. The standalone full-refresh operation is retained pending lifecycle review; the server contract is distinct from client-only exports.

@@ -30,23 +30,6 @@ export const toTrendResult = (
   return { current, direction, percent, previous };
 };
 
-export const compareTrailingWindows = (
-  values: number[],
-  windowSize: number
-): TrendResult => {
-  if (values.length < windowSize * 2) {
-    const last = values.at(-1) ?? 0;
-    const prior = values.at(-2) ?? 0;
-    return toTrendResult(last, prior);
-  }
-
-  const currentWindow = values.slice(-windowSize);
-  const previousWindow = values.slice(-windowSize * 2, -windowSize);
-  const current = currentWindow.reduce((sum, value) => sum + value, 0);
-  const previous = previousWindow.reduce((sum, value) => sum + value, 0);
-  return toTrendResult(current, previous);
-};
-
 export const fillDailySeries = (
   points: { date: string; count: number; totalCents: number }[],
   days: number,
@@ -88,6 +71,3 @@ export const dailyTrendCoversDays = (
   const requiredStart = addDaysInAuckland(end, -(days - 1));
   return earliest <= requiredStart;
 };
-
-export const hasDailyTrendData = (points: { count: number }[]): boolean =>
-  points.some((point) => point.count > 0);
