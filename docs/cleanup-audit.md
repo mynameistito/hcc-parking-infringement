@@ -20,6 +20,6 @@ Deprecated public contract aliases remain because absence of internal references
 ## Search record
 
 - Before the first deletion, `rg -n 'LoadIn|load-in' --glob '!bun.lock' --glob '!node_modules/**' --glob '!dist/**'` returned three lines, all in `src/components/load-in.tsx` (the interface, export, and type annotation). `git ls-files '*load-in*'` returned that one file.
-- `rg -n 'import\\(|import\\.meta\\.glob|require\\(' src scripts` found seven literal dynamic imports, all for react-grab or named chart files; no glob registry was found. Tests and build ran immediately after deletion.
+- `rg -n 'import\(|import\.meta\.glob|require\(' src scripts` found seven literal dynamic imports, all for react-grab or named chart files; no glob registry was found. Tests and build ran immediately after deletion.
 - After chart reveal removal, `rg -n 'LOAD_IN_EASE|motion-ease' src scripts` returned only the definition in `src/lib/motion-ease.ts` before deleting it.
 - `fetchInfringements` and `fetchAllInWindow` retain distinct page and pagination responsibilities. The seed reader and durable-object reader retain distinct backing stores and cache/lifecycle semantics. The daily trend and pace panels share chart machinery but have different data and presentation policies; none was merged merely for visual similarity.
