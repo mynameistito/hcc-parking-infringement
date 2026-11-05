@@ -7,24 +7,12 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
+import { isChartEntry } from "@/lib/chart-entry";
+import type { ChartEntry } from "@/lib/chart-entry";
 import { numberFmt } from "@/lib/format";
 
 const truncateLabel = (label: string, maxLength = 22): string =>
   label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
-
-interface ChartEntry {
-  fill: string;
-  label: string;
-  value: number;
-}
-
-const isChartEntry = (value: unknown): value is ChartEntry =>
-  typeof value === "object" &&
-  value !== null &&
-  "label" in value &&
-  "value" in value &&
-  typeof Reflect.get(value, "label") === "string" &&
-  typeof Reflect.get(value, "value") === "number";
 
 type BarShapeProps = ComponentProps<typeof Rectangle> & {
   payload?: ChartEntry;

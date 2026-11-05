@@ -7,11 +7,11 @@
  */
 
 import { spawn } from "node:child_process";
-import { once } from "node:events";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { readArgValue, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
+import { waitForClose } from "@scripts/lib/process-close.ts";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
 const clientIndex = path.join(rootDir, "dist", "client", "index.html");
@@ -20,21 +20,6 @@ const args = scriptArgv();
 const port = readArgValue(args, "port") ?? "8787";
 const watch = !readFlag(args, "no-watch");
 const forceBuild = readFlag(args, "build");
-
-const isCloseEvent = (event: unknown): event is [number | null] =>
-  Array.isArray(event) && event.length > 0;
-
-const waitForClose = async (
-  child: ReturnType<typeof spawn>
-): Promise<number> => {
-  const event: unknown = await once(child, "close");
-  if (!isCloseEvent(event)) {
-    return 1;
-  }
-
-  const [code] = event;
-  return typeof code === "number" ? code : 1;
-};
 
 const run = async (
   command: string,
