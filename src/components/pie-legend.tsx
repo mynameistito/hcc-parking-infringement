@@ -21,36 +21,41 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
   }
 
   return (
-    <ul
+    <div
+      role="group"
+      aria-label="Chart legend"
+      tabIndex={0}
       className={cn(
-        "max-h-52 space-y-1 overflow-y-auto pr-1 text-xs",
+        "max-h-52 overflow-y-auto pr-1 text-xs focus-visible:outline-2 focus-visible:outline-ring",
         className
       )}
     >
-      {items.map((item, index) => {
-        const share = sum > 0 ? (item.count / sum) * 100 : 0;
-        return (
-          <li
-            key={`${item.label}-${index}`}
-            className="grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-[4px] px-1 py-0.5 hover:bg-muted/60"
-          >
-            <span
-              className="size-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: chartColorAt(index) }}
-              aria-hidden="true"
-            />
-            <span className="truncate text-foreground" title={item.label}>
-              {item.label}
-            </span>
-            <span className="font-mono text-muted-foreground tabular-nums">
-              {share.toFixed(1)}%
-            </span>
-            <span className="font-mono text-foreground tabular-nums">
-              {numberFmt.format(item.count)}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+      <ul className="flex flex-col gap-1">
+        {items.map((item, index) => {
+          const share = sum > 0 ? (item.count / sum) * 100 : 0;
+          return (
+            <li
+              key={`${item.label}-${index}`}
+              className="grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-[4px] px-1 py-0.5 hover:bg-muted/60"
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: chartColorAt(index) }}
+                aria-hidden="true"
+              />
+              <span className="min-w-0 break-words text-foreground">
+                {item.label}
+              </span>
+              <span className="font-mono text-muted-foreground tabular-nums">
+                {share.toFixed(1)}%
+              </span>
+              <span className="font-mono text-foreground tabular-nums">
+                {numberFmt.format(item.count)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 };

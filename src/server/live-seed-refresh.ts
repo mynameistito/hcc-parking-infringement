@@ -11,7 +11,9 @@ import type {
 } from "@/contracts/public-api.ts";
 import {
   addDaysInAuckland,
+  instantInAucklandIso,
   nowInAucklandIso,
+  parseAucklandInstant,
   todayInAuckland,
 } from "@/lib/auckland-time.ts";
 import { buildChartBreakdownFromInfringements } from "@/lib/chart-breakdowns.ts";
@@ -21,6 +23,7 @@ import { comparePeriods } from "@/lib/trend-window.ts";
 import type { CleanInfringement } from "@/server/clean-schema.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
+import type { HccClientEnv } from "@/server/hcc-client.ts";
 import { readSeedManifest } from "@/server/seed-import.ts";
 import type { SeedManifest } from "@/server/seed-manifest.ts";
 import {
@@ -33,6 +36,7 @@ import {
   readSeedObjectText,
   writeSeedObjectText,
 } from "@/server/seed-r2-client.ts";
+import type { SeedR2Env } from "@/server/seed-r2-client.ts";
 
 const DEFAULT_REFRESH_DAYS = 400;
 const RECENT_SEED_CHUNK = "infringements-recent.ndjson";
@@ -93,6 +97,7 @@ export interface LiveSeedRefreshPlan {
   readonly from: string;
   readonly prefix: string;
   readonly publishedInfringementNumbers: number[];
+  /** Persisted planning instant used for every chunk's rolling-window cutoffs. */
   readonly syncedAt: string;
   readonly to: string;
   readonly windows: LiveSeedRefreshWindow[];
@@ -434,9 +439,10 @@ export const planLiveSeedRefresh = async (
   env: Env,
   chunkDays = 7
 ): Promise<LiveSeedRefreshPlan> => {
+  const now = new Date();
   const days = parseRefreshDays(env.PARKING_AUTO_REFRESH_DAYS);
-  const to = todayInAuckland();
-  const from = rollingCalendarWindowStart(new Date(), days);
+  const to = todayInAuckland(now);
+  const from = rollingCalendarWindowStart(now, days);
   const existing = await loadExistingSeedState(env);
   const windows: LiveSeedRefreshWindow[] = [];
   const span = Math.max(1, Math.floor(chunkDays));
@@ -456,14 +462,14 @@ export const planLiveSeedRefresh = async (
     from,
     prefix: existing.prefix,
     publishedInfringementNumbers: existing.publishedInfringementNumbers,
-    syncedAt: nowInAucklandIso(),
+    syncedAt: instantInAucklandIso(now),
     to,
     windows,
   };
 };
 
 export const refreshLiveSeedChunkFromHcc = async (
-  env: Env,
+  env: HccClientEnv & SeedR2Env,
   options: {
     readonly bootstrapAfter: string | null;
     readonly chunk: string;
@@ -474,6 +480,7 @@ export const refreshLiveSeedChunkFromHcc = async (
     readonly window: LiveSeedRefreshWindow;
   }
 ): Promise<LiveSeedRefreshChunkSummary> => {
+  const now = parseAucklandInstant(options.syncedAt);
   const fetched = await fetchAllInWindow(
     env,
     options.window.start,
@@ -497,10 +504,10 @@ export const refreshLiveSeedChunkFromHcc = async (
   const todayRecords = records.filter(
     (record) => toDateKey(record) === options.to
   );
-  const last24hStart = Date.now() - 24 * 60 * 60 * 1000;
-  const last7dStart = rollingCalendarWindowStart(new Date(), 7);
-  const last30dStart = rollingCalendarWindowStart(new Date(), 30);
-  const last365dStart = rollingCalendarWindowStart(new Date(), 365);
+  const last24hStart = now.getTime() - 24 * 60 * 60 * 1000;
+  const last7dStart = rollingCalendarWindowStart(now, 7);
+  const last30dStart = rollingCalendarWindowStart(now, 30);
+  const last365dStart = rollingCalendarWindowStart(now, 365);
   const thisMonthStart = `${options.to.slice(0, 7)}-01`;
   const streetCounts = new Map<string, number>();
   const suburbCounts = new Map<string, number>();
@@ -778,19 +785,21 @@ export const finalizeLiveSeedRefresh = async (
 
 const buildLiveStats = (options: {
   readonly existing: PublicLiveStats | null;
+  readonly now: Date;
   readonly records: readonly CleanInfringement[];
   readonly today: string;
   readonly syncedAt: string;
 }): PublicLiveStats => {
+  const { now } = options;
   const recentAmountCents = options.records.reduce(
     (sum, record) => sum + record.amountCents,
     0
   );
   const [lastRecord] = options.records;
-  const last24hStart = Date.now() - 24 * 60 * 60 * 1000;
-  const last7dStart = rollingCalendarWindowStart(new Date(), 7);
-  const last30dStart = rollingCalendarWindowStart(new Date(), 30);
-  const last365dStart = rollingCalendarWindowStart(new Date(), 365);
+  const last24hStart = now.getTime() - 24 * 60 * 60 * 1000;
+  const last7dStart = rollingCalendarWindowStart(now, 7);
+  const last30dStart = rollingCalendarWindowStart(now, 30);
+  const last365dStart = rollingCalendarWindowStart(now, 365);
   const thisMonthStart = `${options.today.slice(0, 7)}-01`;
   const todayRecords = options.records.filter(
     (record) => toDateKey(record) === options.today
@@ -820,6 +829,7 @@ const buildLiveStats = (options: {
 
 export const buildLiveSeedSnapshot = (options: {
   readonly existingLive: PublicLiveStats | null;
+  readonly now: Date;
   readonly from: string;
   readonly records: readonly CleanInfringement[];
   readonly syncedAt: string;
@@ -852,6 +862,7 @@ export const buildLiveSeedSnapshot = (options: {
     dailyTrend,
     live: buildLiveStats({
       existing: options.existingLive,
+      now: options.now,
       records,
       syncedAt: options.syncedAt,
       today: options.to,
@@ -879,61 +890,5 @@ export const buildLiveSeedSnapshot = (options: {
     topStreets,
     type: "full",
     vehicles: buildVehicles(records),
-  };
-};
-
-export const refreshLiveSeedFromHcc = async (
-  env: Env
-): Promise<RefreshLiveSeedResult> => {
-  const days = parseRefreshDays(env.PARKING_AUTO_REFRESH_DAYS);
-  const to = todayInAuckland();
-  const from = rollingCalendarWindowStart(new Date(), days);
-  const fetched = await fetchAllInWindow(env, from, to);
-  if (!fetched.ok) {
-    throw new Error(formatHccFetchError(fetched.error));
-  }
-
-  const lastHccFetchAt = nowInAucklandIso();
-
-  const { cleaned, skipped } = cleanInfringements(fetched.value.records);
-  const records = uniqueByInfringementNumber(cleaned);
-  const existing = await loadExistingSeedState(env);
-  const syncedAt = nowInAucklandIso();
-  const snapshot = buildLiveSeedSnapshot({
-    existingLive: existing.snapshotLive,
-    from,
-    records,
-    syncedAt,
-    to,
-  });
-  const manifest = buildManifest({
-    existing: existing.manifest,
-    exportedAt: syncedAt,
-    lastHccFetchAt,
-    recordCount: records.length,
-  });
-
-  await writeSeedObjectText(
-    env,
-    seedObjectKey(existing.prefix, RECENT_SEED_CHUNK),
-    toNdjson(records),
-    "application/x-ndjson; charset=utf-8"
-  );
-  await writeSeedObjectText(
-    env,
-    seedObjectKey(existing.prefix, DASHBOARD_SNAPSHOT_FILE),
-    `${JSON.stringify(snapshot)}\n`
-  );
-  await writeSeedObjectText(
-    env,
-    seedObjectKey(existing.prefix, MANIFEST_FILE),
-    `${JSON.stringify(manifest, null, 2)}\n`
-  );
-
-  return {
-    from,
-    skipped,
-    to,
-    totalRecentRecords: records.length,
   };
 };

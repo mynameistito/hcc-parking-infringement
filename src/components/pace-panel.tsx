@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { lazy, Suspense, useMemo } from "react";
 
 import { StatPillLoading } from "@/components/data-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { DailyStatPoint } from "@/contracts/public-api";
 import { useAnimatedNumber } from "@/hooks/use-animated-number";
 import { numberFmt } from "@/lib/format";
@@ -59,7 +60,6 @@ interface PaceStatBoxProps {
   trend: TrendResult;
   chartValues: number[];
   chartLabels: string[];
-  chartRevealDelay?: number;
 }
 
 const PaceStatBox = ({
@@ -68,7 +68,6 @@ const PaceStatBox = ({
   trend,
   chartValues,
   chartLabels,
-  chartRevealDelay = 0,
 }: PaceStatBoxProps) => {
   const animated = useAnimatedNumber(value, {
     duration: 500,
@@ -84,17 +83,12 @@ const PaceStatBox = ({
       <span className="mt-0.5 block min-h-[30px] font-mono text-3xl font-semibold leading-none tabular-nums tracking-[-0.04em]">
         {numberFmt.format(animated)}
       </span>
-      <Suspense
-        fallback={
-          <div className="mt-1.5 h-12 animate-pulse rounded bg-muted/40" />
-        }
-      >
+      <Suspense fallback={<Skeleton className="mt-1.5 h-12" />}>
         <TrendChart
           values={chartValues}
           xLabels={chartLabels}
           className="mt-1.5"
           compact
-          revealDelay={chartRevealDelay}
         />
       </Suspense>
     </div>
@@ -154,7 +148,6 @@ export const PacePanel = ({
               trend={panel.trends.last7d}
               chartValues={panel.windows.last7d.values}
               chartLabels={panel.windows.last7d.labels}
-              chartRevealDelay={280}
             />
             <PaceStatBox
               label="Last 30D"
@@ -162,7 +155,6 @@ export const PacePanel = ({
               trend={panel.trends.last30d}
               chartValues={panel.windows.last30d.values}
               chartLabels={panel.windows.last30d.labels}
-              chartRevealDelay={460}
             />
             <PaceStatBox
               label="Last 365D"
@@ -170,7 +162,6 @@ export const PacePanel = ({
               trend={panel.trends.last365d}
               chartValues={panel.windows.last365d.values}
               chartLabels={panel.windows.last365d.labels}
-              chartRevealDelay={640}
             />
           </>
         )}

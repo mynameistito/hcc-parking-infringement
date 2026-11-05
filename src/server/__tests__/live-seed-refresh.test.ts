@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { once } from "node:events";
+import { createServer } from "node:http";
+
+import { describe, expect, it, vi } from "vitest";
 
 import type { CleanInfringement } from "@/server/clean-schema.ts";
-import { buildLiveSeedSnapshot } from "@/server/live-seed-refresh.ts";
+import {
+  buildLiveSeedSnapshot,
+  refreshLiveSeedChunkFromHcc,
+} from "@/server/live-seed-refresh.ts";
 
 const makeRecord = (
   infringementNumber: number,
@@ -31,6 +37,26 @@ const makeRecord = (
 });
 
 describe("buildLiveSeedSnapshot", () => {
+  it("uses one supplied instant for rolling windows across Auckland midnight", () => {
+    const snapshot = buildLiveSeedSnapshot({
+      existingLive: null,
+      from: "2026-06-24",
+      now: new Date("2026-06-30T12:00:00Z"),
+      records: [
+        makeRecord(1, "2026-06-24T23:59:59+12:00"),
+        makeRecord(2, "2026-06-25T00:00:00+12:00"),
+        makeRecord(3, "2026-06-30T23:59:59+12:00"),
+        makeRecord(4, "2026-07-01T00:00:00+12:00"),
+      ],
+      syncedAt: "2026-07-01T00:00:00+12:00",
+      to: "2026-07-01",
+    });
+
+    expect(snapshot.live.last7d).toBe(3);
+    expect(snapshot.live.last24h).toBe(2);
+    expect(snapshot.live.today).toBe(1);
+  });
+
   it("deduplicates records and builds dashboard aggregates", () => {
     const snapshot = buildLiveSeedSnapshot({
       existingLive: {
@@ -47,6 +73,7 @@ describe("buildLiveSeedSnapshot", () => {
         towedToday: 0,
       },
       from: "2026-06-29",
+      now: new Date("2026-07-01T00:00:00Z"),
       records: [
         makeRecord(1, "2026-06-29T10:00:00+12:00"),
         makeRecord(2, "2026-07-01T09:00:00+12:00", { isTowed: true }),
@@ -70,5 +97,72 @@ describe("buildLiveSeedSnapshot", () => {
       label: "Victoria Street",
       street: "Victoria Street",
     });
+  });
+});
+
+describe("refreshLiveSeedChunkFromHcc", () => {
+  it("keeps persisted plan cutoffs when chunk work crosses Auckland midnight", async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(
+        JSON.stringify({
+          Data: [
+            {
+              Infringement_Amount: 40,
+              Infringement_Date: "2026-06-24",
+              Infringement_Number: 1,
+              Infringement_Time: "12:00:00",
+            },
+            {
+              Infringement_Amount: 40,
+              Infringement_Date: "2026-06-30",
+              Infringement_Number: 2,
+              Infringement_Time: "00:00:00",
+            },
+          ],
+          Paging: [{ Current_Page: 1, Page_Count: 1, Page_Size: 100 }],
+        })
+      );
+    });
+    try {
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        throw new Error("Expected the HTTP fixture to have a TCP address");
+      }
+      // SAFETY: this focused aggregation fixture only needs the R2 put operation;
+      // it does not claim to implement or verify the complete R2 protocol.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: chunk refresh only invokes put on this binding.
+      const bucket = {
+        put: async () => await Promise.resolve(null),
+      } as unknown as R2Bucket;
+      const env = {
+        HCC_API_BASE: `http://127.0.0.1:${address.port}`,
+        PARKING_SEED: bucket,
+      };
+      const options = {
+        bootstrapAfter: null,
+        chunk: "chunk.ndjson",
+        prefix: "seed",
+        publishedInfringementNumbers: [],
+        syncedAt: "2026-06-30T23:59:59+12:00",
+        to: "2026-06-30",
+        window: { end: "2026-06-30", start: "2026-06-24" },
+      };
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-06-30T11:59:59Z"));
+      const first = await refreshLiveSeedChunkFromHcc(env, options);
+      vi.setSystemTime(new Date("2026-06-30T12:00:01Z"));
+      const second = await refreshLiveSeedChunkFromHcc(env, options);
+      expect([first.last7d, second.last7d]).toEqual([2, 2]);
+      expect([first.last24h, second.last24h]).toEqual([1, 1]);
+      expect(first.lastHccFetchAt).not.toBe(second.lastHccFetchAt);
+    } finally {
+      vi.useRealTimers();
+      const closed = once(server, "close");
+      server.close();
+      await closed;
+    }
   });
 });

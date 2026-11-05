@@ -23,34 +23,6 @@ export const buildYTicks = (max: number, tickCount = 4): number[] => {
   );
 };
 
-const compactFmt = new Intl.NumberFormat("en-NZ", {
-  maximumFractionDigits: 2,
-  notation: "compact",
-});
-
-const currencyFmt = new Intl.NumberFormat("en-NZ", {
-  currency: "NZD",
-  maximumFractionDigits: 0,
-  style: "currency",
-});
-
-export const formatChartValue = (
-  value: number,
-  style: "number" | "currency"
-) => {
-  if (style === "currency") {
-    if (value >= 1000) {
-      return `$${compactFmt.format(value).toLowerCase()}`;
-    }
-    return currencyFmt.format(value);
-  }
-
-  if (value >= 1000) {
-    return compactFmt.format(value).toLowerCase();
-  }
-  return String(Math.round(value));
-};
-
 export const formatYTick = (value: number, style: "number" | "currency") => {
   if (style === "currency") {
     if (value >= 1000) {

@@ -11,9 +11,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchRecentInfringements } from "@/client/api";
 import { TableRowsSkeleton } from "@/components/data-skeletons";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import type { PublicInfringement } from "@/contracts/public-api";
 import { INFRINGEMENTS_DEFAULT_PAGE_SIZE } from "@/lib/dashboard-constants";
 import {
@@ -91,10 +94,12 @@ const SortableHeader = ({
   const sorted = column.getIsSorted();
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       className={cn(
-        "inline-flex w-full items-center gap-1 font-medium transition-colors hover:text-foreground",
+        "w-full justify-start",
         align === "right" ? "justify-end" : "justify-start"
       )}
       onClick={() => {
@@ -107,7 +112,7 @@ const SortableHeader = ({
     >
       <span>{label}</span>
       <SortDirectionIcon sorted={sorted} />
-    </button>
+    </Button>
   );
 };
 
@@ -171,7 +176,7 @@ const columns = [
       const { isTowed } = info.row.original;
 
       return (
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <p>{offence}</p>
           {isTowed ? (
             <Badge variant="destructive" className="text-[0.6rem]">
@@ -217,19 +222,18 @@ const formatSortSummary = (sorting: SortingState): string => {
 const MobileRowsSkeleton = () => (
   <div className="grid gap-2 md:hidden" aria-label="Loading ticket cards">
     {Array.from({ length: 4 }, (_, index) => (
-      <div
-        className="rounded-[6px] border border-border bg-background p-3"
-        key={index}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-4 w-full max-w-[13rem]" />
-            <Skeleton className="h-3 w-full max-w-[9rem]" />
+      <Card className="gap-0 py-3" key={index}>
+        <CardContent className="px-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 flex flex-col gap-2">
+              <Skeleton className="h-4 w-full max-w-[13rem]" />
+              <Skeleton className="h-3 w-full max-w-[9rem]" />
+            </div>
+            <Skeleton className="h-4 w-14" />
           </div>
-          <Skeleton className="h-4 w-14" />
-        </div>
-        <Skeleton className="mt-3 h-3 w-full" />
-      </div>
+          <Skeleton className="mt-3 h-3 w-full" />
+        </CardContent>
+      </Card>
     ))}
   </div>
 );
@@ -245,8 +249,8 @@ const MobileInfringementCard = ({
   );
 
   return (
-    <article className="rounded-[6px] border border-border bg-background p-3 text-xs">
-      <div className="flex items-start justify-between gap-3">
+    <Card role="article" className="gap-2 py-3">
+      <CardHeader className="flex items-start justify-between gap-3 px-3 text-xs">
         <div className="min-w-0">
           <time
             className="font-mono text-muted-foreground tabular-nums"
@@ -261,19 +265,21 @@ const MobileInfringementCard = ({
         <strong className="shrink-0 font-mono font-semibold text-foreground tabular-nums">
           {moneyFmt.format(infringement.amountCents / 100)}
         </strong>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-muted-foreground">
-        <span>{formatVehicle(infringement)}</span>
-        {infringement.isTowed ? (
-          <Badge variant="destructive" className="text-[0.6rem]">
-            Towed
-          </Badge>
-        ) : null}
-      </div>
-      <p className="mt-2 break-words leading-snug text-muted-foreground">
-        {infringement.offenceDescription}
-      </p>
-    </article>
+      </CardHeader>
+      <CardContent className="px-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+          <span className="wrap-anywhere">{formatVehicle(infringement)}</span>
+          {infringement.isTowed ? (
+            <Badge variant="destructive" className="text-[0.6rem]">
+              Towed
+            </Badge>
+          ) : null}
+        </div>
+        <p className="mt-2 break-words leading-snug text-muted-foreground">
+          {infringement.offenceDescription}
+        </p>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -418,9 +424,10 @@ export const LatestInstances = ({
         ) : (
           <div className="grid gap-2 md:hidden">
             {table.getRowModel().rows.length === 0 ? (
-              <div className="rounded-[6px] border border-border bg-background px-3 py-6 text-center text-xs text-muted-foreground">
-                Waiting for infringement rows...
-              </div>
+              <EmptyState
+                description="Waiting for infringement rows..."
+                title="No tickets to display"
+              />
             ) : (
               table
                 .getRowModel()
@@ -432,22 +439,32 @@ export const LatestInstances = ({
                 ))
             )}
             {hasMore ? (
-              <button
-                className="inline-flex min-h-10 items-center justify-center rounded-[6px] border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              <Button
+                variant="outline"
                 disabled={loadingMore}
                 onClick={() => {
                   void loadMore();
                 }}
                 type="button"
               >
-                {loadingMore ? "Loading more tickets..." : "Load more tickets"}
-              </button>
+                {loadingMore ? (
+                  <>
+                    <Spinner data-icon="inline-start" />
+                    Loading more tickets...
+                  </>
+                ) : (
+                  "Load more tickets"
+                )}
+              </Button>
             ) : null}
           </div>
         )}
 
         <div
           ref={scrollRef}
+          role="region"
+          aria-label="Latest infringements table"
+          tabIndex={0}
           className="hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border border-border md:block"
         >
           <table className="w-full min-w-[56rem] border-collapse text-left text-xs">

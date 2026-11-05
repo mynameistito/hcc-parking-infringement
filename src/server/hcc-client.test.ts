@@ -1,3 +1,4 @@
+import { Effect, Fiber, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { BACKFILL_HCC_CONCURRENCY } from "@/lib/backfill-constants";
@@ -5,7 +6,10 @@ import {
   fetchAllInWindow,
   fetchInfringements,
   formatHccFetchError,
+  hccTransportLayer,
 } from "@/server/hcc-client";
+import { HccClient, hccClientLayer } from "@/server/hcc-pagination";
+import { HccTransport } from "@/server/hcc-transport";
 
 describe("formatHccFetchError", () => {
   it("formats HTTP failures", () => {
@@ -64,7 +68,10 @@ describe("HCC request boundary", () => {
         signal: controller.signal,
       })
     ).toEqual({ error: { tag: "cancelled" }, ok: false });
-    expect(observed).toEqual([controller.signal, controller.signal]);
+    expect(observed.map((signal) => signal?.aborted)).toEqual([true, true]);
+    for (const signal of observed) {
+      expect(signal?.reason).toBe(controller.signal.reason);
+    }
   });
 
   it("removes a cancelled waiter and lets the next request acquire the slot", async () => {
@@ -104,5 +111,116 @@ describe("HCC request boundary", () => {
     const nextResult = await next;
     expect(nextResult.ok).toBe(true);
     await Promise.all(active);
+  });
+});
+
+describe("HCC pagination", () => {
+  it("waits for all pages and reports the earliest page failure", async () => {
+    const pageTwo = Promise.withResolvers<Response>();
+    const pageThree = Promise.withResolvers<Response>();
+    const bothStarted = Promise.withResolvers<null>();
+    let started = 0;
+    const fetchPage: typeof fetch = async (input) => {
+      const url = input instanceof Request ? input.url : input;
+      const page = Number(new URL(url).searchParams.get("Page"));
+      if (page === 1) {
+        return Response.json({
+          Paging: [{ Current_Page: 1, Page_Count: 3, Page_Size: 1 }],
+        });
+      }
+      started += 1;
+      if (started === 2) {
+        bothStarted.resolve(null);
+      }
+      return await (page === 2 ? pageTwo.promise : pageThree.promise);
+    };
+    let settled = false;
+    const result = fetchAllInWindow(env, request.startDate, request.endDate, {
+      fetch: fetchPage,
+    }).then((value) => {
+      settled = true;
+      return value;
+    });
+    await bothStarted.promise;
+    pageThree.resolve(new Response("page 3", { status: 503 }));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    pageTwo.resolve(new Response("page 2", { status: 429 }));
+    expect(await result).toEqual({
+      error: { body: "page 2", status: 429, tag: "http" },
+      ok: false,
+    });
+  });
+});
+
+describe("HccClient service", () => {
+  it("aborts HTTP work when interrupted without aborting the caller signal", async () => {
+    const caller = new AbortController();
+    const started = Promise.withResolvers<AbortSignal>();
+    const fetchPage: typeof fetch = async (_input, init) => {
+      const signal = init?.signal;
+      if (signal === undefined || signal === null) {
+        throw new Error("Expected a request cancellation signal");
+      }
+      started.resolve(signal);
+      const response = Promise.withResolvers<Response>();
+      signal.addEventListener(
+        "abort",
+        () => {
+          response.reject(new Error("cancelled"));
+        },
+        {
+          once: true,
+        }
+      );
+      return await response.promise;
+    };
+    const fiber = Effect.runFork(
+      Effect.gen(function* runFetch() {
+        const client = yield* HccClient;
+        return yield* client.fetchAll(request.startDate, request.endDate);
+      }).pipe(
+        Effect.provide(
+          hccClientLayer.pipe(
+            Layer.provide(
+              hccTransportLayer(env, {
+                fetch: fetchPage,
+                signal: caller.signal,
+              })
+            )
+          )
+        )
+      )
+    );
+    try {
+      const signal = await started.promise;
+      await Effect.runPromise(Fiber.interrupt(fiber));
+      expect(signal.aborted).toBe(true);
+      expect(caller.signal.aborted).toBe(false);
+    } finally {
+      caller.abort();
+      await Effect.runPromise(Fiber.interrupt(fiber));
+    }
+  });
+
+  it("aggregates pages through its supplied transport", async () => {
+    const transport = Layer.succeed(
+      HccTransport,
+      HccTransport.of({
+        fetchPage: (_start, _end, page) =>
+          Effect.succeed({
+            Data: [{ page }],
+            Paging: [{ Current_Page: page, Page_Count: 2, Page_Size: 1 }],
+          }),
+      })
+    );
+    const result = await Effect.runPromise(
+      Effect.gen(function* runFetch() {
+        const client = yield* HccClient;
+        return yield* client.fetchAll(request.startDate, request.endDate);
+      }).pipe(Effect.provide(hccClientLayer.pipe(Layer.provide(transport))))
+    );
+    expect(result.records).toEqual([{ page: 1 }, { page: 2 }]);
+    expect(result.possiblyTruncated).toBe(true);
   });
 });

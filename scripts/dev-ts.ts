@@ -13,24 +13,10 @@ import { connect } from "node:net";
 import path from "node:path";
 
 import { readArgValue, readFlag, scriptArgv } from "@scripts/lib/cli/args.ts";
+import { waitForClose } from "@scripts/lib/process-close.ts";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
 const DEFAULT_PORT = "5173";
-
-const isCloseEvent = (event: unknown): event is [number | null] =>
-  Array.isArray(event) && event.length > 0;
-
-const waitForClose = async (
-  child: ReturnType<typeof spawn>
-): Promise<number> => {
-  const event: unknown = await once(child, "close");
-  if (!isCloseEvent(event)) {
-    return 1;
-  }
-
-  const [code] = event;
-  return typeof code === "number" ? code : 1;
-};
 
 const readStdout = async (child: ReturnType<typeof spawn>): Promise<string> => {
   const chunks: Buffer[] = [];

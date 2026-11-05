@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { DailyStatPoint } from "@/contracts/public-api";
 import { moneyFmt, numberFmt } from "@/lib/format";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
@@ -140,7 +140,7 @@ export const DailyTrendPanel = ({
     >
       <CardHeader className="gap-3 border-b border-border p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <CardTitle className="flex items-center gap-2">
               <TrendingUp
                 className="size-4 text-[var(--ring)]"
@@ -154,53 +154,53 @@ export const DailyTrendPanel = ({
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Tabs
-              value={metric}
-              onValueChange={(value: string) => {
-                if (isTrendMetric(value)) {
+            <ToggleGroup
+              aria-label="Trend metric"
+              value={[metric]}
+              onValueChange={(values: string[]) => {
+                const [value] = values;
+                if (value !== undefined && isTrendMetric(value)) {
                   setMetric(value);
                 }
               }}
             >
-              <TabsList className="h-8">
-                <TabsTrigger value="count" className="px-2.5 text-xs">
-                  Tickets
-                </TabsTrigger>
-                <TabsTrigger
-                  value="totalCents"
-                  className="gap-1 px-2.5 text-xs"
-                >
-                  <Banknote className="size-3" aria-hidden="true" />
-                  Fines
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Tabs
-              value={window}
-              onValueChange={(value: string) => {
-                if (isTrendWindow(value)) {
+              <ToggleGroupItem value="count" className="px-2.5 text-xs">
+                Tickets
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="totalCents"
+                className="gap-1 px-2.5 text-xs"
+              >
+                <Banknote data-icon="inline-start" aria-hidden="true" />
+                Fines
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <ToggleGroup
+              aria-label="Trend window"
+              value={[window]}
+              onValueChange={(values: string[]) => {
+                const [value] = values;
+                if (value !== undefined && isTrendWindow(value)) {
                   setWindow(value);
                 }
               }}
             >
-              <TabsList className="h-8">
-                <TabsTrigger value="7" className="px-2.5 text-xs">
-                  7D
-                </TabsTrigger>
-                <TabsTrigger value="30" className="px-2.5 text-xs">
-                  30D
-                </TabsTrigger>
-                <TabsTrigger value="90" className="px-2.5 text-xs">
-                  90D
-                </TabsTrigger>
-                <TabsTrigger value="365" className="px-2.5 text-xs">
-                  1Y
-                </TabsTrigger>
-                <TabsTrigger value="all" className="px-2.5 text-xs">
-                  All
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+              <ToggleGroupItem value="7" className="px-2.5 text-xs">
+                7D
+              </ToggleGroupItem>
+              <ToggleGroupItem value="30" className="px-2.5 text-xs">
+                30D
+              </ToggleGroupItem>
+              <ToggleGroupItem value="90" className="px-2.5 text-xs">
+                90D
+              </ToggleGroupItem>
+              <ToggleGroupItem value="365" className="px-2.5 text-xs">
+                1Y
+              </ToggleGroupItem>
+              <ToggleGroupItem value="all" className="px-2.5 text-xs">
+                All
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </div>
       </CardHeader>
@@ -215,7 +215,6 @@ export const DailyTrendPanel = ({
                 className="h-full min-h-0 w-full flex-1"
                 dates={chart.dates}
                 maxXLabels={maxLabels}
-                revealDelay={120}
                 valueStyle={metric === "totalCents" ? "currency" : "number"}
                 values={chart.values}
                 xLabels={chart.labels}

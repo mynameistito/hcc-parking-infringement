@@ -15,6 +15,7 @@ import { LatestInstances } from "@/components/latest-instances";
 import { LiveTicker } from "@/components/live-ticker";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   ChartBreakdowns,
@@ -115,21 +116,22 @@ const ThemeToggle = () => {
   const isLight = theme === "light";
 
   return (
-    <button
+    <Button
       type="button"
-      className="inline-flex h-8 items-center gap-2 rounded-[6px] border border-border bg-background px-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:shadow-[0_0_0_2px_var(--background),0_0_0_4px_var(--ring)] focus-visible:outline-none"
+      variant="outline"
+      size="sm"
       onClick={() => {
         setTheme(isLight ? "dark" : "light");
       }}
       aria-label={`Switch to ${isLight ? "dark" : "light"} mode`}
     >
       {isLight ? (
-        <Moon className="size-4" aria-hidden="true" />
+        <Moon data-icon="inline-start" aria-hidden="true" />
       ) : (
-        <Sun className="size-4" aria-hidden="true" />
+        <Sun data-icon="inline-start" aria-hidden="true" />
       )}
       {isLight ? "Dark" : "Light"}
-    </button>
+    </Button>
   );
 };
 
@@ -140,10 +142,7 @@ const LiveStatusBadge = ({
 }) => {
   if (connectionStatus === "live") {
     return (
-      <Badge
-        variant="secondary"
-        className="gap-1.5 border-[color-mix(in_srgb,#00ca50_35%,transparent)] bg-[color-mix(in_srgb,#00ca50_12%,var(--background))] text-[#00ca50]"
-      >
+      <Badge variant="success">
         <Activity className="size-3" aria-hidden="true" />
         WebSocket Live
       </Badge>

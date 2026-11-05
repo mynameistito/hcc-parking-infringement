@@ -40,10 +40,14 @@ const PieCard = ({
   isLoading,
   collapseAfter,
 }: PieCardProps) => (
-  <article className="rounded-[6px] border border-border bg-background p-4">
-    <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-    <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-    <div className="mt-3">
+  <Card className="gap-3 bg-background py-4">
+    <CardHeader className="px-4">
+      <CardTitle>
+        <h3>{title}</h3>
+      </CardTitle>
+      <CardDescription>{description}</CardDescription>
+    </CardHeader>
+    <CardContent className="px-4">
       {isLoading ? (
         <ChartAreaSkeleton variant="donut" />
       ) : (
@@ -54,8 +58,8 @@ const PieCard = ({
           size="lg"
         />
       )}
-    </div>
-  </article>
+    </CardContent>
+  </Card>
 );
 
 export const DistributionCharts = ({
@@ -82,30 +86,32 @@ export const DistributionCharts = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 p-4">
-        <section className="rounded-[6px] border border-border bg-muted/30 p-4">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">
-                All streets
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {numberFmt.format(streets.length)} locations ·{" "}
-                {numberFmt.format(streetTotal)} tickets
-              </p>
-            </div>
-          </div>
-          {loading ? (
-            <ChartAreaSkeleton rows={10} variant="bars" />
-          ) : (
-            <Suspense fallback={<ChartAreaSkeleton rows={10} variant="bars" />}>
-              <RankedBarChart items={streets} maxHeight={520} />
-            </Suspense>
-          )}
-        </section>
+        <Card className="gap-3 bg-muted/30 py-4">
+          <CardHeader className="px-4">
+            <CardTitle>
+              <h3>All streets</h3>
+            </CardTitle>
+            <CardDescription>
+              {numberFmt.format(streets.length)} locations ·{" "}
+              {numberFmt.format(streetTotal)} tickets
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-4">
+            {loading ? (
+              <ChartAreaSkeleton rows={10} variant="bars" />
+            ) : (
+              <Suspense
+                fallback={<ChartAreaSkeleton rows={10} variant="bars" />}
+              >
+                <RankedBarChart items={streets} maxHeight={520} />
+              </Suspense>
+            )}
+          </CardContent>
+        </Card>
 
         <div
           className={cn(
-            "grid gap-4 sm:grid-cols-2 xl:grid-cols-3",
+            "grid gap-4 lg:grid-cols-2 xl:grid-cols-3",
             "2xl:grid-cols-3"
           )}
         >

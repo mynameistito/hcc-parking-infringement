@@ -1,7 +1,6 @@
 import type {
   ChartBreakdowns,
   FullDashboardMessage,
-  LocationRankItem,
   TopItem,
   VehicleRankItem,
 } from "@/contracts/public-api";
@@ -155,16 +154,6 @@ export const buildChartBreakdownFromInfringements = (
   };
 };
 
-export const mergeChartStreetItems = (
-  primary: readonly TopItem[],
-  secondary: readonly TopItem[]
-): TopItem[] => {
-  if (secondary.length > primary.length) {
-    return [...secondary];
-  }
-  return [...primary];
-};
-
 /** Whether a breakdown payload has at least one chartable series. */
 export const chartBreakdownsHasData = (
   breakdowns: ChartBreakdowns | undefined
@@ -195,11 +184,6 @@ export const chartBreakdownsFullyPopulated = (
     breakdowns.towed.length > 0
   );
 };
-
-/** Whether a snapshot was built with native chart breakdowns (post-chart export). */
-export const snapshotHasNativeChartBreakdowns = (
-  message: FullDashboardMessage
-): boolean => chartBreakdownsFullyPopulated(message.chartBreakdowns);
 
 /**
  * Fill chart breakdowns from legacy snapshot fields when older caches omit
@@ -249,7 +233,3 @@ export const resolveChartStreetItems = (
   const topTotal = fromTopStreets.reduce((sum, item) => sum + item.count, 0);
   return rankedTotal >= topTotal ? fromRankedStreets : fromTopStreets;
 };
-
-export const locationRankItemsToTopItems = (
-  items: readonly LocationRankItem[]
-): TopItem[] => toTopItems(items);

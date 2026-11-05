@@ -20,10 +20,6 @@ export const formatVehicle = (record: PublicInfringement): string => {
   return record.vehicleType ?? "Unknown vehicle";
 };
 
-/** Infringement occurrence date and time in Pacific/Auckland. */
-export const formatOccurrenceInstant = (occurredAt: string): string =>
-  formatAucklandInstant(occurredAt, "d MMM yyyy, h:mm a");
-
 /** Compact occurrence date and time in Pacific/Auckland. */
 export const formatOccurrenceInstantShort = (occurredAt: string): string =>
   formatAucklandInstant(occurredAt, "d MMM yy, h:mm a");
@@ -37,14 +33,4 @@ export const formatStreetSuburb = (
     return `${street}, ${suburb}`;
   }
   return street;
-};
-
-/** Subtitle for location rows; omits empty or unknown suburbs. */
-export const formatLocationSubtitle = (
-  suburb: string | undefined
-): string | undefined => {
-  if (suburb !== undefined && suburb.length > 0 && suburb !== "Unknown") {
-    return suburb;
-  }
-  return undefined;
 };
