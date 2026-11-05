@@ -269,7 +269,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
     return {
       ingestWindows: 0,
-      lastHccFetchAt: null,
+      lastHccFetchAt: manifest.lastHccFetchAt ?? null,
       lastSyncedAt:
         migrateOptionalSyncInstant(manifest.exportedAt) ?? nowInAucklandIso(),
       source: "parking-store-seed",
