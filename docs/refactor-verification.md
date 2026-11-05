@@ -19,11 +19,13 @@ Baseline was merged main `829f5bf`: 16 test files and 79 tests passed, as did th
 | `ad83d3e` | Remove unused skeletons and constants | 82 tests and build in an isolated commit snapshot |
 | `395fd62` | Remove unreferenced full refresh path | 82 tests and build in an isolated commit snapshot |
 | `0efc0f0` | Remove unused map dependencies | Typecheck, 82 tests, build and check; isolated snapshot test/build passed |
+| `5e8b8e3`, `4ab56ce` | Responsive labels and shared toggle controls | Each isolated commit snapshot passed typecheck, 82 tests and build |
+| `0ff3d63` | Remove unused tabs primitives | Typecheck, 82 tests and build in an isolated commit snapshot |
 
-The graph audit identifies 19 unreachable UI files and records roots, import searches and dynamic-loading limits. Together with the earlier `LoadIn` and `motion-ease` removals, 21 whole files and 4,469 lines were deleted. The client API batch separately removed 166 lines and added two; internal helper, skeleton/constant and full-refresh batches removed another 280 lines. Other refactor commits include both additions and removals; these counts are not the net repository diff.
+The graph audit records roots, import searches and dynamic-loading limits. Relative to baseline `829f5bf`, 21 whole files containing 4,458 lines were deleted. Two additional UI files created during the task were later deleted and are excluded from that baseline count. The client API batch separately removed 166 lines and added two; internal helper, skeleton/constant and full-refresh batches removed another 280 lines. Other refactor commits include both additions and removals; these counts are not the net repository diff.
 
 ## Retained and pending
 
 Public HTTP routes and server map contracts remain available to external clients. Deprecated public contract aliases remain because internal search cannot establish their external use. Seed and durable-object readers use different storage and cache lifetimes; chart and refresh paths with differing behavior were not merged. The cleanup and Effect audits contain detailed evidence and additional decisions.
 
-The Effect audit identifies conditional seed-object and scope opportunities rather than claiming a wholesale migration. Browser performance and loaded-state verification are in progress. The production build and automated tests do not themselves establish browser rendering quality or a performance budget.
+The Effect audit records conditional seed-object and scope opportunities; existing Promise boundaries and the shared HCC limiter have explicit ownership decisions. Cached-seed dashboard screenshots were inspected at 390, 768, 1024 and 1440 pixels; the responsive label fix was rechecked at 390, 768 and 1440 pixels. The frontend performance checker reported 719 KiB parsed JavaScript and 247 KiB transfer, with zero failures and four warnings. These screenshots show cached data, not a live connection. The marketing-page checker crashed on its section handling and was not treated as passing evidence for this operational dashboard.
