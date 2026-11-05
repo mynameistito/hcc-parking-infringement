@@ -268,7 +268,7 @@ const MobileInfringementCard = ({
       </CardHeader>
       <CardContent className="px-3 text-xs">
         <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-          <span>{formatVehicle(infringement)}</span>
+          <span className="wrap-anywhere">{formatVehicle(infringement)}</span>
           {infringement.isTowed ? (
             <Badge variant="destructive" className="text-[0.6rem]">
               Towed
