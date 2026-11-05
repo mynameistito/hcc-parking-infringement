@@ -19,10 +19,6 @@ export default defineConfig({
               test: /node_modules[\\/]maplibre-gl/u,
             },
             {
-              name: "vendor-charts",
-              test: /node_modules[\\/](?<pkg>recharts|d3-|@reduxjs)/u,
-            },
-            {
               name: "vendor-motion",
               test: /node_modules[\\/]motion/u,
             },
