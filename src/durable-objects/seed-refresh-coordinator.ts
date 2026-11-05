@@ -65,6 +65,7 @@ const refreshSummarySchema = z.object({
   last30d: z.number(),
   last365d: z.number(),
   last7d: z.number(),
+  lastHccFetchAt: z.iso.datetime({ offset: true }).optional(),
   lastRecordAt: z.string().nullable(),
   newAmountCents: z.number(),
   newRecords: z.number(),

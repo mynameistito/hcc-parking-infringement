@@ -55,6 +55,7 @@ export interface LiveSeedRefreshWindow {
 }
 
 export interface LiveSeedRefreshChunkSummary {
+  readonly lastHccFetchAt?: string;
   readonly amountCents: number;
   readonly chartOffenceCategories: [string, number][];
   readonly chartOffences: [string, number][];
@@ -397,6 +398,7 @@ const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
 const buildManifest = (options: {
   readonly existing: SeedManifest | null;
   readonly exportedAt: string;
+  readonly lastHccFetchAt?: string;
   readonly infringementChunks?: readonly string[];
   readonly recordCount: number;
 }): SeedManifest => {
@@ -414,6 +416,7 @@ const buildManifest = (options: {
       ...historicalChunks,
       ...(options.infringementChunks ?? [RECENT_SEED_CHUNK]),
     ],
+    lastHccFetchAt: options.lastHccFetchAt,
     source: "hcc-open-data-worker-refresh",
     totalInfringements: Math.max(
       options.existing?.totalInfringements ?? 0,
@@ -480,6 +483,8 @@ export const refreshLiveSeedChunkFromHcc = async (
     throw new Error(formatHccFetchError(fetched.error));
   }
 
+  const lastHccFetchAt = nowInAucklandIso();
+
   const { cleaned, skipped } = cleanInfringements(fetched.value.records);
   const records = uniqueByInfringementNumber(cleaned);
   const published = new Set(options.publishedInfringementNumbers);
@@ -537,6 +542,7 @@ export const refreshLiveSeedChunkFromHcc = async (
     last30d: countSinceDate(records, last30dStart),
     last365d: countSinceDate(records, last365dStart),
     last7d: countSinceDate(records, last7dStart),
+    lastHccFetchAt,
     lastRecordAt: records[0]?.occurredAt ?? null,
     newAmountCents: newRecords.reduce(
       (sum, record) => sum + record.amountCents,
@@ -590,6 +596,7 @@ export const finalizeLiveSeedRefresh = async (
   let last365d = 0;
   let last7d = 0;
   let lastRecordAt: string | null = null;
+  let lastHccFetchAt: string | null = null;
   let records = 0;
   let newAmountCents = 0;
   let newRecords = 0;
@@ -602,6 +609,10 @@ export const finalizeLiveSeedRefresh = async (
   let towedToday = 0;
 
   for (const summary of options.summaries) {
+    lastHccFetchAt = latestInstant(
+      lastHccFetchAt,
+      summary.lastHccFetchAt ?? null
+    );
     amountCents += summary.amountCents;
     last24h += summary.last24h;
     last30d += summary.last30d;
@@ -733,6 +744,7 @@ export const finalizeLiveSeedRefresh = async (
     },
     exportedAt: options.syncedAt,
     infringementChunks: refreshedChunks,
+    lastHccFetchAt: lastHccFetchAt ?? undefined,
     recordCount: records,
   });
 
@@ -881,6 +893,8 @@ export const refreshLiveSeedFromHcc = async (
     throw new Error(formatHccFetchError(fetched.error));
   }
 
+  const lastHccFetchAt = nowInAucklandIso();
+
   const { cleaned, skipped } = cleanInfringements(fetched.value.records);
   const records = uniqueByInfringementNumber(cleaned);
   const existing = await loadExistingSeedState(env);
@@ -895,6 +909,7 @@ export const refreshLiveSeedFromHcc = async (
   const manifest = buildManifest({
     existing: existing.manifest,
     exportedAt: syncedAt,
+    lastHccFetchAt,
     recordCount: records.length,
   });
 

@@ -10,6 +10,7 @@ export const seedManifestSchema = z.object({
   dashboardSnapshotKey: z.string().optional(),
   exportedAt: z.string(),
   infringementChunks: z.array(z.string()),
+  lastHccFetchAt: z.iso.datetime({ offset: true }).optional(),
   source: z.string(),
   totalInfringements: z.number(),
   version: z.literal(SEED_MANIFEST_VERSION),
