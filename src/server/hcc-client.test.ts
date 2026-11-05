@@ -6,10 +6,9 @@ import {
   fetchAllInWindow,
   fetchInfringements,
   formatHccFetchError,
-  HccClient,
-  hccClientLayer,
   hccTransportLayer,
 } from "@/server/hcc-client";
+import { HccClient, hccClientLayer } from "@/server/hcc-pagination";
 import { HccTransport } from "@/server/hcc-transport";
 
 describe("formatHccFetchError", () => {
