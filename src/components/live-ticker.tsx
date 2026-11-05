@@ -69,7 +69,7 @@ export const LiveTicker = ({
             </div>
 
             <div>
-              <p
+              <div
                 className={cn(
                   "min-h-12 font-mono text-5xl font-semibold leading-none tracking-[-0.05em] text-primary tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
                   pulse && "animate-ticker-pulse"
@@ -81,7 +81,7 @@ export const LiveTicker = ({
                 ) : (
                   numberFmt.format(animatedTotal)
                 )}
-              </p>
+              </div>
               <p className="mt-3 min-h-6 max-w-md text-sm leading-6 text-muted-foreground">
                 Running total from the public infringement feed.
               </p>

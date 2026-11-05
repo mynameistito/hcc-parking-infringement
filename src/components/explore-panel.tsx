@@ -60,11 +60,11 @@ const getItemSubtitle = (_item: ExploreItem): string | undefined => undefined;
 
 const getItemKey = (item: ExploreItem, tab: ExploreTab): string => {
   if (isVehicleRankItem(item)) {
-    return `${tab}-${item.make}-${item.model}`;
+    return JSON.stringify([tab, item.make, item.model]);
   }
   const street = item.street ?? item.label;
   const suburb = item.suburb ?? "";
-  return `${tab}-${street}-${suburb}`;
+  return JSON.stringify([tab, street, suburb]);
 };
 
 const getTabIcon = (tab: ExploreTab) => {
@@ -197,7 +197,7 @@ const ExploreListBody = ({
   selected,
   onSelect,
 }: {
-  visibleItems: ExploreItem[];
+  visibleItems: { item: ExploreItem; rank: number }[];
   activeTab: ExploreTab;
   maxCount: number;
   search: string;
@@ -218,13 +218,13 @@ const ExploreListBody = ({
 
   return (
     <ol className="max-h-[440px] overflow-auto">
-      {visibleItems.map((item, index) => {
-        const rank = index + 1;
+      {visibleItems.map(({ item, rank }) => {
         const width = `${Math.max((item.count / maxCount) * 100, 4)}%`;
         const label = getItemLabel(item);
         const subtitle = getItemSubtitle(item);
         const isSelected =
-          selected?.tab === activeTab && getItemLabel(selected.item) === label;
+          selected?.tab === activeTab &&
+          getItemKey(selected.item, activeTab) === getItemKey(item, activeTab);
 
         return (
           <li key={getItemKey(item, activeTab)}>
@@ -270,7 +270,10 @@ export const ExplorePanel = ({
   }, [activeTab, streets, suburbs, vehicles]);
 
   const visibleItems = useMemo(
-    () => items.filter((item) => matchesSearch(item, search)),
+    () =>
+      items
+        .map((item, index) => ({ item, rank: index + 1 }))
+        .filter(({ item }) => matchesSearch(item, search)),
     [items, search]
   );
 
@@ -294,6 +297,7 @@ export const ExplorePanel = ({
             />
             <Input
               type="search"
+              aria-label={`Search ${activeTab}`}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
