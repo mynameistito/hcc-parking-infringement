@@ -93,6 +93,7 @@ export const RankedListRow = ({
           className
         )}
         data-selected={selected === true}
+        aria-pressed={selected === true}
         onClick={onClick}
       >
         {inner}
