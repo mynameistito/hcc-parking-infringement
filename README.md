@@ -35,7 +35,11 @@ HCC Open Data API
     -> React dashboard
 ```
 
-The production deploy can also read prebuilt seed snapshots from R2 for lower runtime cost. Admin and sync routes are protected by API keys or cron secrets.
+The default production deployment reads prebuilt seed snapshots from R2; the Durable Object store is an alternative read mode. R2 object reads use the Workers Cache API with a default 60-second TTL, including binding reads. Successful writes attempt to invalidate the local cached object; a failed invalidation can leave the old entry until its TTL expires. Cache entries in other data centres expire by TTL, so publication is eventually visible across regions. Set `PARKING_SEED_CACHE_SECONDS=0` to bypass object caching. Cache failures fall back to R2. Public responses also advertise a 60-second browser cache, so freshness can lag object publication further. Admin and sync routes are protected by API keys or cron secrets.
+
+The default seed deployment persists logs for 10% of requests and traces for 1%, instead of recording every request. Invocation logs remain enabled for sampled requests. These are cost-control defaults, not guarantees that every error is retained: head sampling can omit failed requests too. Temporarily raise the relevant rate to `1` and redeploy when investigating a reproducible issue, then restore sampling. Monitor account usage rather than assuming that caching or sampling guarantees a zero bill. See Cloudflare's [log sampling](https://developers.cloudflare.com/workers/observability/logs/workers-logs/#head-based-sampling), [trace sampling](https://developers.cloudflare.com/workers/observability/traces/), and [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
+The November 2026 Personal account audit reported 416,921,556 bytes across 707 Standard R2 objects account-wide. The current Standard allowance includes 10 GB-month of storage, 1 million Class A operations and 10 million Class B operations monthly. This supports retaining R2 snapshots with caching for the dashboard's read workload; storage volume alone cannot establish total cost. The billing API returned HTTP 403 for the available credentials, so billable request usage and total account spend were not verified. Cron triggers remain deliberately disabled; use the authenticated manual refresh operational client when a new snapshot is needed.
 
 ## Local Development
 
