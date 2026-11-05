@@ -215,7 +215,6 @@ export const DailyTrendPanel = ({
                 className="h-full min-h-0 w-full flex-1"
                 dates={chart.dates}
                 maxXLabels={maxLabels}
-                revealDelay={120}
                 valueStyle={metric === "totalCents" ? "currency" : "number"}
                 values={chart.values}
                 xLabels={chart.labels}

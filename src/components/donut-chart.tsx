@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo } from "react";
 
 import { PieLegend } from "@/components/pie-legend";
+import { Skeleton } from "@/components/ui/skeleton";
 import { chartColorAt } from "@/lib/chart-colors";
 import { numberFmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -26,9 +27,9 @@ interface DonutChartProps {
 }
 
 const ChartFallback = ({ size }: { size: "md" | "lg" }) => (
-  <div
+  <Skeleton
     className={cn(
-      "mx-auto animate-pulse rounded-full bg-muted/40",
+      "mx-auto rounded-full",
       size === "lg" ? "size-44" : "size-36"
     )}
     aria-hidden="true"

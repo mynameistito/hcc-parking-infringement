@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo } from "react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { chartColorAt } from "@/lib/chart-colors";
 import { buildYTicks } from "@/lib/chart-scale";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,7 @@ const ChartFallback = ({ rows }: { rows: number }) => (
     aria-hidden="true"
   >
     {Array.from({ length: Math.min(rows, 12) }, (_, index) => (
-      <div key={index} className="h-3.5 animate-pulse rounded bg-muted/40" />
+      <Skeleton key={index} className="h-3.5" />
     ))}
   </div>
 );
