@@ -11,9 +11,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchRecentInfringements } from "@/client/api";
 import { TableRowsSkeleton } from "@/components/data-skeletons";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import type { PublicInfringement } from "@/contracts/public-api";
 import { INFRINGEMENTS_DEFAULT_PAGE_SIZE } from "@/lib/dashboard-constants";
 import {
@@ -418,9 +421,7 @@ export const LatestInstances = ({
         ) : (
           <div className="grid gap-2 md:hidden">
             {table.getRowModel().rows.length === 0 ? (
-              <div className="rounded-[6px] border border-border bg-background px-3 py-6 text-center text-xs text-muted-foreground">
-                Waiting for infringement rows...
-              </div>
+              <EmptyState description="Waiting for infringement rows..." />
             ) : (
               table
                 .getRowModel()
@@ -432,16 +433,23 @@ export const LatestInstances = ({
                 ))
             )}
             {hasMore ? (
-              <button
-                className="inline-flex min-h-10 items-center justify-center rounded-[6px] border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              <Button
+                variant="outline"
                 disabled={loadingMore}
                 onClick={() => {
                   void loadMore();
                 }}
                 type="button"
               >
-                {loadingMore ? "Loading more tickets..." : "Load more tickets"}
-              </button>
+                {loadingMore ? (
+                  <>
+                    <Spinner data-icon="inline-start" />
+                    Loading more tickets...
+                  </>
+                ) : (
+                  "Load more tickets"
+                )}
+              </Button>
             ) : null}
           </div>
         )}

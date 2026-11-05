@@ -1,3 +1,10 @@
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+
 interface EmptyStateProps {
   title?: string;
   description: string;
@@ -10,14 +17,10 @@ export const EmptyState = ({
   description,
   className,
 }: EmptyStateProps) => (
-  <div
-    className={
-      className ?? "grid min-h-28 place-items-center px-4 py-6 text-center"
-    }
-  >
-    <div>
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
-  </div>
+  <Empty className={className}>
+    <EmptyHeader>
+      <EmptyTitle>{title}</EmptyTitle>
+      <EmptyDescription>{description}</EmptyDescription>
+    </EmptyHeader>
+  </Empty>
 );
