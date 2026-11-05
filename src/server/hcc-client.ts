@@ -15,7 +15,10 @@ export type {
   HccPaging,
 } from "@/server/hcc-transport.ts";
 
-export type HccClientEnv = Pick<Env, "HCC_API_BASE">;
+/** HTTP adapter configuration, with the council API as the default endpoint. */
+export interface HccClientEnv {
+  readonly HCC_API_BASE?: string;
+}
 
 const DEFAULT_API_BASE =
   "https://api.hcc.govt.nz/OpenData/get_parking_infringement";

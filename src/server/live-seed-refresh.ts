@@ -11,7 +11,9 @@ import type {
 } from "@/contracts/public-api.ts";
 import {
   addDaysInAuckland,
+  instantInAucklandIso,
   nowInAucklandIso,
+  parseAucklandInstant,
   todayInAuckland,
 } from "@/lib/auckland-time.ts";
 import { buildChartBreakdownFromInfringements } from "@/lib/chart-breakdowns.ts";
@@ -21,6 +23,7 @@ import { comparePeriods } from "@/lib/trend-window.ts";
 import type { CleanInfringement } from "@/server/clean-schema.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
+import type { HccClientEnv } from "@/server/hcc-client.ts";
 import { readSeedManifest } from "@/server/seed-import.ts";
 import type { SeedManifest } from "@/server/seed-manifest.ts";
 import {
@@ -33,6 +36,7 @@ import {
   readSeedObjectText,
   writeSeedObjectText,
 } from "@/server/seed-r2-client.ts";
+import type { SeedR2Env } from "@/server/seed-r2-client.ts";
 
 const DEFAULT_REFRESH_DAYS = 400;
 const RECENT_SEED_CHUNK = "infringements-recent.ndjson";
@@ -93,6 +97,7 @@ export interface LiveSeedRefreshPlan {
   readonly from: string;
   readonly prefix: string;
   readonly publishedInfringementNumbers: number[];
+  /** Persisted planning instant used for every chunk's rolling-window cutoffs. */
   readonly syncedAt: string;
   readonly to: string;
   readonly windows: LiveSeedRefreshWindow[];
@@ -457,14 +462,14 @@ export const planLiveSeedRefresh = async (
     from,
     prefix: existing.prefix,
     publishedInfringementNumbers: existing.publishedInfringementNumbers,
-    syncedAt: nowInAucklandIso(),
+    syncedAt: instantInAucklandIso(now),
     to,
     windows,
   };
 };
 
 export const refreshLiveSeedChunkFromHcc = async (
-  env: Env,
+  env: HccClientEnv & SeedR2Env,
   options: {
     readonly bootstrapAfter: string | null;
     readonly chunk: string;
@@ -475,7 +480,7 @@ export const refreshLiveSeedChunkFromHcc = async (
     readonly window: LiveSeedRefreshWindow;
   }
 ): Promise<LiveSeedRefreshChunkSummary> => {
-  const now = new Date();
+  const now = parseAucklandInstant(options.syncedAt);
   const fetched = await fetchAllInWindow(
     env,
     options.window.start,
