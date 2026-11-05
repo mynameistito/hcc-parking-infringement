@@ -1,30 +1,24 @@
+import { Context, Effect, Layer } from "effect";
 import { z } from "zod";
 
 import { BACKFILL_HCC_CONCURRENCY } from "@/lib/backfill-constants.ts";
 import { err, ok } from "@/lib/result.ts";
 import type { Result } from "@/lib/result.ts";
+import { HccTransport } from "@/server/hcc-transport.ts";
+import type {
+  HccFetchError,
+  HccInfringementResponse,
+} from "@/server/hcc-transport.ts";
+export type {
+  HccFetchError,
+  HccInfringementResponse,
+  HccPaging,
+} from "@/server/hcc-transport.ts";
 
 export type HccClientEnv = Pick<Env, "HCC_API_BASE">;
 
 const DEFAULT_API_BASE =
   "https://api.hcc.govt.nz/OpenData/get_parking_infringement";
-
-export interface HccPaging {
-  Dataset_Name?: string;
-  Current_Page: number;
-  Page_Count: number;
-  Page_Size: number;
-}
-
-export interface HccInfringementResponse {
-  Paging: HccPaging[];
-  Data?: Record<string, unknown>[];
-}
-
-export type HccFetchError =
-  | { tag: "http"; status: number; body: string }
-  | { tag: "malformed"; detail: string }
-  | { tag: "malformed_json" | "transport" | "cancelled" };
 
 export const formatHccFetchError = (error: HccFetchError): string => {
   if (error.tag === "http") {
@@ -196,104 +190,137 @@ const readPageRecords = (
 ): Record<string, unknown>[] =>
   response.Data !== undefined && response.Data.length > 0 ? response.Data : [];
 
-const fetchPageRecords = async (
-  env: HccClientEnv,
-  startDate: string,
-  endDate: string,
-  page: number,
-  options: HccRequestOptions
-): Promise<Result<Record<string, unknown>[], HccFetchError>> => {
-  const response = await fetchInfringements(env, {
-    endDate,
-    page,
-    startDate,
-    ...options,
-  });
-  if (!response.ok) {
-    return response;
-  }
-
-  return ok(readPageRecords(response.value));
-};
-
 export interface HccRequestOptions {
   signal?: AbortSignal;
   fetch?: typeof fetch;
 }
 
+export const hccTransportLayer = (
+  env: HccClientEnv,
+  options: HccRequestOptions = {}
+) =>
+  Layer.succeed(
+    HccTransport,
+    HccTransport.of({
+      fetchPage: Effect.fn("HccTransport.fetchPage")(function* fetchPage(
+        startDate: string,
+        endDate: string,
+        page: number
+      ) {
+        const result = yield* Effect.promise(
+          async () =>
+            await fetchInfringements(env, {
+              endDate,
+              page,
+              startDate,
+              ...options,
+            })
+        );
+        return yield* result.ok
+          ? Effect.succeed(result.value)
+          : Effect.fail(result.error);
+      }),
+    })
+  );
+
+export class HccClient extends Context.Service<
+  HccClient,
+  {
+    readonly fetchAll: (
+      startDate: string,
+      endDate: string
+    ) => Effect.Effect<FetchAllResult, HccFetchError>;
+  }
+>()("hcc/HccClient") {}
+
+/** Pagination policy depends on an explicitly supplied HCC transport. */
+export const hccClientLayer = Layer.effect(
+  HccClient,
+  Effect.gen(function* makeHccClient() {
+    const transport = yield* HccTransport;
+    const fetchAll = Effect.fn("HccClient.fetchAll")(function* fetchAll(
+      startDate: string,
+      endDate: string
+    ) {
+      const response = yield* transport.fetchPage(startDate, endDate, 1);
+      const [paging] = response.Paging;
+      if (paging === undefined) {
+        return {
+          lastPageRecords: 0,
+          pageCount: 0,
+          pageSize: 10_000,
+          pagesFetched: 0,
+          possiblyTruncated: false,
+          records: [],
+        };
+      }
+      const firstPageRecords = readPageRecords(response);
+      if (paging.Page_Count <= 1) {
+        return {
+          lastPageRecords: firstPageRecords.length,
+          pageCount: paging.Page_Count,
+          pageSize: paging.Page_Size,
+          pagesFetched: 1,
+          possiblyTruncated: isFullPage(
+            firstPageRecords.length,
+            paging.Page_Size
+          ),
+          records: firstPageRecords,
+        };
+      }
+      const pages = Array.from(
+        { length: paging.Page_Count - 1 },
+        (_, index) => index + 2
+      );
+      const responses = yield* Effect.all(
+        pages.map((page) =>
+          transport
+            .fetchPage(startDate, endDate, page)
+            .pipe(Effect.match({ onFailure: err, onSuccess: ok }))
+        ),
+        { concurrency: "unbounded" }
+      );
+      const records = [...firstPageRecords];
+      let lastPageRecords = 0;
+      for (const page of responses) {
+        if (!page.ok) {
+          return yield* Effect.fail(page.error);
+        }
+        const pageRecords = readPageRecords(page.value);
+        records.push(...pageRecords);
+        lastPageRecords = pageRecords.length;
+      }
+      return {
+        lastPageRecords,
+        pageCount: paging.Page_Count,
+        pageSize: paging.Page_Size,
+        pagesFetched: paging.Page_Count,
+        possiblyTruncated: isFullPage(lastPageRecords, paging.Page_Size),
+        records,
+      };
+    });
+    return HccClient.of({ fetchAll });
+  })
+);
+
+/** Promise boundary for existing CLI and Worker entrypoints. */
 export const fetchAllInWindow = async (
   env: HccClientEnv,
   startDate: string,
   endDate: string,
   options: HccRequestOptions = {}
-): Promise<Result<FetchAllResult, HccFetchError>> => {
-  const firstPage = await fetchInfringements(env, {
-    endDate,
-    page: 1,
-    startDate,
-    ...options,
-  });
-  if (!firstPage.ok) {
-    return firstPage;
-  }
-
-  const response = firstPage.value;
-  const [paging] = response.Paging;
-  if (paging === undefined) {
-    return ok({
-      lastPageRecords: 0,
-      pageCount: 0,
-      pageSize: 10_000,
-      pagesFetched: 0,
-      possiblyTruncated: false,
-      records: [],
-    });
-  }
-
-  const firstPageRecords = readPageRecords(response);
-
-  if (paging.Page_Count <= 1) {
-    return ok({
-      lastPageRecords: firstPageRecords.length,
-      pageCount: paging.Page_Count,
-      pageSize: paging.Page_Size,
-      pagesFetched: 1,
-      possiblyTruncated: isFullPage(firstPageRecords.length, paging.Page_Size),
-      records: firstPageRecords,
-    });
-  }
-
-  const otherPages = Array.from(
-    { length: paging.Page_Count - 1 },
-    (_, index) => index + 2
-  );
-  const otherPageResults = await Promise.all(
-    otherPages.map(
-      async (page) =>
-        await fetchPageRecords(env, startDate, endDate, page, options)
+): Promise<Result<FetchAllResult, HccFetchError>> =>
+  await Effect.runPromise(
+    Effect.gen(function* runHccFetch() {
+      const client = yield* HccClient;
+      return yield* client.fetchAll(startDate, endDate);
+    }).pipe(
+      Effect.provide(
+        hccClientLayer.pipe(Layer.provide(hccTransportLayer(env, options)))
+      ),
+      Effect.match({ onFailure: err, onSuccess: ok })
     )
   );
-
-  const records: Record<string, unknown>[] = [...firstPageRecords];
-  let lastPageRecords = 0;
-
-  for (const pageResult of otherPageResults) {
-    if (!pageResult.ok) {
-      return pageResult;
-    }
-    records.push(...pageResult.value);
-    lastPageRecords = pageResult.value.length;
-  }
-
-  return ok({
-    lastPageRecords,
-    pageCount: paging.Page_Count,
-    pageSize: paging.Page_Size,
-    pagesFetched: paging.Page_Count,
-    possiblyTruncated: isFullPage(lastPageRecords, paging.Page_Size),
-    records,
-  });
-};
 
 /** CLI helper: throw on HCC fetch failure instead of returning Result. */
 export const fetchAllInWindowOrThrow = async (
