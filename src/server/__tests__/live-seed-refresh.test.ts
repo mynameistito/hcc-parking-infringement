@@ -31,6 +31,26 @@ const makeRecord = (
 });
 
 describe("buildLiveSeedSnapshot", () => {
+  it("uses one supplied instant for rolling windows across Auckland midnight", () => {
+    const snapshot = buildLiveSeedSnapshot({
+      existingLive: null,
+      now: new Date("2026-06-30T12:00:00Z"),
+      from: "2026-06-24",
+      records: [
+        makeRecord(1, "2026-06-24T23:59:59+12:00"),
+        makeRecord(2, "2026-06-25T00:00:00+12:00"),
+        makeRecord(3, "2026-06-30T23:59:59+12:00"),
+        makeRecord(4, "2026-07-01T00:00:00+12:00"),
+      ],
+      syncedAt: "2026-07-01T00:00:00+12:00",
+      to: "2026-07-01",
+    });
+
+    expect(snapshot.live.last7d).toBe(3);
+    expect(snapshot.live.last24h).toBe(2);
+    expect(snapshot.live.today).toBe(1);
+  });
+
   it("deduplicates records and builds dashboard aggregates", () => {
     const snapshot = buildLiveSeedSnapshot({
       existingLive: {
@@ -46,6 +66,7 @@ describe("buildLiveSeedSnapshot", () => {
         today: 0,
         towedToday: 0,
       },
+      now: new Date("2026-07-01T00:00:00Z"),
       from: "2026-06-29",
       records: [
         makeRecord(1, "2026-06-29T10:00:00+12:00"),

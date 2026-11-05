@@ -434,9 +434,10 @@ export const planLiveSeedRefresh = async (
   env: Env,
   chunkDays = 7
 ): Promise<LiveSeedRefreshPlan> => {
+  const now = new Date();
   const days = parseRefreshDays(env.PARKING_AUTO_REFRESH_DAYS);
-  const to = todayInAuckland();
-  const from = rollingCalendarWindowStart(new Date(), days);
+  const to = todayInAuckland(now);
+  const from = rollingCalendarWindowStart(now, days);
   const existing = await loadExistingSeedState(env);
   const windows: LiveSeedRefreshWindow[] = [];
   const span = Math.max(1, Math.floor(chunkDays));
@@ -474,6 +475,7 @@ export const refreshLiveSeedChunkFromHcc = async (
     readonly window: LiveSeedRefreshWindow;
   }
 ): Promise<LiveSeedRefreshChunkSummary> => {
+  const now = new Date();
   const fetched = await fetchAllInWindow(
     env,
     options.window.start,
@@ -497,10 +499,10 @@ export const refreshLiveSeedChunkFromHcc = async (
   const todayRecords = records.filter(
     (record) => toDateKey(record) === options.to
   );
-  const last24hStart = Date.now() - 24 * 60 * 60 * 1000;
-  const last7dStart = rollingCalendarWindowStart(new Date(), 7);
-  const last30dStart = rollingCalendarWindowStart(new Date(), 30);
-  const last365dStart = rollingCalendarWindowStart(new Date(), 365);
+  const last24hStart = now.getTime() - 24 * 60 * 60 * 1000;
+  const last7dStart = rollingCalendarWindowStart(now, 7);
+  const last30dStart = rollingCalendarWindowStart(now, 30);
+  const last365dStart = rollingCalendarWindowStart(now, 365);
   const thisMonthStart = `${options.to.slice(0, 7)}-01`;
   const streetCounts = new Map<string, number>();
   const suburbCounts = new Map<string, number>();
@@ -778,19 +780,21 @@ export const finalizeLiveSeedRefresh = async (
 
 const buildLiveStats = (options: {
   readonly existing: PublicLiveStats | null;
+  readonly now: Date;
   readonly records: readonly CleanInfringement[];
   readonly today: string;
   readonly syncedAt: string;
 }): PublicLiveStats => {
+  const now = options.now;
   const recentAmountCents = options.records.reduce(
     (sum, record) => sum + record.amountCents,
     0
   );
   const [lastRecord] = options.records;
-  const last24hStart = Date.now() - 24 * 60 * 60 * 1000;
-  const last7dStart = rollingCalendarWindowStart(new Date(), 7);
-  const last30dStart = rollingCalendarWindowStart(new Date(), 30);
-  const last365dStart = rollingCalendarWindowStart(new Date(), 365);
+  const last24hStart = now.getTime() - 24 * 60 * 60 * 1000;
+  const last7dStart = rollingCalendarWindowStart(now, 7);
+  const last30dStart = rollingCalendarWindowStart(now, 30);
+  const last365dStart = rollingCalendarWindowStart(now, 365);
   const thisMonthStart = `${options.today.slice(0, 7)}-01`;
   const todayRecords = options.records.filter(
     (record) => toDateKey(record) === options.today
@@ -820,6 +824,7 @@ const buildLiveStats = (options: {
 
 export const buildLiveSeedSnapshot = (options: {
   readonly existingLive: PublicLiveStats | null;
+  readonly now: Date;
   readonly from: string;
   readonly records: readonly CleanInfringement[];
   readonly syncedAt: string;
@@ -852,6 +857,7 @@ export const buildLiveSeedSnapshot = (options: {
     dailyTrend,
     live: buildLiveStats({
       existing: options.existingLive,
+      now: options.now,
       records,
       syncedAt: options.syncedAt,
       today: options.to,
@@ -885,9 +891,10 @@ export const buildLiveSeedSnapshot = (options: {
 export const refreshLiveSeedFromHcc = async (
   env: Env
 ): Promise<RefreshLiveSeedResult> => {
+  const now = new Date();
   const days = parseRefreshDays(env.PARKING_AUTO_REFRESH_DAYS);
-  const to = todayInAuckland();
-  const from = rollingCalendarWindowStart(new Date(), days);
+  const to = todayInAuckland(now);
+  const from = rollingCalendarWindowStart(now, days);
   const fetched = await fetchAllInWindow(env, from, to);
   if (!fetched.ok) {
     throw new Error(formatHccFetchError(fetched.error));
@@ -901,6 +908,7 @@ export const refreshLiveSeedFromHcc = async (
   const syncedAt = nowInAucklandIso();
   const snapshot = buildLiveSeedSnapshot({
     existingLive: existing.snapshotLive,
+    now,
     from,
     records,
     syncedAt,
