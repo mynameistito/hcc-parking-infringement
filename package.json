@@ -30,7 +30,8 @@
     "import:csv": "bun run scripts/import-csv.ts",
     "sync": "bun run scripts/sync.ts",
     "geocode": "bun run scripts/geocode.ts",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "seed:local": "wrangler r2 object put hcc-parking-infringement-seed/parking-store/v1/manifest.json --file data/seed/manifest.json --local && wrangler r2 object put hcc-parking-infringement-seed/parking-store/v1/dashboard-snapshot.json --file data/seed/dashboard-snapshot.json --local"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

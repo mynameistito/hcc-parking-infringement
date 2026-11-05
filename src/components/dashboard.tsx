@@ -144,7 +144,7 @@ const LiveStatusBadge = ({
     return (
       <Badge variant="success">
         <Activity className="size-3" aria-hidden="true" />
-        WebSocket Live
+        Live
       </Badge>
     );
   }
@@ -179,7 +179,7 @@ export const Dashboard = ({
   error,
 }: DashboardProps) => (
   <div className="min-h-screen bg-background text-foreground">
-    <div className="mx-auto w-full px-4 py-6 sm:px-6 md:px-8 xl:px-10 2xl:px-12">
+    <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 md:px-8 lg:py-10">
       <header className="mb-6 border-b border-border pb-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
@@ -187,7 +187,7 @@ export const Dashboard = ({
               Hamilton City Council Open Data
             </p>
             <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary sm:text-5xl">
-              Parking Infringement Dashboard
+              Hamilton parking infringements
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
               Live infringement totals, hotspot streets, vehicle trends, and
@@ -232,16 +232,30 @@ export const Dashboard = ({
           dailyTrend={dailyTrend}
           isLoading={dataStatus === "loading"}
         />
-        <DistributionCharts
-          breakdowns={chartBreakdowns}
-          streets={streets}
-          isLoading={dataStatus === "loading"}
-        />
-        <LatestInstances
-          recentInfringements={recentInfringements}
-          total={recentInfringementsTotal}
-          isLoading={dataStatus === "loading"}
-        />
+        <details className="rounded-lg border border-border bg-card p-5 sm:p-6">
+          <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
+            Street and vehicle breakdowns
+          </summary>
+          <div className="mt-6">
+            <DistributionCharts
+              breakdowns={chartBreakdowns}
+              streets={streets}
+              isLoading={dataStatus === "loading"}
+            />
+          </div>
+        </details>
+        <details className="rounded-lg border border-border bg-card p-5 sm:p-6">
+          <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
+            Recent parking tickets
+          </summary>
+          <div className="mt-6">
+            <LatestInstances
+              recentInfringements={recentInfringements}
+              total={recentInfringementsTotal}
+              isLoading={dataStatus === "loading"}
+            />
+          </div>
+        </details>
       </main>
 
       <footer className="mt-8 border-t border-border pt-5 text-xs text-muted-foreground">

@@ -43,6 +43,23 @@ The November 2026 Personal account audit reported 416,921,556 bytes across 707 S
 
 ## Local Development
 
+## Cloudflare resource tags
+
+Production resources use Cloudflare's [Resource Tagging API](https://developers.cloudflare.com/resource-tagging/get-started/) with `project=hcc-parking-infringement`, `environment=production`, and a `component` tag:
+
+| Resource                                                  | Component       |
+| --------------------------------------------------------- | --------------- |
+| `hcc-parking-infringement` Worker                         | `dashboard`     |
+| `hcc-parking-infringement-seed` R2 bucket                 | `seed-storage`  |
+| `ParkingStore` Durable Object namespace                   | `parking-store` |
+| `SeedRefreshCoordinator` Durable Object namespace         | `seed-refresh`  |
+| `hcc-backfill` queue                                      | `backfill`      |
+| Both `hcc-parking-infringement` custom-domain DNS records | `dashboard-dns` |
+
+These tags were applied and read back through the API. They are managed separately from Wrangler's Worker script tags. When changing tags, GET the current tags, merge the desired keys, then PUT the full tag map to preserve unrelated metadata. Shared parent DNS zones are not project-specific resources.
+
+## Local setup
+
 Install dependencies:
 
 ```powershell
@@ -62,6 +79,14 @@ Run with Wrangler for the closest Cloudflare runtime behavior:
 ```powershell
 bun run dev:wrangler
 ```
+
+After clearing local Wrangler state, restore the dashboard snapshot from the existing `data/seed` export before starting Vite:
+
+```powershell
+bun run seed:local
+```
+
+This populates only the local dashboard manifest and snapshot, not the full record archive or remote R2 bucket.
 
 Or run the faster Vite development server:
 
