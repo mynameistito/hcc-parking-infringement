@@ -14,7 +14,7 @@ import { TableRowsSkeleton } from "@/components/data-skeletons";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import type { PublicInfringement } from "@/contracts/public-api";
@@ -222,19 +222,18 @@ const formatSortSummary = (sorting: SortingState): string => {
 const MobileRowsSkeleton = () => (
   <div className="grid gap-2 md:hidden" aria-label="Loading ticket cards">
     {Array.from({ length: 4 }, (_, index) => (
-      <div
-        className="rounded-[6px] border border-border bg-background p-3"
-        key={index}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 flex flex-col gap-2">
-            <Skeleton className="h-4 w-full max-w-[13rem]" />
-            <Skeleton className="h-3 w-full max-w-[9rem]" />
+      <Card className="gap-0 py-3" key={index}>
+        <CardContent className="px-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 flex flex-col gap-2">
+              <Skeleton className="h-4 w-full max-w-[13rem]" />
+              <Skeleton className="h-3 w-full max-w-[9rem]" />
+            </div>
+            <Skeleton className="h-4 w-14" />
           </div>
-          <Skeleton className="h-4 w-14" />
-        </div>
-        <Skeleton className="mt-3 h-3 w-full" />
-      </div>
+          <Skeleton className="mt-3 h-3 w-full" />
+        </CardContent>
+      </Card>
     ))}
   </div>
 );
@@ -250,8 +249,8 @@ const MobileInfringementCard = ({
   );
 
   return (
-    <article className="rounded-[6px] border border-border bg-background p-3 text-xs">
-      <div className="flex items-start justify-between gap-3">
+    <Card className="gap-2 py-3">
+      <CardHeader className="flex items-start justify-between gap-3 px-3 text-xs">
         <div className="min-w-0">
           <time
             className="font-mono text-muted-foreground tabular-nums"
@@ -266,19 +265,21 @@ const MobileInfringementCard = ({
         <strong className="shrink-0 font-mono font-semibold text-foreground tabular-nums">
           {moneyFmt.format(infringement.amountCents / 100)}
         </strong>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-muted-foreground">
-        <span>{formatVehicle(infringement)}</span>
-        {infringement.isTowed ? (
-          <Badge variant="destructive" className="text-[0.6rem]">
-            Towed
-          </Badge>
-        ) : null}
-      </div>
-      <p className="mt-2 break-words leading-snug text-muted-foreground">
-        {infringement.offenceDescription}
-      </p>
-    </article>
+      </CardHeader>
+      <CardContent className="px-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+          <span>{formatVehicle(infringement)}</span>
+          {infringement.isTowed ? (
+            <Badge variant="destructive" className="text-[0.6rem]">
+              Towed
+            </Badge>
+          ) : null}
+        </div>
+        <p className="mt-2 break-words leading-snug text-muted-foreground">
+          {infringement.offenceDescription}
+        </p>
+      </CardContent>
+    </Card>
   );
 };
 
