@@ -1,7 +1,6 @@
 import type {
   ChartBreakdowns,
   FullDashboardMessage,
-  LocationRankItem,
   TopItem,
   VehicleRankItem,
 } from "@/contracts/public-api";
