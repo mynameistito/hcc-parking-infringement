@@ -57,3 +57,11 @@ rg -n '\b(WRANGLER_DEV_URL|InfringementCardSkeleton|StatPillLoading|TableRowsSke
 ## Map dependencies after UI deletion
 
 After the map files were removed, `rg -n 'maplibre|geojson|map-popup' src scripts vite.config.ts package.json` returned only the two package declarations, the Vite `vendor-map` split rule, and the two MapLibre popup selectors in `src/client/globals.css`. No remaining source, script, type import or dynamic entrypoint uses either dependency. The unused packages, chunk rule and selectors were removed together; the full test suite and production build must pass after this batch. Public HTTP map endpoints and contracts are retained.
+
+## Tabs cleanup and final scan
+
+After the dashboard filter moved to ToggleGroup, `rg -n 'components/ui/tabs|tabs-variants|\b(Tabs|TabsList|TabsTrigger|TabsContent)\b' . -g '!bun.lock' -g '!docs/dead-code-graph-audit.md'` found only declarations in `ui/tabs.tsx` and its import of `tabs-variants.ts`; no tests, registration, or other consumers. Dynamic import and glob searches still find only chart imports and `react-grab`. Both files are unreachable and were removed.
+
+After deletion the same graph found 202 TypeScript/TSX files, 39 roots, all 202 reachable. A lexical scan of 460 `export const/function/class` declarations found only five single-occurrence names: `liveStatsSchema`, `browseSortSchema`, `locationBrowseResponseSchema`, `vehicleBrowseResponseSchema`, and `readStoredEnvelopeData`, all in the public contract and retained. This scan is not a TypeScript AST proof and does not cover arbitrary computed imports or external consumers; Worker bindings and HTTP contracts remain explicit roots/uncertainties. After this batch `bun run test` passed 16 files and 82 tests and `bun run build` passed with existing Zod/Rolldown annotation warnings.
+
+Relative to baseline `829f5bf`, the current `src` and `scripts` diff removes 21 whole files totaling 4,458 lines. The entire diff in those directories is 60 changed files, 627 insertions and 5,275 deletions; this includes feature and refactor edits, not just dead-code removal. Counts compare the current tree directly to baseline and do not count transient files.
