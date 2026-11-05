@@ -12,7 +12,12 @@ import {
 } from "@/components/map-routes";
 import type { RouteFeatureProperties } from "@/components/map-routes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Map, MapControls, MapGeoJSON, useMap } from "@/components/ui/map";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { formatStreetSuburb } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -179,10 +184,11 @@ export const LocationMap = ({
             </p>
           </div>
           {!loading && hasRoutes ? (
-            <label className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground sm:max-w-64">
-              Inspect a road
-              <select
-                className="min-w-0 rounded border border-border bg-background px-2 py-1.5 text-foreground"
+            <Field className="min-w-0 gap-1 sm:max-w-64">
+              <FieldLabel htmlFor="inspect-road">Inspect a road</FieldLabel>
+              <NativeSelect
+                id="inspect-road"
+                className="w-full"
                 value={selected?.id ?? ""}
                 onChange={(event) => {
                   const feature = geojson.features.find(
@@ -191,17 +197,17 @@ export const LocationMap = ({
                   setSelected(feature?.properties ?? null);
                 }}
               >
-                <option value="">Choose a road</option>
+                <NativeSelectOption value="">Choose a road</NativeSelectOption>
                 {geojson.features.map(({ properties }) => (
-                  <option key={properties.id} value={properties.id}>
+                  <NativeSelectOption key={properties.id} value={properties.id}>
                     {formatStreetSuburb(
                       properties.street,
                       properties.suburb ?? undefined
                     )}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
-            </label>
+              </NativeSelect>
+            </Field>
           ) : null}
           {!loading && selected === null ? (
             <p className="text-sm text-muted-foreground">
