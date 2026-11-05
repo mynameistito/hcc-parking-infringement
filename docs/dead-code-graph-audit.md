@@ -49,3 +49,7 @@ A hidden-file-inclusive repository search excluding `.git`, dependencies, build 
 rg -n 'TopListSkeleton|ExploreListSkeleton|InfringementCardsSkeleton|MapAreaSkeleton|InspectorSkeleton|WRANGLER_DEV_PORT|WRANGLER_DEV_DEFAULT_URL|BACKFILL_QUEUE_CONCURRENCY|MAX_BACKFILL_ENQUEUE_PER_WAVE|MAX_BACKFILL_DIRECT_PER_WAVE|BACKFILL_QUEUE_WINDOWS_PER_MESSAGE|FREE_TIER_DO_SQLITE_READS_PER_DAY' . -g '!bun.lock' -g '!docs/dead-code-graph-audit.md'
 rg -n '\b(WRANGLER_DEV_URL|InfringementCardSkeleton|StatPillLoading|TableRowsSkeleton|ChartAreaSkeleton)\b' src scripts
 ```
+
+## Superseded full refresh
+
+`rg -n 'refreshLiveSeedFromHcc|planLiveSeedRefresh|refreshLiveSeedChunkFromHcc|finalizeLiveSeedRefresh|buildLiveSeedSnapshot' . -g '!bun.lock' -g '!docs/dead-code-graph-audit.md'` found only the full refresh's definition, no caller, registration or test. Both Wrangler configurations bind `SeedRefreshCoordinator`, exported by `src/worker.ts`; `scheduled-tasks.ts` calls its `startRefresh`, and the coordinator calls plan, chunk and finalize in its lifecycle. Those three operations remain. The unused full-refresh function has no package export entry (`private: true`) or dynamic/string registration. `buildLiveSeedSnapshot` remains because two tests directly exercise it; manifest construction and the recent chunk name are also used by the active finalize path. This supersedes the earlier provisional lifecycle-review note.
