@@ -60,11 +60,11 @@ const getItemSubtitle = (_item: ExploreItem): string | undefined => undefined;
 
 const getItemKey = (item: ExploreItem, tab: ExploreTab): string => {
   if (isVehicleRankItem(item)) {
-    return `${tab}-${item.make}-${item.model}`;
+    return JSON.stringify([tab, item.make, item.model]);
   }
   const street = item.street ?? item.label;
   const suburb = item.suburb ?? "";
-  return `${tab}-${street}-${suburb}`;
+  return JSON.stringify([tab, street, suburb]);
 };
 
 const getTabIcon = (tab: ExploreTab) => {
