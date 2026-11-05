@@ -14,7 +14,7 @@ const manifestData = {
   version: 1,
 };
 
-const statusFor = async (lastHccFetchAt?: string) => {
+const statusFor = async (lastHccFetchAt?: unknown) => {
   const cache = createSeedReadCache();
   cache.manifestContext = {
     manifest: parseSeedManifest({ ...manifestData, lastHccFetchAt }),
@@ -41,9 +41,13 @@ describe("seed cache freshness metadata", () => {
     expect(await statusFor()).toMatchObject({ lastHccFetchAt: null });
   });
 
-  it("rejects malformed persisted fetch timestamps", () => {
-    expect(() =>
-      parseSeedManifest({ ...manifestData, lastHccFetchAt: "invalid" })
-    ).toThrow();
-  });
+  it.each([null, "invalid", 123])(
+    "keeps invalid optional fetch metadata from breaking reads: %s",
+    async (value) => {
+      expect(await statusFor(value)).toMatchObject({
+        lastHccFetchAt: null,
+        totalRecords: 123,
+      });
+    }
+  );
 });
