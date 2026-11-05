@@ -23,7 +23,7 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
   return (
     <ul
       className={cn(
-        "max-h-52 space-y-1 overflow-y-auto pr-1 text-xs",
+        "flex max-h-52 flex-col gap-1 overflow-y-auto pr-1 text-xs",
         className
       )}
     >

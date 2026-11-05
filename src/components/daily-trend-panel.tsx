@@ -140,7 +140,7 @@ export const DailyTrendPanel = ({
     >
       <CardHeader className="gap-3 border-b border-border p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <CardTitle className="flex items-center gap-2">
               <TrendingUp
                 className="size-4 text-[var(--ring)]"

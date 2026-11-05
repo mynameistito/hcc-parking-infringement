@@ -94,10 +94,12 @@ const SortableHeader = ({
   const sorted = column.getIsSorted();
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       className={cn(
-        "inline-flex w-full items-center gap-1 font-medium transition-colors hover:text-foreground",
+        "w-full justify-start",
         align === "right" ? "justify-end" : "justify-start"
       )}
       onClick={() => {
@@ -110,7 +112,7 @@ const SortableHeader = ({
     >
       <span>{label}</span>
       <SortDirectionIcon sorted={sorted} />
-    </button>
+    </Button>
   );
 };
 
@@ -174,7 +176,7 @@ const columns = [
       const { isTowed } = info.row.original;
 
       return (
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <p>{offence}</p>
           {isTowed ? (
             <Badge variant="destructive" className="text-[0.6rem]">
@@ -225,7 +227,7 @@ const MobileRowsSkeleton = () => (
         key={index}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
+          <div className="min-w-0 flex-1 flex flex-col gap-2">
             <Skeleton className="h-4 w-full max-w-[13rem]" />
             <Skeleton className="h-3 w-full max-w-[9rem]" />
           </div>
