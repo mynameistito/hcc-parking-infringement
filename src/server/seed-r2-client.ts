@@ -25,6 +25,11 @@ const resolveR2AccessKeyId = (env: SeedR2Env): string | undefined => {
 const resolveSeedBucketName = (env: SeedR2Env): string =>
   env.PARKING_SEED_BUCKET ?? DEFAULT_SEED_BUCKET;
 
+// Cache API keys are synthetic HTTPS URLs, scoped to the configured account,
+// bucket and exact object key. No request is sent to this host.
+const bindingCacheUrl = (env: SeedR2Env, key: string): string =>
+  `https://parking-seed.invalid/${encodeURIComponent(env.R2_ACCOUNT_ID ?? "binding")}/${encodeURIComponent(resolveSeedBucketName(env))}/${encodeURIComponent(key)}`;
+
 const resolveR2AccountId = (env: SeedR2Env): string => {
   const accountId = env.R2_ACCOUNT_ID;
   if (accountId === undefined || accountId.length === 0) {
@@ -91,7 +96,9 @@ const resolveSeedCacheSeconds = (env: SeedR2Env): number => {
   return value;
 };
 
-const readCachedObjectText = async (url: string): Promise<string | null> => {
+const readCachedObjectTextUnsafe = async (
+  url: string
+): Promise<string | null> => {
   if (typeof caches === "undefined") {
     return null;
   }
@@ -105,7 +112,7 @@ const readCachedObjectText = async (url: string): Promise<string | null> => {
   return await response.text();
 };
 
-const writeCachedObjectText = async (
+const writeCachedObjectTextUnsafe = async (
   url: string,
   env: SeedR2Env,
   text: string
@@ -132,13 +139,43 @@ const writeCachedObjectText = async (
   );
 };
 
-const deleteCachedObjectText = async (url: string): Promise<void> => {
+const deleteCachedObjectTextUnsafe = async (url: string): Promise<void> => {
   if (typeof caches === "undefined") {
     return;
   }
 
   const cache = await caches.open(SEED_OBJECT_CACHE);
   await cache.delete(url);
+};
+
+// Cache availability must not determine storage availability. Entries in other
+// data centres (or a failed local invalidation) remain bounded by their TTL.
+const readCachedObjectText = async (url: string): Promise<string | null> => {
+  try {
+    return await readCachedObjectTextUnsafe(url);
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedObjectText = async (
+  url: string,
+  env: SeedR2Env,
+  text: string
+): Promise<void> => {
+  try {
+    await writeCachedObjectTextUnsafe(url, env, text);
+  } catch {
+    // The authoritative R2 read already succeeded; caching is best effort.
+  }
+};
+
+const deleteCachedObjectText = async (url: string): Promise<void> => {
+  try {
+    await deleteCachedObjectTextUnsafe(url);
+  } catch {
+    // A successful authoritative write must not be reported as failed.
+  }
 };
 
 const readViaS3Api = async (
@@ -162,7 +199,8 @@ const readViaS3Api = async (
     resolveSeedBucketName(env),
     key
   );
-  const cached = await readCachedObjectText(url);
+  const cached =
+    resolveSeedCacheSeconds(env) === 0 ? null : await readCachedObjectText(url);
   if (cached !== null) {
     return cached;
   }
@@ -240,7 +278,19 @@ export const readSeedObjectText = async (
   assertSeedR2Configured(env);
 
   if (hasR2Binding(env)) {
-    return await readViaBinding(env.PARKING_SEED, key);
+    const url = bindingCacheUrl(env, key);
+    const cached =
+      resolveSeedCacheSeconds(env) === 0
+        ? null
+        : await readCachedObjectText(url);
+    if (cached !== null) {
+      return cached;
+    }
+    const text = await readViaBinding(env.PARKING_SEED, key);
+    if (text !== null) {
+      await writeCachedObjectText(url, env, text);
+    }
+    return text;
   }
 
   return await readViaS3Api(env, key);
@@ -256,6 +306,7 @@ export const writeSeedObjectText = async (
 
   if (hasR2Binding(env)) {
     await writeViaBinding(env.PARKING_SEED, key, value, contentType);
+    await deleteCachedObjectText(bindingCacheUrl(env, key));
     return;
   }
 
