@@ -6,6 +6,7 @@ import {
   publicInfringementSchema,
   publicLiveStatsSchema,
 } from "@/contracts/public-api.ts";
+import { optionalHccFetchInstantSchema } from "@/lib/hcc-fetch-instant.ts";
 import { isRetryableError } from "@/lib/transient-error.ts";
 import {
   finalizeLiveSeedRefresh,
@@ -65,13 +66,7 @@ const refreshSummarySchema = z.object({
   last30d: z.number(),
   last365d: z.number(),
   last7d: z.number(),
-  lastHccFetchAt: z
-    .unknown()
-    .transform((value) => {
-      const parsed = z.iso.datetime({ offset: true }).safeParse(value);
-      return parsed.success ? parsed.data : undefined;
-    })
-    .optional(),
+  lastHccFetchAt: optionalHccFetchInstantSchema,
   lastRecordAt: z.string().nullable(),
   newAmountCents: z.number(),
   newRecords: z.number(),
