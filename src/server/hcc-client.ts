@@ -23,14 +23,23 @@ export interface HccInfringementResponse {
 
 export type HccFetchError =
   | { tag: "http"; status: number; body: string }
-  | { tag: "malformed"; detail: string };
+  | { tag: "malformed"; detail: string }
+  | { tag: "malformed_json" | "transport" | "cancelled" };
 
 export const formatHccFetchError = (error: HccFetchError): string => {
   if (error.tag === "http") {
     return `HCC API error ${error.status}: ${error.body}`;
   }
 
-  return `HCC API response missing Paging metadata: ${error.detail}`;
+  if (error.tag === "malformed") {
+    return `HCC API response missing Paging metadata: ${error.detail}`;
+  }
+  if (error.tag === "malformed_json") {
+    return "HCC API returned malformed JSON";
+  }
+  return error.tag === "cancelled"
+    ? "HCC request cancelled"
+    : "HCC transport failed";
 };
 
 const hccPagingSchema = z.object({
@@ -49,6 +58,8 @@ export interface FetchInfringementsOptions {
   startDate: string;
   endDate: string;
   page: number;
+  signal?: AbortSignal;
+  fetch?: typeof fetch;
 }
 
 const apiBase = (env: HccClientEnv): string => {
@@ -61,18 +72,34 @@ const apiBase = (env: HccClientEnv): string => {
 
 let hccInFlight = 0;
 const hccWaiters: (() => void)[] = [];
+const isAborted = (signal?: AbortSignal): boolean => signal?.aborted === true;
 
-const acquireHccSlot = async (): Promise<void> => {
+const acquireHccSlot = async (signal?: AbortSignal): Promise<boolean> => {
+  if (signal?.aborted === true) {
+    return false;
+  }
   if (hccInFlight < BACKFILL_HCC_CONCURRENCY) {
     hccInFlight += 1;
-    return;
+    return true;
   }
 
-  const { promise, resolve } = Promise.withResolvers<null>();
-  hccWaiters.push(() => {
-    resolve(null);
-  });
-  await promise;
+  const { promise, resolve } = Promise.withResolvers<boolean>();
+  const waiter: { wake?: () => void } = {};
+  const onAbort = () => {
+    const index =
+      waiter.wake === undefined ? -1 : hccWaiters.indexOf(waiter.wake);
+    if (index !== -1) {
+      hccWaiters.splice(index, 1);
+    }
+    resolve(false);
+  };
+  waiter.wake = () => {
+    signal?.removeEventListener("abort", onAbort);
+    resolve(true);
+  };
+  hccWaiters.push(waiter.wake);
+  signal?.addEventListener("abort", onAbort, { once: true });
+  return await promise;
 };
 
 const releaseHccSlot = (): void => {
@@ -85,40 +112,60 @@ const releaseHccSlot = (): void => {
   hccInFlight -= 1;
 };
 
-const withHccSlot = async <T>(task: () => Promise<T>): Promise<T> => {
-  await acquireHccSlot();
-  try {
-    return await task();
-  } finally {
-    releaseHccSlot();
-  }
-};
-
 export const fetchInfringements = async (
   env: HccClientEnv,
   options: FetchInfringementsOptions
-): Promise<Result<HccInfringementResponse, HccFetchError>> =>
-  await withHccSlot(async () => {
+): Promise<Result<HccInfringementResponse, HccFetchError>> => {
+  if (!(await acquireHccSlot(options.signal))) {
+    return err({ tag: "cancelled" });
+  }
+  try {
+    if (isAborted(options.signal)) {
+      return err({ tag: "cancelled" });
+    }
     const url = new URL(apiBase(env));
     url.searchParams.set("Page", String(options.page));
     url.searchParams.set("Start_Date", options.startDate);
     url.searchParams.set("End_Date", options.endDate);
 
-    const response = await fetch(url.toString(), {
-      headers: { Accept: "application/json" },
-    });
-
-    if (!response.ok) {
+    let response: Response;
+    try {
+      response = await (options.fetch ?? fetch)(url.toString(), {
+        headers: { Accept: "application/json" },
+        signal: options.signal,
+      });
+    } catch {
       return err({
-        body: await response.text(),
-        status: response.status,
-        tag: "http",
+        tag: isAborted(options.signal) ? "cancelled" : "transport",
       });
     }
 
-    const parsed = hccInfringementResponseSchema.safeParse(
-      await response.json()
-    );
+    if (!response.ok) {
+      try {
+        return err({
+          body: await response.text(),
+          status: response.status,
+          tag: "http",
+        });
+      } catch {
+        return err({
+          tag: isAborted(options.signal) ? "cancelled" : "transport",
+        });
+      }
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch (error) {
+      if (isAborted(options.signal)) {
+        return err({ tag: "cancelled" });
+      }
+      return err({
+        tag: error instanceof SyntaxError ? "malformed_json" : "transport",
+      });
+    }
+    const parsed = hccInfringementResponseSchema.safeParse(body);
     if (!parsed.success) {
       return err({
         detail: parsed.error.message,
@@ -127,7 +174,10 @@ export const fetchInfringements = async (
     }
 
     return ok(parsed.data);
-  });
+  } finally {
+    releaseHccSlot();
+  }
+};
 
 export interface FetchAllResult {
   lastPageRecords: number;
@@ -150,12 +200,14 @@ const fetchPageRecords = async (
   env: HccClientEnv,
   startDate: string,
   endDate: string,
-  page: number
+  page: number,
+  options: HccRequestOptions
 ): Promise<Result<Record<string, unknown>[], HccFetchError>> => {
   const response = await fetchInfringements(env, {
     endDate,
     page,
     startDate,
+    ...options,
   });
   if (!response.ok) {
     return response;
@@ -164,15 +216,22 @@ const fetchPageRecords = async (
   return ok(readPageRecords(response.value));
 };
 
+export interface HccRequestOptions {
+  signal?: AbortSignal;
+  fetch?: typeof fetch;
+}
+
 export const fetchAllInWindow = async (
   env: HccClientEnv,
   startDate: string,
-  endDate: string
+  endDate: string,
+  options: HccRequestOptions = {}
 ): Promise<Result<FetchAllResult, HccFetchError>> => {
   const firstPage = await fetchInfringements(env, {
     endDate,
     page: 1,
     startDate,
+    ...options,
   });
   if (!firstPage.ok) {
     return firstPage;
@@ -210,7 +269,8 @@ export const fetchAllInWindow = async (
   );
   const otherPageResults = await Promise.all(
     otherPages.map(
-      async (page) => await fetchPageRecords(env, startDate, endDate, page)
+      async (page) =>
+        await fetchPageRecords(env, startDate, endDate, page, options)
     )
   );
 
