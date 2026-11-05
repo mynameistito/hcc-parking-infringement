@@ -42,7 +42,9 @@ const PieCard = ({
 }: PieCardProps) => (
   <Card className="gap-3 bg-background py-4">
     <CardHeader className="px-4">
-      <CardTitle>{title}</CardTitle>
+      <CardTitle>
+        <h3>{title}</h3>
+      </CardTitle>
       <CardDescription>{description}</CardDescription>
     </CardHeader>
     <CardContent className="px-4">
@@ -86,7 +88,9 @@ export const DistributionCharts = ({
       <CardContent className="grid gap-4 p-4">
         <Card className="gap-3 bg-muted/30 py-4">
           <CardHeader className="px-4">
-            <CardTitle>All streets</CardTitle>
+            <CardTitle>
+              <h3>All streets</h3>
+            </CardTitle>
             <CardDescription>
               {numberFmt.format(streets.length)} locations ·{" "}
               {numberFmt.format(streetTotal)} tickets
