@@ -53,3 +53,7 @@ rg -n '\b(WRANGLER_DEV_URL|InfringementCardSkeleton|StatPillLoading|TableRowsSke
 ## Superseded full refresh
 
 `rg -n 'refreshLiveSeedFromHcc|planLiveSeedRefresh|refreshLiveSeedChunkFromHcc|finalizeLiveSeedRefresh|buildLiveSeedSnapshot' . -g '!bun.lock' -g '!docs/dead-code-graph-audit.md'` found only the full refresh's definition, no caller, registration or test. Both Wrangler configurations bind `SeedRefreshCoordinator`, exported by `src/worker.ts`; `scheduled-tasks.ts` calls its `startRefresh`, and the coordinator calls plan, chunk and finalize in its lifecycle. Those three operations remain. The unused full-refresh function has no package export entry (`private: true`) or dynamic/string registration. `buildLiveSeedSnapshot` remains because two tests directly exercise it; manifest construction and the recent chunk name are also used by the active finalize path. This supersedes the earlier provisional lifecycle-review note.
+
+## Map dependencies after UI deletion
+
+After the map files were removed, `rg -n 'maplibre|geojson|map-popup' src scripts vite.config.ts package.json` returned only the two package declarations, the Vite `vendor-map` split rule, and the two MapLibre popup selectors in `src/client/globals.css`. No remaining source, script, type import or dynamic entrypoint uses either dependency. The unused packages, chunk rule and selectors were removed together; the full test suite and production build must pass after this batch. Public HTTP map endpoints and contracts are retained.

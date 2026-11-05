@@ -15,10 +15,6 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             {
-              name: "vendor-map",
-              test: /node_modules[\\/]maplibre-gl/u,
-            },
-            {
               name: "vendor-motion",
               test: /node_modules[\\/]motion/u,
             },
