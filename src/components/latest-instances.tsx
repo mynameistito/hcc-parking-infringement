@@ -421,7 +421,10 @@ export const LatestInstances = ({
         ) : (
           <div className="grid gap-2 md:hidden">
             {table.getRowModel().rows.length === 0 ? (
-              <EmptyState description="Waiting for infringement rows..." />
+              <EmptyState
+                description="Waiting for infringement rows..."
+                title="No tickets to display"
+              />
             ) : (
               table
                 .getRowModel()
