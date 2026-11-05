@@ -178,13 +178,41 @@ export const LocationMap = ({
                 : ""}
             </p>
           </div>
+          {!loading && hasRoutes ? (
+            <label className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground sm:max-w-64">
+              Inspect a road
+              <select
+                className="min-w-0 rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                value={selected?.id ?? ""}
+                onChange={(event) => {
+                  const feature = geojson.features.find(
+                    (item) => item.properties.id === event.target.value
+                  );
+                  setSelected(feature?.properties ?? null);
+                }}
+              >
+                <option value="">Choose a road</option>
+                {geojson.features.map(({ properties }) => (
+                  <option key={properties.id} value={properties.id}>
+                    {formatStreetSuburb(
+                      properties.street,
+                      properties.suburb ?? undefined
+                    )}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {!loading && selected === null ? (
             <p className="text-sm text-muted-foreground">
               Select a route to inspect it.
             </p>
           ) : null}
           {!loading && selected !== null ? (
-            <p className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
+            <p
+              aria-live="polite"
+              className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground"
+            >
               <span className="font-medium">
                 {formatStreetSuburb(
                   selected.street,
