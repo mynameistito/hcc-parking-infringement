@@ -1,20 +1,23 @@
 import type { LocationMapPoint } from "@/durable-objects/types.ts";
 
-const isCoordinateRing = (value: unknown): value is [number, number][][] =>
+const isCoordinate = (value: unknown): value is [number, number] =>
+  Array.isArray(value) &&
+  value.length === 2 &&
+  typeof value[0] === "number" &&
+  typeof value[1] === "number";
+
+const isCoordinateRing = <T>(value: T): value is T & [number, number][][] =>
   Array.isArray(value) &&
   value.every(
     (line) =>
-      Array.isArray(line) &&
-      line.length >= 3 &&
-      line.every(
-        (point) =>
-          Array.isArray(point) &&
-          point.length === 2 &&
-          typeof point[0] === "number" &&
-          typeof point[1] === "number"
-      )
+      Array.isArray(line) && line.length >= 3 && line.every(isCoordinate)
   );
 
+/**
+ * Parses stored geometry JSON into coordinate lines, returning no lines for invalid input.
+ * @param raw - The stored JSON value, if present.
+ * @returns Coordinate lines with at least three pairs each.
+ */
 export const parseGeometryJson = (
   raw: string | null | undefined
 ): [number, number][][] => {
@@ -35,11 +38,20 @@ export const parseGeometryJson = (
   }
 };
 
+/**
+ * Keeps coordinate lines long enough to represent a road.
+ * @param geometry - Coordinate lines to filter.
+ * @returns Lines containing at least three pairs.
+ */
 export const filterRoadGeometry = (
   geometry: [number, number][][]
 ): [number, number][][] => geometry.filter((line) => line.length >= 3);
 
-/** Normalize raw geometry from storage or external geocoder into road line rings. */
+/**
+ * Normalizes storage or geocoder geometry into road coordinate lines.
+ * @param geometry - The geometry to validate.
+ * @returns Valid coordinate lines, or an empty array when invalid.
+ */
 export const normalizeLocationGeometry = (
   geometry: number[][][]
 ): [number, number][][] => {
@@ -50,6 +62,11 @@ export const normalizeLocationGeometry = (
   return filterRoadGeometry(geometry);
 };
 
+/**
+ * Projects a stored location row into a map point when its geometry is usable.
+ * @param row - A location and its stored geometry JSON.
+ * @returns A map point, or null when no valid geometry is available.
+ */
 export const toMapRouteRow = (row: {
   street: string;
   suburb: string | null;
