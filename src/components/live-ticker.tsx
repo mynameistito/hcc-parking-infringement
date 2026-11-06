@@ -80,19 +80,20 @@ export const LiveTicker = ({
             </div>
 
             <div>
-              <div
-                key={pulseTotal ?? "idle"}
-                className={cn(
-                  "text-primary min-h-12 font-mono text-5xl leading-none font-semibold tracking-tighter tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
-                  pulseTotal !== null && "animate-ticker-pulse"
-                )}
-                aria-live="polite"
-              >
-                {loading ? (
-                  <Skeleton className="inline-block h-12 w-48 sm:h-[4.5rem] sm:w-64" />
-                ) : (
-                  numberFmt.format(animatedTotal)
-                )}
+              <div aria-live="polite">
+                <div
+                  key={pulseTotal ?? "idle"}
+                  className={cn(
+                    "text-primary min-h-12 font-mono text-5xl leading-none font-semibold tracking-tighter tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
+                    pulseTotal !== null && "animate-ticker-pulse"
+                  )}
+                >
+                  {loading ? (
+                    <Skeleton className="inline-block h-12 w-48 sm:h-[4.5rem] sm:w-64" />
+                  ) : (
+                    numberFmt.format(animatedTotal)
+                  )}
+                </div>
               </div>
               <p className="text-muted-foreground mt-3 min-h-6 max-w-md text-sm leading-6">
                 Running total from the public infringement feed.

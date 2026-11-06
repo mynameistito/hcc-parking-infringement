@@ -33,13 +33,16 @@ describe("live ticker pulse", () => {
     try {
       render(100);
       expect(container.querySelector(".animate-ticker-pulse")).toBeNull();
+      const liveRegion = container.querySelector('[aria-live="polite"]');
       render(101);
+      expect(container.querySelector('[aria-live="polite"]')).toBe(liveRegion);
       expect(container.querySelector(".animate-ticker-pulse")).not.toBeNull();
       const firstPulse = container.querySelector(".animate-ticker-pulse");
       act(() => {
         vi.advanceTimersByTime(400);
       });
       render(102);
+      expect(container.querySelector('[aria-live="polite"]')).toBe(liveRegion);
       expect(container.querySelector(".animate-ticker-pulse")).not.toBe(
         firstPulse
       );
