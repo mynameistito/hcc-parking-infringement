@@ -124,6 +124,22 @@ describe("dashboard snapshot helpers", () => {
     expect(dashboardSnapshotIsComplete(message)).toBe(false);
   });
 
+  it("requires daily trend and pace data for a complete snapshot", () => {
+    const noTrend = parseRawFullDashboardMessageJson(
+      JSON.stringify({ ...minimalFullMessage, dailyTrend: [] })
+    );
+    const noPace = parseRawFullDashboardMessageJson(
+      JSON.stringify({ ...minimalFullMessage, paceTrends: undefined })
+    );
+
+    if (noTrend === null || noPace === null) {
+      throw new Error("Expected both partial snapshots to parse");
+    }
+
+    expect(dashboardSnapshotIsComplete(noTrend)).toBe(false);
+    expect(dashboardSnapshotIsComplete(noPace)).toBe(false);
+  });
+
   it("maps to internal snapshot shape with normalized geometry", () => {
     const snapshot = parsePublicDashboardSnapshotJson(
       JSON.stringify(minimalFullMessage)
