@@ -18,6 +18,13 @@ import {
   upsertInfringements,
 } from "./sync.ts";
 
+/**
+ * Persists a sync window, records its run and watermark, and invokes update hooks.
+ * @param sql - The Durable Object SQL storage.
+ * @param payload - Cleaned records and window metadata.
+ * @param hooks - Callbacks for backfill and incremental updates.
+ * @returns The completed run identifier and ingestion counts.
+ */
 export const applySyncWindow = (
   sql: SqlStorage,
   payload: SyncWindowPayload,
@@ -63,6 +70,13 @@ export const applySyncWindow = (
   }
 };
 
+/**
+ * Records a failed backfill run for a date window.
+ * @param sql - The Durable Object SQL storage.
+ * @param start - Window start date.
+ * @param end - Window end date.
+ * @param error - Failure description to record.
+ */
 export const recordBackfillFailure = (
   sql: SqlStorage,
   start: string,
@@ -77,6 +91,13 @@ export const recordBackfillFailure = (
   });
 };
 
+/**
+ * Imports cleaned infringements and finalizes derived state for the last batch.
+ * @param sql - The Durable Object SQL storage.
+ * @param payload - Records, counts, and final-batch flag.
+ * @param onFinalBatch - Callback to run when the batch is final.
+ * @returns Import counts and recomputation status.
+ */
 export const importInfringementBatch = (
   sql: SqlStorage,
   payload: ImportBatchPayload,
