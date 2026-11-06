@@ -27,7 +27,11 @@ const extractWallClock = (
   return { date, time };
 };
 
-/** Re-encode infringement occurrence times preserving NZ wall clock. */
+/**
+ * Re-encodes an infringement occurrence time preserving the NZ wall clock.
+ * @param value - Date or timestamp to migrate.
+ * @returns The corresponding Auckland ISO timestamp.
+ */
 export const migrateWallClockInstant = (value: string): string => {
   const trimmed = value.trim();
 
@@ -52,7 +56,11 @@ export const migrateWallClockInstant = (value: string): string => {
   return localDateTimeInAucklandIso(wallClock.date, wallClock.time);
 };
 
-/** Re-encode sync/metadata instants (UTC Z, date-only, or wall clock). */
+/**
+ * Re-encodes a UTC, date-only, or wall-clock synchronization instant.
+ * @param value - Date or timestamp to migrate.
+ * @returns The corresponding Auckland ISO timestamp.
+ */
 export const migrateSyncInstant = (value: string): string => {
   const trimmed = value.trim();
 
@@ -81,6 +89,11 @@ export const migrateSyncInstant = (value: string): string => {
   return localDateTimeInAucklandIso(wallClock.date, wallClock.time);
 };
 
+/**
+ * Migrates an optional occurrence time, treating blank values as absent.
+ * @param value - Optional date or timestamp.
+ * @returns The Auckland ISO timestamp, or null when absent.
+ */
 export const migrateOptionalWallClockInstant = (
   value: string | null | undefined
 ): string | null => {
@@ -97,6 +110,11 @@ export const migrateOptionalWallClockInstant = (
   return migrateWallClockInstant(trimmed);
 };
 
+/**
+ * Migrates an optional closure time, using end of day for date-only values.
+ * @param value - Optional closure date or timestamp.
+ * @returns The Auckland ISO timestamp, or null when absent.
+ */
 export const migrateOptionalClosedAt = (
   value: string | null | undefined
 ): string | null => {
@@ -117,6 +135,11 @@ export const migrateOptionalClosedAt = (
   return migrateWallClockInstant(trimmed);
 };
 
+/**
+ * Migrates an optional synchronization instant, treating blanks as absent.
+ * @param value - Optional synchronization date or timestamp.
+ * @returns The Auckland ISO timestamp, or null when absent.
+ */
 export const migrateOptionalSyncInstant = (
   value: string | null | undefined
 ): string | null => {
@@ -138,6 +161,12 @@ const TIMESTAMP_META_KEYS = new Set([
   "last_hcc_fetch_at",
 ]);
 
+/**
+ * Identifies metadata values that represent timestamps requiring migration.
+ * @param key - Synchronization metadata key.
+ * @param value - Stored metadata value.
+ * @returns Whether the value should be migrated as a timestamp.
+ */
 export const shouldMigrateSyncMetaValue = (
   key: string,
   value: string
@@ -147,6 +176,11 @@ export const shouldMigrateSyncMetaValue = (
   DATE_ONLY.test(value) ||
   WALL_CLOCK.test(value);
 
+/**
+ * Migrates known timestamps within a serialized dashboard snapshot.
+ * @param payload - JSON snapshot payload.
+ * @returns The updated JSON, or the original payload for non-object JSON.
+ */
 export const migrateDashboardSnapshotPayload = (payload: string): string => {
   const parsed: unknown = JSON.parse(payload);
 
