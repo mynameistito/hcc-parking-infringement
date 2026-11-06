@@ -9,6 +9,7 @@ import type {
 import type { LocationMapPoint } from "./locations.ts";
 import type { DailyStatRow, PublicLiveStats } from "./stats.ts";
 
+/** Ranked chart series for offences, locations, vehicles, and towing. */
 export interface ChartBreakdown {
   offenceCategories: PublicTopItem[];
   offences: PublicTopItem[];
@@ -18,12 +19,14 @@ export interface ChartBreakdown {
   vehicleTypes: PublicTopItem[];
 }
 
+/** Public pace comparisons for the seven-, thirty-, and 365-day windows. */
 export interface PublicPaceTrends {
   last7d: TrendResult;
   last30d: TrendResult;
   last365d: TrendResult;
 }
 
+/** Public dashboard data captured at a particular instant. */
 export interface PublicDashboardSnapshot {
   at: string;
   live: PublicLiveStats;
