@@ -10,7 +10,7 @@ interface AppEnv {
   };
 }
 
-export const STORED_HEADERS = {
+const STORED_HEADERS = {
   "Cache-Control": "public, max-age=60",
   "X-Data-Source": "stored",
 } as const;

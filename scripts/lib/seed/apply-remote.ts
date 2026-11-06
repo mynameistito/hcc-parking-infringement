@@ -35,7 +35,7 @@ const throwIfQuotaResponse = (rawBody: unknown): void => {
   );
 };
 
-export const fetchSeedManifest = async (
+const fetchSeedManifest = async (
   workerUrl: string,
   apiKey: string
 ): Promise<{ infringementChunks: string[] }> => {

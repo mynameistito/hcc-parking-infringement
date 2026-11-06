@@ -9,16 +9,16 @@ import { z } from "zod";
 
 import { cleanInfringementSchema } from "@/server/clean-schema.ts";
 
-export const PARKING_STORE_SNAPSHOT_VERSION = 1 as const;
+const PARKING_STORE_SNAPSHOT_VERSION = 1 as const;
 
-export const ingestWatermarkExportSchema = z.object({
+const ingestWatermarkExportSchema = z.object({
   end: z.string(),
   ingestedAt: z.string(),
   recordCount: z.number(),
   start: z.string(),
 });
 
-export const parkingStoreSnapshotSchema = z.object({
+const parkingStoreSnapshotSchema = z.object({
   exportedAt: z.string(),
   infringements: z.array(cleanInfringementSchema),
   source: z.string(),
@@ -31,7 +31,7 @@ export type ParkingStoreSnapshot = z.infer<typeof parkingStoreSnapshotSchema>;
 
 export type IngestWatermarkExport = z.infer<typeof ingestWatermarkExportSchema>;
 
-export const parseParkingStoreSnapshot = (raw: unknown): ParkingStoreSnapshot =>
+const parseParkingStoreSnapshot = (raw: unknown): ParkingStoreSnapshot =>
   parkingStoreSnapshotSchema.parse(raw);
 
 export const readParkingStoreSnapshot = async (
@@ -42,7 +42,7 @@ export const readParkingStoreSnapshot = async (
   return parseParkingStoreSnapshot(JSON.parse(raw));
 };
 
-export const ensureParentDir = async (filePath: string): Promise<void> => {
+const ensureParentDir = async (filePath: string): Promise<void> => {
   await mkdir(path.dirname(filePath), { recursive: true });
 };
 
