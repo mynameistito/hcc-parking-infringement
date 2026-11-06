@@ -3,6 +3,14 @@ import type { CleanInfringement } from "@/server/clean.ts";
 
 import { isoNow } from "./constants.ts";
 
+/**
+ * Records a running ingestion attempt for the supplied window.
+ * @param sql - The Durable Object SQL storage.
+ * @param runType - The type of synchronization.
+ * @param start - The window start.
+ * @param end - The window end.
+ * @returns The newly created sync run ID.
+ */
 export const startSyncRun = (
   sql: SqlStorage,
   runType: SyncRunType,
@@ -28,6 +36,13 @@ export const startSyncRun = (
   return runId;
 };
 
+/**
+ * Records the outcome and counts for a synchronization attempt.
+ * @param sql - The Durable Object SQL storage.
+ * @param runId - The run to finish.
+ * @param status - Whether the attempt succeeded or failed.
+ * @param details - Fetched and upserted counts and an optional error.
+ */
 export const finishSyncRun = (
   sql: SqlStorage,
   runId: number,
@@ -108,6 +123,12 @@ const infringementToUpsertParams = (
   now,
 ];
 
+/**
+ * Inserts or updates cleaned infringements in bounded SQL batches.
+ * @param sql - The Durable Object SQL storage.
+ * @param records - Cleaned records to persist.
+ * @returns The number of records processed.
+ */
 export const upsertInfringements = (
   sql: SqlStorage,
   records: CleanInfringement[]
@@ -136,6 +157,13 @@ export const upsertInfringements = (
   return records.length;
 };
 
+/**
+ * Checks whether an ingestion window has been recorded.
+ * @param sql - The Durable Object SQL storage.
+ * @param start - The window start.
+ * @param end - The window end.
+ * @returns Whether the exact window has a watermark.
+ */
 export const hasWatermark = (
   sql: SqlStorage,
   start: string,
@@ -154,6 +182,13 @@ export const hasWatermark = (
   return rows.length > 0;
 };
 
+/**
+ * Stores or refreshes an ingestion window watermark.
+ * @param sql - The Durable Object SQL storage.
+ * @param start - The window start.
+ * @param end - The window end.
+ * @param recordCount - The number of records ingested for the window.
+ */
 export const recordWatermark = (
   sql: SqlStorage,
   start: string,
@@ -173,6 +208,12 @@ export const recordWatermark = (
   );
 };
 
+/**
+ * Reads a synchronization metadata value.
+ * @param sql - The Durable Object SQL storage.
+ * @param key - The metadata key.
+ * @returns The stored value, or null when absent.
+ */
 export const getSyncMeta = (sql: SqlStorage, key: string): string | null => {
   const rows = sql
     .exec<{ value: string }>(
@@ -184,6 +225,12 @@ export const getSyncMeta = (sql: SqlStorage, key: string): string | null => {
   return rows[0]?.value ?? null;
 };
 
+/**
+ * Stores a synchronization metadata value.
+ * @param sql - The Durable Object SQL storage.
+ * @param key - The metadata key.
+ * @param value - The value to store.
+ */
 export const setSyncMeta = (
   sql: SqlStorage,
   key: string,
@@ -197,10 +244,20 @@ export const setSyncMeta = (
   );
 };
 
+/**
+ * Deletes a synchronization metadata value.
+ * @param sql - The Durable Object SQL storage.
+ * @param key - The metadata key to delete.
+ */
 export const clearSyncMeta = (sql: SqlStorage, key: string): void => {
   sql.exec("DELETE FROM sync_meta WHERE key = ?", key);
 };
 
+/**
+ * Reads the most recently started synchronization run.
+ * @param sql - The Durable Object SQL storage.
+ * @returns The latest run, or null when no run exists.
+ */
 export const getLatestSyncRun = (sql: SqlStorage): SyncRunRow | null => {
   const rows = sql
     .exec<{
