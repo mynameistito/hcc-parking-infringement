@@ -86,6 +86,8 @@ bun run seed:local
 
 This validates all referenced files before uploading the snapshot, infringement chunks, and optional watermarks to local R2, then publishes the manifest last. It does not write to remote R2. Full exports can take several minutes to load.
 
+Stop the local development server before restoring and restart it only after the command succeeds. Local uploads are not transactional: if an upload fails, fix the reported error and rerun the complete restore before using the dashboard. This command restores disposable development state; it does not stage or roll back an existing dataset.
+
 `data/seed` is ignored by Git. A fresh checkout needs a complete trusted export from a project maintainer, or Cloudflare login with R2 read access to the project account. To download the existing production export (read-only), run:
 
 ```powershell

@@ -20,7 +20,16 @@ if (manifestText === null) {
   );
   process.exit(1);
 }
-const raw: unknown = JSON.parse(manifestText);
+let raw: unknown;
+try {
+  raw = JSON.parse(manifestText);
+} catch (error) {
+  if (!(error instanceof SyntaxError)) {
+    throw error;
+  }
+  console.error("Invalid seed manifest: malformed JSON.");
+  process.exit(1);
+}
 const parsed = seedManifestSchema.safeParse(raw);
 if (!parsed.success) {
   console.error("Invalid seed manifest:", parsed.error.message);
