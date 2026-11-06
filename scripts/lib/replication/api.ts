@@ -125,6 +125,14 @@ const fetchReplicationWithRetry = async (
   return await attemptFetch(1);
 };
 
+/**
+ * Fetches and validates a page of exported infringements.
+ * @param ctx - Source worker URL and credentials.
+ * @param after - Cursor after the last exported infringement.
+ * @param limit - Maximum records to request.
+ * @param totalMode - Whether to use the cached total or scan storage.
+ * @returns The validated page and next cursor.
+ */
 export const fetchExportInfringements = async (
   ctx: WorkerScriptContext,
   after: number,
@@ -153,6 +161,12 @@ export const fetchExportInfringements = async (
   return parsed.data;
 };
 
+/**
+ * Posts cleaned infringements to the snapshot import endpoint with retries.
+ * @param ctx - Destination worker URL and credentials.
+ * @param infringements - Cleaned records to import.
+ * @returns The validated import counts.
+ */
 export const postImportSnapshot = async (
   ctx: WorkerScriptContext,
   infringements: z.infer<typeof cleanInfringementSchema>[]
@@ -199,6 +213,13 @@ export const postImportSnapshot = async (
   return parsed.data;
 };
 
+/**
+ * Posts a batch of stored infringements with retries.
+ * @param ctx - Destination worker URL and credentials.
+ * @param records - Cleaned records to import.
+ * @param final - Whether this is the final batch.
+ * @returns The validated import counts.
+ */
 export const postImportStored = async (
   ctx: WorkerScriptContext,
   records: z.infer<typeof cleanInfringementSchema>[],
@@ -246,6 +267,13 @@ export const postImportStored = async (
   return parsed.data;
 };
 
+/**
+ * Fetches and validates a page of exported ingestion watermarks.
+ * @param ctx - Source worker URL and credentials.
+ * @param offset - Offset of the first requested watermark.
+ * @param limit - Maximum watermarks to request.
+ * @returns The validated page and next offset.
+ */
 export const fetchExportWatermarks = async (
   ctx: WorkerScriptContext,
   offset: number,
@@ -272,6 +300,11 @@ export const fetchExportWatermarks = async (
   return parsed.data;
 };
 
+/**
+ * Posts ingestion watermarks to the destination worker.
+ * @param ctx - Destination worker URL and credentials.
+ * @param watermarks - Watermarks to import.
+ */
 export const postImportWatermarks = async (
   ctx: WorkerScriptContext,
   watermarks: z.infer<typeof exportWatermarksSchema>["watermarks"]
@@ -298,6 +331,10 @@ export const postImportWatermarks = async (
   }
 };
 
+/**
+ * Requests completion of a stored infringement import.
+ * @param ctx - Destination worker URL and credentials.
+ */
 export const postFinalizeStoredImport = async (
   ctx: WorkerScriptContext
 ): Promise<void> => {
@@ -324,6 +361,11 @@ export const postFinalizeStoredImport = async (
   }
 };
 
+/**
+ * Fetches the exported dashboard payload as serialized JSON.
+ * @param source - Source worker URL and credentials.
+ * @returns The serialized snapshot payload.
+ */
 export const fetchDashboardSnapshot = async (
   source: WorkerScriptContext
 ): Promise<string> => {
