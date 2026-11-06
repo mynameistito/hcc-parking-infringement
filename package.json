@@ -31,7 +31,7 @@
     "sync": "bun run scripts/sync.ts",
     "geocode": "bun run scripts/geocode.ts",
     "doctor": "npx react-doctor@latest",
-    "seed:local": "powershell -NoProfile -File scripts/seed-local.ps1"
+    "seed:local": "bun run scripts/seed-local.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

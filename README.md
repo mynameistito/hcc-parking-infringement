@@ -94,8 +94,8 @@ New-Item -ItemType Directory -Force data/seed | Out-Null
 bunx wrangler r2 object get hcc-parking-infringement-seed/parking-store/v1/manifest.json --file data/seed/manifest.json --remote
 if ($LASTEXITCODE -ne 0) { throw "Manifest download failed" }
 $seedManifest = Get-Content data/seed/manifest.json -Raw | ConvertFrom-Json
-$seedFiles = @($seedManifest.infringementChunks) + @("dashboard-snapshot.json")
-if ($seedManifest.dashboardSnapshotKey) { $seedFiles += $seedManifest.dashboardSnapshotKey }
+$snapshotKey = if ($null -ne $seedManifest.dashboardSnapshotKey) { $seedManifest.dashboardSnapshotKey } else { "dashboard-snapshot.json" }
+$seedFiles = @($seedManifest.infringementChunks) + @($snapshotKey)
 if ($seedManifest.watermarksKey) { $seedFiles += $seedManifest.watermarksKey }
 foreach ($seedFile in ($seedFiles | Select-Object -Unique)) {
     bunx wrangler r2 object get "hcc-parking-infringement-seed/parking-store/v1/$seedFile" --file "data/seed/$seedFile" --remote
