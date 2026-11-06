@@ -1,3 +1,8 @@
+/**
+ * Rounds a positive chart maximum up to a 1, 2, 5, or 10 scale step.
+ * @param value - The maximum value to cover.
+ * @returns A rounded ceiling, or 10 for nonpositive values.
+ */
 export const niceCeil = (value: number): number => {
   if (value <= 0) {
     return 10;
@@ -18,6 +23,12 @@ export const niceCeil = (value: number): number => {
   return nice * magnitude;
 };
 
+/**
+ * Builds evenly spaced rounded tick values from zero to a chart ceiling.
+ * @param max - The maximum value to cover.
+ * @param tickCount - The number of intervals between ticks.
+ * @returns The rounded tick values, beginning at zero.
+ */
 export const buildYTicks = (max: number, tickCount = 4): number[] => {
   const ceiling = niceCeil(max);
   const step = ceiling / tickCount;
@@ -27,6 +38,12 @@ export const buildYTicks = (max: number, tickCount = 4): number[] => {
   );
 };
 
+/**
+ * Formats a chart tick as a number or compact dollar value.
+ * @param value - The tick value.
+ * @param style - The desired number or currency format.
+ * @returns The formatted tick label.
+ */
 export const formatYTick = (value: number, style: "number" | "currency") => {
   if (style === "currency") {
     if (value >= 1000) {
