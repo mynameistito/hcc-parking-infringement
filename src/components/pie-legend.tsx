@@ -21,6 +21,7 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
   }
 
   return (
+    // oxlint-disable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/prefer-tag-over-role -- This named group is scrollable content, not form controls; keyboard users need focus to scroll it.
     <div
       role="group"
       aria-label="Chart legend"
@@ -30,6 +31,7 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
         className
       )}
     >
+      {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/prefer-tag-over-role */}
       <ul className="flex flex-col gap-1">
         {items.map((item, index) => {
           const share = sum > 0 ? (item.count / sum) * 100 : 0;
