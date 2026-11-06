@@ -64,9 +64,7 @@ Install dependencies:
 bun install
 ```
 
-`bun run typecheck` uses `tsrs`. TypeScript remains a transitive dependency of
-`eslint-plugin-github` and its TypeScript ESLint tooling for their compiler API;
-it is not the project's type-checking command.
+`bun run typecheck` uses `tsrs`. TypeScript remains a transitive dependency of `eslint-plugin-github` and its TypeScript ESLint tooling for their compiler API; it is not the project's type-checking command.
 
 Create local secrets:
 
