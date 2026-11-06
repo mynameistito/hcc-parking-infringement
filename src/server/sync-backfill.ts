@@ -30,6 +30,7 @@ export {
 
 const QUEUE_SEND_BATCH_SIZE = 100;
 
+/** Date range, delivery mode, and chunk settings for a backfill wave. */
 export interface StartBackfillOptions {
   chunkDays?: number;
   delivery?: BackfillDelivery;
@@ -129,6 +130,12 @@ const processDailyWindowsDirect = async (
   );
 };
 
+/**
+ * Processes a backfill window, splitting or recording failures as needed.
+ * @param scope - Application scope and storage bindings.
+ * @param message - Window job and delivery settings.
+ * @returns The sync result or skip, split, and failure status.
+ */
 export const processBackfillMessage = async (
   scope: AppScope,
   message: BackfillWindowJob
@@ -241,6 +248,12 @@ export const processBackfillMessage = async (
   }
 };
 
+/**
+ * Processes a wave of backfill windows directly with configured concurrency.
+ * @param scope - Application scope and storage bindings.
+ * @param windows - Windows to process.
+ * @param force - Whether to process already ingested windows.
+ */
 export const runBackfillWaveDirect = async (
   scope: AppScope,
   windows: readonly BackfillWindow[],
@@ -262,6 +275,12 @@ export const runBackfillWaveDirect = async (
   await flushBackfillDerivedStateSafely(scope.env);
 };
 
+/**
+ * Plans and dispatches a bounded wave of backfill windows.
+ * @param scope - Application scope and storage bindings.
+ * @param options - Optional range, delivery, and chunk settings.
+ * @returns The wave counts, selected range, and continuation information.
+ */
 export const startBackfill = async (
   scope: AppScope,
   options?: StartBackfillOptions
