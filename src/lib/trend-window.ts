@@ -10,7 +10,7 @@ import {
 } from "@/lib/trend";
 import type { TrendResult } from "@/lib/trend";
 
-export { PACE_DAILY_TREND_DAYS };
+export { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
 
 export const sliceDays = (
   dailyTrend: DailyStatPoint[],

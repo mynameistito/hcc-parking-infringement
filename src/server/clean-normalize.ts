@@ -1,4 +1,3 @@
-import { localDateTimeInAucklandIso } from "@/lib/auckland-time.ts";
 import { resolveOffenceDescription } from "@/lib/offence-catalog.ts";
 
 const STREET_SUFFIXES: Record<string, string> = {
@@ -35,7 +34,7 @@ const titleCaseWords = (value: string): string =>
 export const dollarsToCents = (amount: number): number =>
   Math.round(amount * 100);
 
-export const toIsoOccurredAt = localDateTimeInAucklandIso;
+export { localDateTimeInAucklandIso as toIsoOccurredAt } from "@/lib/auckland-time.ts";
 
 export const emptyToNull = (value: string): string | null =>
   value.length > 0 ? value : null;

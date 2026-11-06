@@ -1,7 +1,4 @@
-import {
-  getParkingStoreReadSource,
-  readsParkingStoreFromSeed,
-} from "@/server/parking-read-source.ts";
+import { readsParkingStoreFromSeed } from "@/server/parking-read-source.ts";
 
 import { DurableObjectParkingStoreReader } from "./durable-object-reader.ts";
 import { createSeedReadCache } from "./seed-cache.ts";
@@ -27,4 +24,7 @@ export const createParkingStoreReader = (
     ? new SeedParkingStoreReader(env, seedCache)
     : new DurableObjectParkingStoreReader(env);
 
-export { getParkingStoreReadSource, readsParkingStoreFromSeed };
+export {
+  getParkingStoreReadSource,
+  readsParkingStoreFromSeed,
+} from "@/server/parking-read-source.ts";

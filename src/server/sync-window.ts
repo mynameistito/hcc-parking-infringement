@@ -9,7 +9,7 @@ import type { FetchAllResult } from "@/server/hcc-client.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
 
-export type { SyncRunType };
+export type { SyncRunType } from "@/durable-objects/types.ts";
 
 const HOURLY_OVERLAP_DAYS = 7;
 

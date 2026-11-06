@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import type {
-  BrowseResponse,
   BrowseSort,
   DailyStatPoint,
   LocationRankItem,
@@ -39,7 +38,7 @@ export const dailyStatPointSchema = z.object({
   totalCents: z.number(),
 });
 
-export type { DailyStatPoint };
+export type { DailyStatPoint } from "@/contracts/store-shapes.ts";
 
 export const dailyStatPointArraySchema = z.array(dailyStatPointSchema);
 
@@ -49,7 +48,7 @@ export const topItemSchema = z.object({
   label: z.string(),
 });
 
-export type { TopItem };
+export type { TopItem } from "@/contracts/store-shapes.ts";
 
 export const topStatsResponseSchema = z.object({
   groupBy: z.enum(["street", "offence"]),
@@ -66,7 +65,7 @@ export const locationRankItemSchema = z.object({
   suburb: z.string().optional(),
 });
 
-export type { LocationRankItem };
+export type { LocationRankItem } from "@/contracts/store-shapes.ts";
 
 export const locationRankItemArraySchema = z.array(locationRankItemSchema);
 
@@ -78,7 +77,7 @@ export const vehicleRankItemSchema = z.object({
   model: z.string(),
 });
 
-export type { VehicleRankItem };
+export type { VehicleRankItem } from "@/contracts/store-shapes.ts";
 
 export const vehicleRankItemArraySchema = z.array(vehicleRankItemSchema);
 
@@ -113,7 +112,7 @@ export type InfringementListResponse = z.infer<
 
 export const browseSortSchema = z.enum(["count", "name"]);
 
-export type { BrowseSort };
+export type { BrowseSort } from "@/contracts/store-shapes.ts";
 
 export interface BrowseParams {
   q?: string;
@@ -140,7 +139,7 @@ export const browseResponseSchema = <T extends z.ZodType>(itemSchema: T) =>
     total: z.number(),
   });
 
-export type { BrowseResponse };
+export type { BrowseResponse } from "@/contracts/store-shapes.ts";
 
 export const locationBrowseResponseSchema = browseResponseSchema(
   locationRankItemSchema

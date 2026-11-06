@@ -20,14 +20,13 @@ import { flushBackfillDerivedStateSafely } from "@/server/backfill-flush.ts";
 import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
-import {
-  DEFAULT_BACKFILL_CHUNK_DAYS,
-  splitDateRange,
-  syncWindow,
-} from "@/server/sync-window.ts";
+import { splitDateRange, syncWindow } from "@/server/sync-window.ts";
 import type { SyncWindowResult } from "@/server/sync-window.ts";
 
-export { BACKFILL_EARLIEST, PAGE_SIZE_LIMIT };
+export {
+  BACKFILL_EARLIEST,
+  PAGE_SIZE_LIMIT,
+} from "@/lib/backfill-constants.ts";
 
 const QUEUE_SEND_BATCH_SIZE = 100;
 
@@ -326,4 +325,4 @@ export const startBackfill = async (
   };
 };
 
-export { DEFAULT_BACKFILL_CHUNK_DAYS };
+export { DEFAULT_BACKFILL_CHUNK_DAYS } from "@/server/sync-window.ts";
