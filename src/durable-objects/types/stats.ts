@@ -1,4 +1,4 @@
-/** Public dashboard counts and synchronization timestamps. */
+/** Public dashboard counts plus synchronization and record timestamps. */
 export interface PublicLiveStats {
   allTimeTotal: number;
   allTimeAmountCents: number;

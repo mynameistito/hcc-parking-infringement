@@ -38,7 +38,7 @@ const runWithConcurrency = async <T>(
  * @param items - The items to process.
  * @param concurrency - The maximum number of concurrent workers.
  * @param fn - The asynchronous operation for each item and its index.
- * @returns Results in input order; rejects if an operation rejects.
+ * @returns Results in input order; rejects on failure while other workers may continue processing.
  */
 export const mapWithConcurrency = async <T, R>(
   items: readonly T[],

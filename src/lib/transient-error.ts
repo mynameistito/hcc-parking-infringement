@@ -37,7 +37,7 @@ export const extractHttpErrorMessage = (
 };
 
 /**
- * Checks whether an error reports the Durable Object SQLite daily quota.
+ * Checks for the Durable Object SQLite daily quota, which is not retryable.
  * @param error - Error or other thrown value to inspect.
  * @returns Whether the quota message is present.
  */

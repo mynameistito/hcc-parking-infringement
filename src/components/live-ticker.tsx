@@ -81,6 +81,7 @@ export const LiveTicker = ({
 
             <div>
               <div
+                key={pulseTotal ?? "idle"}
                 className={cn(
                   "text-primary min-h-12 font-mono text-5xl leading-none font-semibold tracking-tighter tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
                   pulseTotal !== null && "animate-ticker-pulse"
