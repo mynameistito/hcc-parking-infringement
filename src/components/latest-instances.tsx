@@ -276,7 +276,7 @@ const MobileInfringementCard = ({
               </Badge>
             ) : null}
           </div>
-          <p className="mt-2 break-words leading-snug text-muted-foreground">
+          <p className="mt-2 wrap-anywhere leading-snug text-muted-foreground">
             {infringement.offenceDescription}
           </p>
         </CardContent>
