@@ -27,6 +27,11 @@ interface StatsLiveRow extends Record<string, SqlStorageValue> {
   last_record_at: string | null;
 }
 
+/**
+ * Maps a stored live statistics row to the public contract.
+ * @param row - Stored row, or undefined when statistics are not initialized.
+ * @returns Public live statistics with zero defaults for an absent row.
+ */
 export const mapPublicLiveStatsRow = (
   row: StatsLiveRow | undefined
 ): PublicLiveStats => {
@@ -61,6 +66,10 @@ export const mapPublicLiveStatsRow = (
   };
 };
 
+/**
+ * Recomputes live and daily aggregates from stored infringements.
+ * @param sql - The Durable Object SQL storage.
+ */
 export const recomputeStatsLive = (sql: SqlStorage): void => {
   const now = new Date();
   const today = formatDateInAuckland(now);
@@ -177,6 +186,11 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
   }
 };
 
+/**
+ * Reads the current public live statistics from storage.
+ * @param sql - The Durable Object SQL storage.
+ * @returns Public statistics, with zero defaults when no row exists.
+ */
 export const readPublicLiveStats = (sql: SqlStorage): PublicLiveStats => {
   const rows = sql
     .exec<StatsLiveRow>(
