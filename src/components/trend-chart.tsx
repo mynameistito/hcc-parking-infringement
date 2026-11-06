@@ -49,6 +49,10 @@ const ChartFallback = ({
   />
 );
 
+/**
+ * Displays a lazy-loaded trend chart or an empty-state placeholder.
+ * @returns The trend visualization for the supplied values.
+ */
 export const TrendChart = ({
   values,
   xLabels,
