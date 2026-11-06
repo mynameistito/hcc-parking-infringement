@@ -35,8 +35,10 @@ const overpassResponseSchema = z.object({
   elements: z.array(overpassElementSchema),
 });
 
+/** Road geometry as lines of latitude and longitude pairs. */
 export type RoadGeometry = [number, number][][];
 
+/** Geocoded location and associated road geometry. */
 export interface GeocodeResult {
   lat: number;
   lon: number;
@@ -85,9 +87,19 @@ const overpassNamePattern = (street: string): string => {
   return `^${escaped}$`;
 };
 
+/**
+ * Checks whether any road line has at least three points.
+ * @param geometry - Candidate road lines.
+ * @returns Whether the geometry contains a usable line.
+ */
 export const isRealRoadGeometry = (geometry: RoadGeometry): boolean =>
   geometry.some((line) => line.length >= 3);
 
+/**
+ * Calculates the mean of all road points, falling back to Hamilton centre.
+ * @param geometry - Road lines containing latitude and longitude pairs.
+ * @returns The mean latitude and longitude.
+ */
 export const centroidFromGeometry = (
   geometry: RoadGeometry
 ): {
@@ -113,6 +125,11 @@ export const centroidFromGeometry = (
   return { lat: sumLat / count, lon: sumLon / count };
 };
 
+/**
+ * Queries Overpass for matching road geometry within Hamilton.
+ * @param streets - Street names to match against returned roads.
+ * @returns Geometry indexed by the requested street name.
+ */
 export const overpassBatchRoadGeometry = async (
   streets: string[]
 ): Promise<Map<string, RoadGeometry>> => {
