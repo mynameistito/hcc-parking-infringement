@@ -1,4 +1,4 @@
-import * as React from "react";
+import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -6,7 +6,7 @@ const Card = ({
   className,
   size = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) => (
+}: ComponentProps<"div"> & { size?: "default" | "sm" }) => (
   <div
     data-slot="card"
     data-size={size}
@@ -18,7 +18,7 @@ const Card = ({
   />
 );
 
-const CardHeader = ({ className, ...props }: React.ComponentProps<"div">) => (
+const CardHeader = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     data-slot="card-header"
     className={cn(
@@ -29,7 +29,7 @@ const CardHeader = ({ className, ...props }: React.ComponentProps<"div">) => (
   />
 );
 
-const CardTitle = ({ className, ...props }: React.ComponentProps<"div">) => (
+const CardTitle = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     data-slot="card-title"
     className={cn(
@@ -40,10 +40,7 @@ const CardTitle = ({ className, ...props }: React.ComponentProps<"div">) => (
   />
 );
 
-const CardDescription = ({
-  className,
-  ...props
-}: React.ComponentProps<"div">) => (
+const CardDescription = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     data-slot="card-description"
     className={cn("text-muted-foreground text-sm", className)}
@@ -51,7 +48,7 @@ const CardDescription = ({
   />
 );
 
-const CardAction = ({ className, ...props }: React.ComponentProps<"div">) => (
+const CardAction = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     data-slot="card-action"
     className={cn(
@@ -62,15 +59,19 @@ const CardAction = ({ className, ...props }: React.ComponentProps<"div">) => (
   />
 );
 
-const CardContent = ({ className, ...props }: React.ComponentProps<"div">) => (
+const CardContent = ({
+  className,
+  flush = false,
+  ...props
+}: ComponentProps<"div"> & { flush?: boolean }) => (
   <div
     data-slot="card-content"
-    className={cn("px-(--card-spacing)", className)}
+    className={cn(flush ? "p-0" : "px-(--card-spacing)", className)}
     {...props}
   />
 );
 
-const CardFooter = ({ className, ...props }: React.ComponentProps<"div">) => (
+const CardFooter = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     data-slot="card-footer"
     className={cn(

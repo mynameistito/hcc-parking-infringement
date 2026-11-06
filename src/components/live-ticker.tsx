@@ -1,5 +1,5 @@
 import { Banknote, Sigma } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PacePanel } from "@/components/pace-panel";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +20,10 @@ interface LiveTickerProps {
   isLoading?: boolean;
 }
 
+/**
+ * Displays live infringement totals and their recent pace.
+ * @returns The live totals and pace panel.
+ */
 export const LiveTicker = ({
   stats,
   dailyTrend,
@@ -41,43 +45,45 @@ export const LiveTicker = ({
     }
   );
 
-  const [pulse, setPulse] = useState(false);
-  const prevTotalRef = useRef(stats.allTimeTotal);
-  const pulseTimerRef = useRef<number | null>(null);
+  const [pulseTotal, setPulseTotal] = useState<number | null>(null);
+  const [previousTotal, setPreviousTotal] = useState(stats.allTimeTotal);
 
-  if (!loading && stats.allTimeTotal !== prevTotalRef.current) {
-    prevTotalRef.current = stats.allTimeTotal;
-    setPulse(true);
-
-    if (pulseTimerRef.current !== null) {
-      window.clearTimeout(pulseTimerRef.current);
-    }
-
-    pulseTimerRef.current = window.setTimeout(() => {
-      setPulse(false);
-      pulseTimerRef.current = null;
-    }, 550);
+  if (!loading && stats.allTimeTotal !== previousTotal) {
+    setPreviousTotal(stats.allTimeTotal);
+    setPulseTotal(stats.allTimeTotal);
   }
 
+  // Restart the pulse timeout when another total arrives before it expires.
+  useEffect(() => {
+    const timer =
+      pulseTotal === null
+        ? null
+        : window.setTimeout(() => {
+            setPulseTotal(null);
+          }, 550);
+
+    return () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [pulseTotal]);
+
   return (
-    <Card
-      className="bg-card"
-      aria-busy={loading}
-      aria-label="All-time parking infringement total"
-    >
-      <CardContent className="p-0">
+    <Card aria-busy={loading} aria-label="All-time parking infringement total">
+      <CardContent flush>
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
           <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
             <div className="text-muted-foreground flex min-h-4 items-center gap-2 text-xs font-medium uppercase">
-              <Sigma className="size-4 text-[var(--ring)]" aria-hidden="true" />
+              <Sigma className="text-ring size-4" aria-hidden="true" />
               All-time infringements
             </div>
 
             <div>
               <div
                 className={cn(
-                  "text-primary min-h-12 font-mono text-5xl leading-none font-semibold tracking-[-0.05em] tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
-                  pulse && "animate-ticker-pulse"
+                  "text-primary min-h-12 font-mono text-5xl leading-none font-semibold tracking-tighter tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
+                  pulseTotal !== null && "animate-ticker-pulse"
                 )}
                 aria-live="polite"
               >
@@ -93,14 +99,14 @@ export const LiveTicker = ({
             </div>
 
             <div className="mt-5 min-h-10">
-              <div className="border-border bg-muted text-muted-foreground flex w-fit flex-wrap items-center gap-2 rounded-[6px] border px-3 py-2 text-sm">
+              <div className="border-border bg-muted text-muted-foreground flex w-fit flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
                 <Banknote
                   className="text-muted-foreground size-4"
                   aria-hidden="true"
                 />
                 Total fines
                 {loading ? (
-                  <Skeleton className="h-5 w-24 rounded-[4px]" />
+                  <Skeleton className="h-5 w-24" />
                 ) : (
                   <strong className="text-foreground font-mono font-semibold tabular-nums">
                     {moneyFmt.format(animatedFinesCents / 100)}
