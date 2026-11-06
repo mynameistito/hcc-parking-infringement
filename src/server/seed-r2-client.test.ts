@@ -69,6 +69,16 @@ describe("seed R2 binding cache", () => {
     expect(await readSeedObjectText(env, "manifest.json")).toBe("published");
   });
 
+  it("preserves decimal-prefix cache durations", async () => {
+    const { entries, env } = fixture();
+    await readSeedObjectText(
+      { ...env, PARKING_SEED_CACHE_SECONDS: "12seconds" },
+      "manifest.json"
+    );
+    expect([...entries.values()][0]?.headers.get("Cache-Control")).toBe(
+      "public, max-age=12"
+    );
+  });
   it("bypasses previously cached values when caching is disabled", async () => {
     const { env, objects } = fixture();
     await readSeedObjectText(env, "manifest.json");
