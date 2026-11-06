@@ -82,6 +82,10 @@ const apiBase = (env: HccClientEnv): string => {
   return `${base.replace(/\/$/u, "")}/get_parking_infringement`;
 };
 
+interface HccWaiter {
+  wake?: () => void;
+}
+
 let hccInFlight = 0;
 const hccWaiters: (() => void)[] = [];
 const isAborted = (signal?: AbortSignal): boolean => signal?.aborted === true;
@@ -98,7 +102,7 @@ const acquireHccSlot = async (signal?: AbortSignal): Promise<boolean> => {
   }
 
   const { promise, resolve } = Promise.withResolvers<boolean>();
-  const waiter: { wake?: () => void } = {};
+  const waiter: HccWaiter = {};
 
   const onAbort = () => {
     const index =
