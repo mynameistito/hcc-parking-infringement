@@ -19,6 +19,11 @@ const TRANSIENT_ERROR_PATTERNS = [
 const formatErrorMessage = (error: unknown): string =>
   error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 
+/**
+ * Extracts a string error field from an untrusted HTTP response body.
+ * @param rawBody - Parsed response body of unknown shape.
+ * @returns The error message, or undefined when absent or not a string.
+ */
 export const extractHttpErrorMessage = (
   rawBody: unknown
 ): string | undefined => {
@@ -31,19 +36,32 @@ export const extractHttpErrorMessage = (
   return undefined;
 };
 
-/** Cloudflare DO SQLite daily free-tier quota (reads/writes) — not retryable. */
+/**
+ * Checks whether an error reports the Durable Object SQLite daily quota.
+ * @param error - Error or other thrown value to inspect.
+ * @returns Whether the quota message is present.
+ */
 export const isDoSqliteQuotaError = (error: unknown): boolean => {
   const message = formatErrorMessage(error);
 
   return DO_SQLITE_QUOTA_PATTERN.test(message);
 };
 
+/**
+ * Checks an HTTP response body for the Durable Object SQLite quota message.
+ * @param rawBody - Parsed response body of unknown shape.
+ * @returns Whether the body contains the quota message.
+ */
 export const isDoSqliteQuotaResponse = (rawBody: unknown): boolean => {
   const message = extractHttpErrorMessage(rawBody);
 
   return message !== undefined && DO_SQLITE_QUOTA_PATTERN.test(message);
 };
 
+/**
+ * Provides operator guidance for a Durable Object SQLite quota failure.
+ * @returns The explanatory message and recovery command.
+ */
 export const describeDoSqliteQuotaError = (): string =>
   [
     "The deployed ParkingStore Durable Object hit the Workers Free plan SQLite quota.",
@@ -52,7 +70,11 @@ export const describeDoSqliteQuotaError = (): string =>
     "After upgrading or quota reset, rerun: bun run push:local -- --from-port=8787",
   ].join("\n");
 
-/** Whether a queue/DO/network failure is likely transient and worth retrying. */
+/**
+ * Checks whether a queue, Durable Object, or network error merits a retry.
+ * @param error - Error or other thrown value to inspect.
+ * @returns Whether the failure appears transient.
+ */
 export const isRetryableError = (error: unknown): boolean => {
   if (isDoSqliteQuotaError(error)) {
     return false;
