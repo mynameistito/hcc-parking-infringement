@@ -9,7 +9,11 @@ import type { AppScope } from "@/server/app-scope.ts";
 
 export type { DailyStatRow, TopStatRow } from "@/durable-objects/types.ts";
 
-export type { LiveStats, TopGroupBy, TopWindow };
+export type {
+  LiveStats,
+  TopGroupBy,
+  TopWindow,
+} from "@/durable-objects/types.ts";
 
 export const getLiveStats = async (scope: AppScope): Promise<LiveStats> =>
   await scope.parking.getLiveStats();

@@ -5,7 +5,10 @@ import type {
 } from "@/durable-objects/types.ts";
 import type { AppScope } from "@/server/app-scope.ts";
 
-export type { LocationMapPoint, LocationRankItem };
+export type {
+  LocationMapPoint,
+  LocationRankItem,
+} from "@/durable-objects/types.ts";
 
 export const getTopStreets = async (
   scope: AppScope,

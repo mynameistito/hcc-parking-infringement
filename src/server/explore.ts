@@ -15,7 +15,7 @@ export type {
   InfringementListResult,
   LocationRankItem,
   VehicleRankItem,
-};
+} from "@/durable-objects/types.ts";
 
 export const browseSuburbs = async (
   scope: AppScope,
