@@ -1,0 +1,6 @@
+{
+  // `cloudflare:workers` is provided by the Workers runtime, not npm.
+  "ignoreDependencies": ["cloudflare"],
+  // `dev:ts` invokes the Tailscale client installed on the developer's machine.
+  "ignoreBinaries": ["tailscale"],
+}
