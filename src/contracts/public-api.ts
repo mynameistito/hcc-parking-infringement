@@ -40,17 +40,17 @@ export const dailyStatPointSchema = z.object({
 
 export type { DailyStatPoint } from "@/contracts/store-shapes.ts";
 
-export const dailyStatPointArraySchema = z.array(dailyStatPointSchema);
+const dailyStatPointArraySchema = z.array(dailyStatPointSchema);
 
 /** Ranked label + count (streets, offences). */
-export const topItemSchema = z.object({
+const topItemSchema = z.object({
   count: z.number(),
   label: z.string(),
 });
 
 export type { TopItem } from "@/contracts/store-shapes.ts";
 
-export const topStatsResponseSchema = z.object({
+const topStatsResponseSchema = z.object({
   groupBy: z.enum(["street", "offence"]),
   items: z.array(topItemSchema),
 });
@@ -58,7 +58,7 @@ export const topStatsResponseSchema = z.object({
 export type TopStatsResponse = z.infer<typeof topStatsResponseSchema>;
 
 /** Ranked location (street or suburb). */
-export const locationRankItemSchema = z.object({
+const locationRankItemSchema = z.object({
   count: z.number(),
   label: z.string(),
   street: z.string().optional(),
@@ -67,10 +67,10 @@ export const locationRankItemSchema = z.object({
 
 export type { LocationRankItem } from "@/contracts/store-shapes.ts";
 
-export const locationRankItemArraySchema = z.array(locationRankItemSchema);
+const locationRankItemArraySchema = z.array(locationRankItemSchema);
 
 /** Ranked vehicle make/model. */
-export const vehicleRankItemSchema = z.object({
+const vehicleRankItemSchema = z.object({
   count: z.number(),
   label: z.string(),
   make: z.string(),
@@ -79,7 +79,7 @@ export const vehicleRankItemSchema = z.object({
 
 export type { VehicleRankItem } from "@/contracts/store-shapes.ts";
 
-export const vehicleRankItemArraySchema = z.array(vehicleRankItemSchema);
+const vehicleRankItemArraySchema = z.array(vehicleRankItemSchema);
 
 /** Public infringement row (no internal sync metadata). */
 export const publicInfringementSchema = z.object({
@@ -131,7 +131,7 @@ export interface ExploreInfringementsParams {
   limit?: number;
 }
 
-export const browseResponseSchema = <T extends z.ZodType>(itemSchema: T) =>
+const browseResponseSchema = <T extends z.ZodType>(itemSchema: T) =>
   z.object({
     items: z.array(itemSchema),
     limit: z.number(),
@@ -159,7 +159,7 @@ export interface MapRouteItem {
   readonly town: string;
 }
 
-export const mapRouteItemSchema = z.object({
+const mapRouteItemSchema = z.object({
   count: z.number(),
   geometry: z.array(z.array(z.array(z.number()))),
   id: z.string(),
@@ -185,7 +185,7 @@ const trendResultSchema = z.object({
   previous: z.number(),
 });
 
-export const paceTrendsSchema = z.object({
+const paceTrendsSchema = z.object({
   last30d: trendResultSchema,
   last365d: trendResultSchema,
   last7d: trendResultSchema,
@@ -193,7 +193,7 @@ export const paceTrendsSchema = z.object({
 
 export type PaceTrends = z.infer<typeof paceTrendsSchema>;
 
-export const chartBreakdownsSchema = z.object({
+const chartBreakdownsSchema = z.object({
   offenceCategories: z.array(topItemSchema),
   offences: z.array(topItemSchema),
   suburbs: z.array(topItemSchema),
