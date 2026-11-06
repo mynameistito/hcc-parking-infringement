@@ -34,5 +34,6 @@ export const aggregatePeriod = (
   end: string
 ): { count: number; totalCents: number } => {
   const row = aggregateWindow(sql, start, end);
+
   return { count: row.count, totalCents: row.amountCents };
 };

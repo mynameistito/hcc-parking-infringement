@@ -15,6 +15,7 @@ const runWithConcurrency = async <T>(
     }
 
     const item = items[index];
+
     if (item === undefined) {
       return;
     }

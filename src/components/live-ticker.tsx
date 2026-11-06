@@ -27,10 +27,12 @@ export const LiveTicker = ({
   isLoading,
 }: LiveTickerProps) => {
   const loading = isLoading === true;
+
   const animatedTotal = useAnimatedNumber(loading ? 0 : stats.allTimeTotal, {
     duration: 600,
     initialDuration: 1200,
   });
+
   const animatedFinesCents = useAnimatedNumber(
     loading ? 0 : stats.allTimeAmountCents,
     {
@@ -38,6 +40,7 @@ export const LiveTicker = ({
       initialDuration: 1100,
     }
   );
+
   const [pulse, setPulse] = useState(false);
   const prevTotalRef = useRef(stats.allTimeTotal);
   const pulseTimerRef = useRef<number | null>(null);
@@ -45,9 +48,11 @@ export const LiveTicker = ({
   if (!loading && stats.allTimeTotal !== prevTotalRef.current) {
     prevTotalRef.current = stats.allTimeTotal;
     setPulse(true);
+
     if (pulseTimerRef.current !== null) {
       window.clearTimeout(pulseTimerRef.current);
     }
+
     pulseTimerRef.current = window.setTimeout(() => {
       setPulse(false);
       pulseTimerRef.current = null;

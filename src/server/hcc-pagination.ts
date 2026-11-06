@@ -37,12 +37,14 @@ export class HccClient extends Context.Service<
 /** Pagination policy depends on an explicitly supplied HCC transport. */
 export const makeHccClient = Effect.gen(function* makePaginationClient() {
   const transport = yield* HccTransport;
+
   const fetchAll = Effect.fn("HccClient.fetchAll")(function* fetchAll(
     startDate: string,
     endDate: string
   ) {
     const response = yield* transport.fetchPage(startDate, endDate, 1);
     const [paging] = response.Paging;
+
     if (paging === undefined) {
       return {
         lastPageRecords: 0,
@@ -53,7 +55,9 @@ export const makeHccClient = Effect.gen(function* makePaginationClient() {
         records: [],
       };
     }
+
     const firstPageRecords = readPageRecords(response);
+
     if (paging.Page_Count <= 1) {
       return {
         lastPageRecords: firstPageRecords.length,
@@ -67,10 +71,12 @@ export const makeHccClient = Effect.gen(function* makePaginationClient() {
         records: firstPageRecords,
       };
     }
+
     const pages = Array.from(
       { length: paging.Page_Count - 1 },
       (_, index) => index + 2
     );
+
     const responses = yield* Effect.all(
       pages.map((page) =>
         transport
@@ -79,16 +85,20 @@ export const makeHccClient = Effect.gen(function* makePaginationClient() {
       ),
       { concurrency: "unbounded" }
     );
+
     const records = [...firstPageRecords];
     let lastPageRecords = 0;
+
     for (const page of responses) {
       if (!page.ok) {
         return yield* Effect.fail(page.error);
       }
+
       const pageRecords = readPageRecords(page.value);
       records.push(...pageRecords);
       lastPageRecords = pageRecords.length;
     }
+
     return {
       lastPageRecords,
       pageCount: paging.Page_Count,
@@ -98,6 +108,7 @@ export const makeHccClient = Effect.gen(function* makePaginationClient() {
       records,
     };
   });
+
   return HccClient.of({ fetchAll });
 });
 

@@ -102,6 +102,7 @@ export const migrateParkingStoreTimestampsToAuckland = (
     if (!shouldMigrateSyncMetaValue(row.key, row.value)) {
       continue;
     }
+
     sql.exec(
       "UPDATE sync_meta SET value = ? WHERE key = ?",
       migrateSyncInstant(row.value),

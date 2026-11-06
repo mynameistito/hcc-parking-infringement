@@ -18,10 +18,12 @@ export type {
   CleanInfringement,
   RawInfringement,
 } from "@/server/clean-schema.ts";
+
 export { rawInfringementSchema } from "@/server/clean-schema.ts";
 
 export const cleanInfringement = (raw: unknown): CleanInfringement => {
   const parsed = rawInfringementSchema.parse(raw);
+
   const offence = normalizeOffence(
     parsed.Offence_Description,
     parsed.Offence_Code

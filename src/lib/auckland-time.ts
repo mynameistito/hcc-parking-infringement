@@ -40,10 +40,13 @@ export const parseAucklandInstant = (value: string): Date => {
       `Expected Pacific/Auckland ISO instant (±offset), got: ${value}`
     );
   }
+
   const parsed = Date.parse(value);
+
   if (Number.isNaN(parsed)) {
     throw new TypeError(`Invalid instant: ${value}`);
   }
+
   return new Date(parsed);
 };
 
@@ -53,6 +56,7 @@ export const formatAucklandInstant = (
   pattern: string
 ): string => {
   const date = typeof value === "string" ? parseAucklandInstant(value) : value;
+
   return formatInTimeZone(date, AUCKLAND_TZ, pattern);
 };
 
@@ -70,18 +74,21 @@ export const formatAucklandDateKey = (
 /** Shift a calendar date by N days in Auckland local time. */
 export const addDaysInAuckland = (dateStr: string, days: number): string => {
   const anchor = fromZonedTime(`${dateStr}T12:00:00`, AUCKLAND_TZ);
+
   return formatDateInAuckland(addDaysFns(anchor, days));
 };
 
 /** Inclusive start of a calendar day in Auckland as ISO 8601. */
 export const startOfDayInAucklandIso = (dateStr: string): string => {
   const utc = fromZonedTime(`${dateStr}T00:00:00`, AUCKLAND_TZ);
+
   return formatInTimeZone(utc, AUCKLAND_TZ, ISO_WITH_OFFSET);
 };
 
 /** Inclusive end of a calendar day in Auckland as ISO 8601. */
 export const endOfDayInAucklandIso = (dateStr: string): string => {
   const utc = fromZonedTime(`${dateStr}T23:59:59.999`, AUCKLAND_TZ);
+
   return formatInTimeZone(utc, AUCKLAND_TZ, ISO_WITH_MS_OFFSET);
 };
 
@@ -92,6 +99,7 @@ export const localDateTimeInAucklandIso = (
 ): string => {
   const normalizedTime = time.length === 5 ? `${time}:00` : time;
   const utc = fromZonedTime(`${dateStr}T${normalizedTime}`, AUCKLAND_TZ);
+
   return formatInTimeZone(utc, AUCKLAND_TZ, ISO_WITH_OFFSET);
 };
 
@@ -102,18 +110,23 @@ export const normalizeOptionalAucklandInstant = (
   if (value === null || value === undefined) {
     return null;
   }
+
   const trimmed = value.trim();
+
   if (trimmed === "") {
     return null;
   }
+
   if (DATE_ONLY.test(trimmed)) {
     return endOfDayInAucklandIso(trimmed);
   }
+
   if (!AUCKLAND_INSTANT.test(trimmed)) {
     throw new TypeError(
       `Expected Pacific/Auckland ISO instant (±offset), got: ${trimmed}`
     );
   }
+
   return trimmed;
 };
 
@@ -148,10 +161,12 @@ export const monthBoundsInAuckland = (
   const month = formatInTimeZone(now, AUCKLAND_TZ, "MM");
   const startDate = `${year}-${month}-01`;
   const monthNum = Number.parseInt(month, 10);
+
   const nextMonthStart =
     monthNum === 12
       ? `${Number.parseInt(year, 10) + 1}-01-01`
       : `${year}-${String(monthNum + 1).padStart(2, "0")}-01`;
+
   const endDate = addDaysInAuckland(nextMonthStart, -1);
 
   return {
@@ -165,6 +180,7 @@ export const yearBoundsInAuckland = (
   now: Date
 ): { readonly start: string; readonly end: string } => {
   const year = formatInTimeZone(now, AUCKLAND_TZ, "yyyy");
+
   return {
     end: endOfDayInAucklandIso(`${year}-12-31`),
     start: startOfDayInAucklandIso(`${year}-01-01`),

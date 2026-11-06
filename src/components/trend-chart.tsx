@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TrendChartInner = lazy(async () => {
   const module = await import("@/components/trend-chart-inner");
+
   return { default: module.TrendChartInner };
 });
 
@@ -24,9 +25,11 @@ const useChartDomain = (values: number[]) =>
   useMemo(() => {
     const maxValue = Math.max(...values, 0);
     const minValue = Math.min(...values, 0);
+
     const yTicks = buildYTicks(
       maxValue === minValue && maxValue > 0 ? maxValue * 1.25 : maxValue
     );
+
     return yTicks.at(-1) ?? 10;
   }, [values]);
 
@@ -94,6 +97,7 @@ export const TrendChart = ({
   }
 
   const height = compact ? 40 : 200;
+
   const margin = compact
     ? { bottom: 2, left: 2, right: 2, top: 2 }
     : { bottom: 4, left: 0, right: 0, top: 4 };

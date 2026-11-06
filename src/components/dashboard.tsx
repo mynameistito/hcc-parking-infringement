@@ -29,6 +29,7 @@ import { parseAucklandInstant } from "@/lib/auckland-time";
 import type { PaceTrends } from "@/lib/trend-window";
 
 export type DashboardConnectionStatus = "live" | "cached" | "connecting";
+
 export type DashboardDataStatus = "loading" | "ready" | "updating";
 
 interface DashboardProps {
@@ -57,6 +58,7 @@ const LastUpdated = ({
     const id = window.setInterval(() => {
       tick((n) => n + 1);
     }, 30_000);
+
     return () => {
       window.clearInterval(id);
     };
@@ -75,6 +77,7 @@ const LastUpdated = ({
   }
 
   let syncedAt: Date;
+
   try {
     syncedAt = parseAucklandInstant(lastSyncedAt);
   } catch {
@@ -99,6 +102,7 @@ const getInitialTheme = (): ThemeMode => {
   if (typeof window === "undefined") {
     return "dark";
   }
+
   return window.localStorage.getItem("hcc-theme") === "light"
     ? "light"
     : "dark";
@@ -179,6 +183,7 @@ export const Dashboard = ({
   error,
 }: DashboardProps) => {
   const [recentOpen, setRecentOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 md:px-8 lg:py-10">

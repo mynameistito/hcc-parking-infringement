@@ -16,6 +16,7 @@ export const computePaceTrend = (
   const today = formatDateInAuckland(now);
   const todayWindow = dateBounds(today);
   const currentStart = rollingCalendarWindowStart(now, days);
+
   const current = aggregateWindow(
     sql,
     dateBounds(currentStart).start,
@@ -25,6 +26,7 @@ export const computePaceTrend = (
   const currentStartDate = parseISO(`${currentStart}T12:00:00`);
   const priorEndDay = formatDateInAuckland(subDays(currentStartDate, 1));
   const priorStartDay = formatDateInAuckland(subDays(currentStartDate, days));
+
   const previous = aggregateWindow(
     sql,
     dateBounds(priorStartDay).start,

@@ -18,8 +18,10 @@ export class DashboardLiveState {
     const payload = buildFullDashboardSnapshotPayload(
       assembleFullDashboardSnapshot(sql)
     );
+
     this.cachedPayload = payload;
     writeDashboardSnapshotCache(sql, payload);
+
     return payload;
   }
 
@@ -33,10 +35,12 @@ export class DashboardLiveState {
       snapshotIsComplete(payload)
     ) {
       this.cachedPayload = payload;
+
       return payload;
     }
 
     this.refresh(sql);
+
     return (
       this.cachedPayload ??
       buildColdDashboardSnapshotPayload(

@@ -42,6 +42,7 @@ export const parseSeedWatermarkLine = (
 
 export const normalizeSeedPrefix = (prefix: string): string => {
   const trimmed = prefix.trim();
+
   if (trimmed === "") {
     return "";
   }

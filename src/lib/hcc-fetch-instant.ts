@@ -5,6 +5,7 @@ export const optionalHccFetchInstantSchema = z
   .unknown()
   .transform((value) => {
     const parsed = z.iso.datetime({ offset: true }).safeParse(value);
+
     return parsed.success ? parsed.data : undefined;
   })
   .optional();

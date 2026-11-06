@@ -36,10 +36,12 @@ const coordinatorStatusSchema = z.object({
   status: z.enum(["idle", "planning", "running", "complete", "errored"]),
   totalWindows: z.number(),
 });
+
 const coordinatorResponseSchema = z.object({
   coordinator: coordinatorStatusSchema,
   ok: z.literal(true),
 });
+
 const liveStatsResponseSchema = z.object({
   data: z.object({
     lastRecordAt: z.string().nullable(),
@@ -51,11 +53,13 @@ type CoordinatorStatus = z.infer<typeof coordinatorStatusSchema>;
 
 const requiredApiKey = (): string => {
   const apiKey = process.env.API_KEY ?? process.env.CRON_SECRET;
+
   if (apiKey === undefined || apiKey.trim().length === 0) {
     throw new Error(
       "Set API_KEY or CRON_SECRET in .dev.vars or the environment."
     );
   }
+
   return apiKey;
 };
 
@@ -64,9 +68,11 @@ const errorMessage = (error: unknown): string =>
 
 const parseInstant = (value: string, label: string): number => {
   const parsed = Date.parse(value);
+
   if (!Number.isFinite(parsed)) {
     throw new TypeError(`Invalid ${label}: ${value}`);
   }
+
   return parsed;
 };
 
@@ -76,9 +82,11 @@ const parseTimeoutMinutes = (value: string | undefined): number => {
   }
 
   const parsed = Number(value);
+
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`Invalid --timeout-minutes value: ${value}`);
   }
+
   return parsed;
 };
 
@@ -89,7 +97,9 @@ const requestCoordinator = async (
 ): Promise<CoordinatorStatus> => {
   const path =
     method === "POST" ? "/api/v1/seed/refresh" : "/api/v1/seed/refresh/status";
+
   const url = `${liveUrl}${path}`;
+
   const response = await fetchWithTimeout(url, {
     headers: {
       Accept: "application/json",
@@ -98,11 +108,14 @@ const requestCoordinator = async (
     method,
     timeoutMs: 60_000,
   });
+
   const rawBody: unknown = await response.json().catch(() => null);
   const parsed = coordinatorResponseSchema.safeParse(rawBody);
+
   if (!response.ok || !parsed.success) {
     throw new Error(describeFetchFailure(response, rawBody, method, url));
   }
+
   return parsed.data.coordinator;
 };
 
@@ -111,6 +124,7 @@ const printStatus = (status: CoordinatorStatus): void => {
     status.totalWindows === 0
       ? "planning"
       : `${status.completedWindows}/${status.totalWindows} windows`;
+
   console.log(
     `[daily] ${status.status} | ${progress} | attempts ${status.attempts}`
   );
@@ -127,6 +141,7 @@ const waitForRefresh = async (
 
   while (Date.now() < deadline) {
     let status: CoordinatorStatus;
+
     try {
       status = await requestCoordinator(liveUrl, apiKey, "GET");
     } catch (error: unknown) {
@@ -134,6 +149,7 @@ const waitForRefresh = async (
       await sleep(POLL_INTERVAL_MS);
       continue;
     }
+
     if (status.id !== jobId) {
       throw new Error(
         `Refresh job changed from ${jobId} to ${status.id ?? "none"}.`
@@ -141,6 +157,7 @@ const waitForRefresh = async (
     }
 
     const progress = `${status.status}:${status.completedWindows}:${status.attempts}`;
+
     if (progress !== lastProgress) {
       printStatus(status);
       lastProgress = progress;
@@ -149,9 +166,11 @@ const waitForRefresh = async (
     if (status.status === "complete") {
       return status;
     }
+
     if (status.status === "errored") {
       throw new Error(status.lastError ?? "Cloudflare seed refresh failed.");
     }
+
     await sleep(POLL_INTERVAL_MS);
   }
 
@@ -166,15 +185,18 @@ const verifyPublishedSnapshot = async (
   const response = await fetchWithTimeout(url, { timeoutMs: 60_000 });
   const rawBody: unknown = await response.json().catch(() => null);
   const parsed = liveStatsResponseSchema.safeParse(rawBody);
+
   if (!response.ok || !parsed.success) {
     throw new Error(describeFetchFailure(response, rawBody, "GET", url));
   }
 
   const { lastRecordAt, lastSyncedAt } = parsed.data.data;
+
   if (expectedSyncedAfter !== null) {
     if (lastSyncedAt === null) {
       throw new Error("Published snapshot is stale: lastSyncedAt=null.");
     }
+
     if (
       parseInstant(lastSyncedAt, "lastSyncedAt") <
       parseInstant(expectedSyncedAfter, "expected sync time")
@@ -184,6 +206,7 @@ const verifyPublishedSnapshot = async (
       );
     }
   }
+
   console.log(`[daily] published lastSyncedAt=${lastSyncedAt ?? "null"}`);
   console.log(`[daily] upstream lastRecordAt=${lastRecordAt ?? "null"}`);
 };
@@ -191,19 +214,25 @@ const verifyPublishedSnapshot = async (
 loadDevVars();
 
 const args = scriptArgv();
+
 const liveUrl = (readArgValue(args, "live-url") ?? DEFAULT_LIVE_URL).replace(
   /\/$/u,
   ""
 );
+
 const timeoutMinutes = parseTimeoutMinutes(
   readArgValue(args, "timeout-minutes")
 );
+
 const noWait = readFlag(args, "no-wait");
 const apiKey = requiredApiKey();
 
 console.log(`[daily] triggering Cloudflare refresh at ${liveUrl}`);
+
 const started = await requestCoordinator(liveUrl, apiKey, "POST");
+
 printStatus(started);
+
 if (started.id === null) {
   throw new Error("Cloudflare did not return a refresh job id.");
 }
@@ -217,6 +246,7 @@ if (noWait) {
     started.id,
     timeoutMinutes * 60_000
   );
+
   await verifyPublishedSnapshot(liveUrl, completed.startedAt);
   console.log(`[daily] refresh complete: ${completed.id}`);
 }

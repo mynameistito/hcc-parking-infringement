@@ -25,9 +25,11 @@ const barFillForIndex = (
   if (index === 0 || index === "0") {
     return "var(--color-value)";
   }
+
   if (isChartEntry(props.payload)) {
     return props.payload.fill;
   }
+
   return "var(--color-value)";
 };
 
@@ -46,6 +48,7 @@ const chartEntryLabel = (
   payload: readonly { payload?: unknown }[] | undefined
 ): string => {
   const raw: unknown = payload?.[0]?.payload;
+
   return isChartEntry(raw) ? raw.label : "";
 };
 

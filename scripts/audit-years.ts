@@ -21,12 +21,14 @@ const ctx = createWorkerContext();
 const today = todayInAuckland();
 const env = getHccClientEnv();
 const firstAuditYear = 2020;
+
 const years = Array.from(
   { length: currentYearInAuckland() - firstAuditYear + 1 },
   (_, index) => firstAuditYear + index
 );
 
 console.log("Year     HCC      Stored   Delta   Truncated");
+
 console.log("----     ---      ------   -----   ---------");
 
 const yearResults = await Promise.all(
@@ -58,6 +60,7 @@ for (const { hcc, stored, year } of yearResults) {
 }
 
 console.log("----     ---      ------   -----");
+
 console.log(
   `ALL   ${String(hccGrand).padStart(8)}  ${String(storedGrand).padStart(8)}  ${String(hccGrand - storedGrand).padStart(6)}`
 );
@@ -68,6 +71,7 @@ const healthResponseSchema = z.object({
 
 const health = await fetch(`${ctx.workerUrl}/api/v1/health`);
 const healthBody = healthResponseSchema.safeParse(await health.json());
+
 console.log(
   `\nAll-time stored (health): ${healthBody.success ? (healthBody.data.totalRecords ?? "?") : "?"}`
 );

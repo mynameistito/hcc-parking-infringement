@@ -9,10 +9,12 @@ export const waitForClose = async (
   child: ReturnType<typeof spawn>
 ): Promise<number> => {
   const event: unknown = await once(child, "close");
+
   if (!isCloseEvent(event)) {
     return 1;
   }
 
   const [code] = event;
+
   return typeof code === "number" ? code : 1;
 };

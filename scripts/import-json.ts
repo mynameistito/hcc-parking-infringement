@@ -28,12 +28,15 @@ loadDevVars();
 
 const args = scriptArgv();
 const skipWatermarks = readFlag(args, "skip-watermarks");
+
 const batchSize = Math.min(
   parsePositiveInt(readArg(args, "batch-size"), 1000),
   5000
 );
+
 const pauseMs = parseNonNegativeInt(readArg(args, "pause-ms"), 500);
 const startAfter = parseNonNegativeInt(readArg(args, "start-after"), 0);
+
 const filePath = path.resolve(
   readArg(args, "file") ?? "data/parking-store-export.json"
 );
@@ -43,6 +46,7 @@ const apiKey = requireApiKey();
 const destination = { apiKey, workerUrl: toUrl };
 
 console.log(`[import:json] ${filePath} → ${toUrl}`);
+
 if (pauseMs > 0) {
   console.log(`[import:json] pausing ${pauseMs}ms between batches`);
 }
@@ -55,7 +59,9 @@ try {
 }
 
 console.log(`[import:json] loading snapshot…`);
+
 const snapshot = await readParkingStoreSnapshot(filePath);
+
 const records =
   startAfter > 0
     ? snapshot.infringements.filter(

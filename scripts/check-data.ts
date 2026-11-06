@@ -39,9 +39,11 @@ const fetchHealthPath = async (
   path: string
 ): Promise<{ body: unknown; path: string }> => {
   const url = `${workerUrl}${path}`;
+
   try {
     const response = await fetch(url);
     const body: unknown = await response.json();
+
     return { body, path };
   } catch (error) {
     console.error(describeConnectionFailure(error, "GET", url));
@@ -60,11 +62,13 @@ for (const { body, path } of healthResults) {
 
 if (process.env.API_KEY !== undefined && process.env.API_KEY !== "") {
   const ctx = createWorkerContext(workerUrl);
+
   const storedTotal = await fetchStoredInfringementCount(
     ctx,
     rangeStart,
     today
   );
+
   console.log(
     `\nStored infringements (${rangeStart} → ${today}): ${storedTotal}`
   );
@@ -84,6 +88,7 @@ if (process.env.API_KEY !== undefined && process.env.API_KEY !== "") {
 
   const diff = hcc.records.length - storedTotal;
   console.log(`\nDelta (HCC − stored) for sample window: ${diff}`);
+
   if (diff === 0) {
     console.log("✓ Sample window counts match.");
   } else {

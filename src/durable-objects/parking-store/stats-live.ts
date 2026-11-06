@@ -77,20 +77,24 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
     startOfDayInAucklandIso("1970-01-01"),
     endOfDayInAucklandIso("2099-12-31")
   );
+
   const todayStats = aggregateWindow(sql, todayWindow.start, todayWindow.end);
   const monthStats = aggregateWindow(sql, monthBounds.start, monthBounds.end);
   const yearStats = aggregateWindow(sql, yearBounds.start, yearBounds.end);
   const last24h = aggregateWindow(sql, last24hBounds.start, last24hBounds.end);
+
   const last7d = aggregateWindow(
     sql,
     startOfDayInAucklandIso(last7dStart),
     todayWindow.end
   );
+
   const last30d = aggregateWindow(
     sql,
     startOfDayInAucklandIso(last30dStart),
     todayWindow.end
   );
+
   const last365d = aggregateWindow(
     sql,
     startOfDayInAucklandIso(last365dStart),

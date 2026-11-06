@@ -14,6 +14,7 @@ export const percentChange = (
   if (previous === 0) {
     return current === 0 ? 0 : null;
   }
+
   return ((current - previous) / previous) * 100;
 };
 
@@ -23,6 +24,7 @@ export const toTrendResult = (
 ): TrendResult => {
   const percent = percentChange(current, previous);
   let direction: TrendResult["direction"] = "flat";
+
   if (percent !== null && percent !== 0) {
     direction = percent > 0 ? "up" : "down";
   }
@@ -63,11 +65,13 @@ export const dailyTrendCoversDays = (
 
   const sorted = [...points].toSorted((a, b) => a.date.localeCompare(b.date));
   const earliest = sorted[0]?.date;
+
   if (earliest === undefined) {
     return false;
   }
 
   const end = todayInAuckland();
   const requiredStart = addDaysInAuckland(end, -(days - 1));
+
   return earliest <= requiredStart;
 };

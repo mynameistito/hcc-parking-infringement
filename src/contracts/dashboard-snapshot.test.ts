@@ -52,6 +52,7 @@ describe("parseFullDashboardMessageJson", () => {
     const message = parseFullDashboardMessageJson(
       JSON.stringify(minimalFullMessage)
     );
+
     expect(message?.type).toBe("full");
     expect(message?.dailyTrend).toHaveLength(1);
   });
@@ -90,6 +91,7 @@ describe("dashboard snapshot helpers", () => {
     );
 
     expect(message).not.toBeNull();
+
     if (message === null) {
       return;
     }
@@ -114,6 +116,7 @@ describe("dashboard snapshot helpers", () => {
     );
 
     expect(message).not.toBeNull();
+
     if (message === null) {
       return;
     }

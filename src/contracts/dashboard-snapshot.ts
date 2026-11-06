@@ -22,6 +22,7 @@ export const parseRawFullDashboardMessage = (
   input: unknown
 ): FullDashboardMessage | null => {
   const parsed = fullDashboardMessageSchema.safeParse(input);
+
   if (!parsed.success) {
     return null;
   }
@@ -41,6 +42,7 @@ export const parseFullDashboardMessageJson = (
 ): FullDashboardMessage | null => {
   try {
     const input: unknown = JSON.parse(json);
+
     return parseFullDashboardMessage(input);
   } catch {
     return null;
@@ -53,6 +55,7 @@ export const parseRawFullDashboardMessageJson = (
 ): FullDashboardMessage | null => {
   try {
     const input: unknown = JSON.parse(json);
+
     return parseRawFullDashboardMessage(input);
   } catch {
     return null;
@@ -88,6 +91,7 @@ export const parsePublicDashboardSnapshotJson = (
   json: string
 ): PublicDashboardSnapshot | null => {
   const message = parseFullDashboardMessageJson(json);
+
   return message === null ? null : toPublicDashboardSnapshot(message);
 };
 
@@ -96,6 +100,7 @@ export const getDashboardSnapshotPayloadWeight = (
   message: FullDashboardMessage
 ): number => {
   const breakdowns = resolveChartBreakdowns(message);
+
   return (
     message.recentInfringements.length +
     message.topStreets.length +
@@ -110,6 +115,7 @@ export const getDashboardSnapshotPayloadWeight = (
 
 export const getDashboardSnapshotPayloadWeightJson = (json: string): number => {
   const message = parseFullDashboardMessageJson(json);
+
   return message === null ? 0 : getDashboardSnapshotPayloadWeight(message);
 };
 
@@ -119,6 +125,7 @@ export const dashboardSnapshotIsComplete = (
 ): boolean => {
   const dailyTrend = message.dailyTrend ?? [];
   const { paceTrends } = message;
+
   return (
     dailyTrend.length > 0 &&
     paceTrends !== undefined &&
@@ -132,5 +139,6 @@ export const dashboardSnapshotIsComplete = (
 
 export const dashboardSnapshotIsCompleteJson = (json: string): boolean => {
   const message = parseRawFullDashboardMessageJson(json);
+
   return message !== null && dashboardSnapshotIsComplete(message);
 };

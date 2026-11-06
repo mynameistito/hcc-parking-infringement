@@ -26,10 +26,12 @@ loadDevVars();
 
 const args = scriptArgv();
 const skipWatermarks = readFlag(args, "skip-watermarks");
+
 const batchSize = Math.min(
   parsePositiveInt(readArg(args, "batch-size"), 2000),
   5000
 );
+
 const outPath = path.resolve(
   readArg(args, "out") ?? "data/parking-store-export.json"
 );
@@ -63,6 +65,7 @@ while (true) {
     batchSize,
     total === 0 ? "scan" : "cached"
   );
+
   ({ total } = page);
 
   if (page.records.length === 0) {

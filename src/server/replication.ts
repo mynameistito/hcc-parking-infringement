@@ -53,17 +53,20 @@ export const importStoredInfringements = async (
   assertParkingStoreWritable(scope);
   const payload = importStoredBatchSchema.parse(body);
   const store = getParkingStore(scope.env);
+
   const recordsUpserted = await store.importStoredInfringements(
     payload.records
   );
 
   let recomputed = false;
+
   if (payload.final) {
     await store.finalizeStoredImport();
     recomputed = true;
   }
 
   let totalRecords: number | undefined;
+
   if (payload.final) {
     totalRecords = await store.countInfringements();
   }
@@ -85,6 +88,7 @@ export const importSnapshotBatch = async (
   recordsUpserted: number;
 }> => {
   const payload = importSnapshotBatchSchema.parse(body);
+
   const result = await importStoredInfringements(scope, {
     final: false,
     records: payload.infringements,
@@ -110,6 +114,7 @@ export const importStoredWatermarks = async (
   assertParkingStoreWritable(scope);
   const payload = importWatermarksSchema.parse(body);
   const store = getParkingStore(scope.env);
+
   const [imported, exported] = await Promise.all([
     store.importWatermarks(payload.watermarks),
     store.exportWatermarks(0, 1),
@@ -126,5 +131,6 @@ export const finalizeStoredImport = async (
 ): Promise<{ recomputed: boolean }> => {
   assertParkingStoreWritable(scope);
   await getParkingStore(scope.env).finalizeStoredImport();
+
   return { recomputed: true };
 };

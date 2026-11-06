@@ -252,5 +252,6 @@ export const readStoredEnvelopeData = (json: unknown): unknown => {
   if (typeof json !== "object" || json === null || !("data" in json)) {
     throw new Error("Invalid response payload");
   }
+
   return Reflect.get(json, "data");
 };

@@ -15,10 +15,12 @@ export const requireApiKey = (
   message = "Missing API_KEY (environment or `.dev.vars`)."
 ): string => {
   const apiKey = process.env.API_KEY ?? process.env.CRON_SECRET;
+
   if (apiKey === undefined || apiKey === "") {
     console.error(message);
     process.exit(1);
   }
+
   return apiKey;
 };
 
@@ -58,6 +60,8 @@ export const fetchStoredInfringementCount = async (
   const response = await fetch(url, {
     headers: bearerHeaders(ctx.apiKey),
   });
+
   const parsed = storedTotalSchema.safeParse(await response.json());
+
   return parsed.success ? (parsed.data.total ?? 0) : 0;
 };

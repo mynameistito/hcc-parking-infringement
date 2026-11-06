@@ -18,10 +18,13 @@ export const startSyncRun = (
     end,
     isoNow()
   );
+
   const runId = result.one().id;
+
   if (!runId) {
     throw new Error("Failed to create sync run");
   }
+
   return runId;
 };
 
@@ -118,6 +121,7 @@ export const upsertInfringements = (
   for (let offset = 0; offset < records.length; offset += UPSERT_BATCH_SIZE) {
     const batch = records.slice(offset, offset + UPSERT_BATCH_SIZE);
     const placeholders = batch.map(() => UPSERT_ROW_PLACEHOLDERS).join(", ");
+
     const params = batch.flatMap((record) =>
       infringementToUpsertParams(record, now)
     );

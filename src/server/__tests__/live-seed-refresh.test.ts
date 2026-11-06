@@ -124,23 +124,28 @@ describe("refreshLiveSeedChunkFromHcc", () => {
         })
       );
     });
+
     try {
       server.listen(0, "127.0.0.1");
       await once(server, "listening");
       const address = server.address();
+
       if (address === null || typeof address === "string") {
         throw new Error("Expected the HTTP fixture to have a TCP address");
       }
+
       // SAFETY: this focused aggregation fixture only needs the R2 put operation;
       // it does not claim to implement or verify the complete R2 protocol.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: chunk refresh only invokes put on this binding.
       const bucket = {
         put: async () => await Promise.resolve(null),
       } as unknown as R2Bucket;
+
       const env = {
         HCC_API_BASE: `http://127.0.0.1:${address.port}`,
         PARKING_SEED: bucket,
       };
+
       const options = {
         bootstrapAfter: null,
         chunk: "chunk.ndjson",
@@ -150,6 +155,7 @@ describe("refreshLiveSeedChunkFromHcc", () => {
         to: "2026-06-30",
         window: { end: "2026-06-30", start: "2026-06-24" },
       };
+
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(new Date("2026-06-30T11:59:59Z"));
       const first = await refreshLiveSeedChunkFromHcc(env, options);

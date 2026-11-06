@@ -27,6 +27,7 @@ export const browseSuburbs = (
   const q = query.q?.trim() ?? "";
   const pattern = `%${q}%`;
   const offset = (query.page - 1) * query.limit;
+
   const orderBy =
     query.sort === "name" ? "label COLLATE NOCASE ASC" : "count DESC";
 
@@ -85,8 +86,10 @@ export const browseStreets = (
   const q = query.q?.trim() ?? "";
   const pattern = `%${q}%`;
   const offset = (query.page - 1) * query.limit;
+
   const orderBy =
     query.sort === "name" ? "street COLLATE NOCASE ASC" : "count DESC";
+
   const { clause: suburbFilter, params: suburbParams } = streetSuburbFilter(
     query.suburb
   );
@@ -157,6 +160,7 @@ export const browseVehicles = (
   const q = query.q?.trim() ?? "";
   const pattern = `%${q}%`;
   const offset = (query.page - 1) * query.limit;
+
   const orderBy =
     query.sort === "name"
       ? "make COLLATE NOCASE ASC, model COLLATE NOCASE ASC"

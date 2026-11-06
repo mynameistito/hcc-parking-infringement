@@ -15,18 +15,22 @@ const getErrorMessage = (body: unknown, status: number): string => {
   ) {
     return body.error;
   }
+
   if (status === 404) {
     return "Data feed unavailable. Start the API server to load live dashboard data.";
   }
+
   return `Data feed unavailable. Request returned ${status}.`;
 };
 
 const fetchJson = async (url: string): Promise<unknown> => {
   const response = await fetch(url);
+
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null);
     throw new Error(getErrorMessage(body, response.status));
   }
+
   return await response.json();
 };
 
@@ -44,6 +48,7 @@ export const fetchRecentInfringements = async (
       )
     )
   );
+
   return infringementListResponseSchema.parse(
     await fetchJson(`/api/v1/infringements/recent?${search}`)
   );

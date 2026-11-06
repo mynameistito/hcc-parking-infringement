@@ -29,6 +29,7 @@ export const loadPushCheckpoint = async (): Promise<PushCheckpoint | null> => {
   try {
     const raw = await readFile(checkpointPath, "utf-8");
     const parsed = pushCheckpointSchema.safeParse(JSON.parse(raw));
+
     return parsed.success ? parsed.data : null;
   } catch {
     return null;

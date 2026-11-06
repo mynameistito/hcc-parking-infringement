@@ -100,6 +100,7 @@ export const importStoredInfringements = (
 ): number => {
   const upserted = upsertInfringements(sql, records);
   bumpCachedInfringementCount(sql, upserted);
+
   return upserted;
 };
 

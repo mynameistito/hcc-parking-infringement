@@ -65,6 +65,7 @@ const throwIfDoQuotaResponse = (rawBody: unknown): void => {
 
   const message =
     extractHttpErrorMessage(rawBody) ?? "DO SQLite quota exceeded";
+
   throw new Error(`${message}\n\n${describeDoSqliteQuotaError()}`);
 };
 
@@ -97,6 +98,7 @@ const fetchReplicationWithRetry = async (
           `[push] ${label} failed (${response.status}), retrying in ${replicationRetryDelayMs(attempt)}ms (attempt ${attempt}/${REPLICATION_MAX_ATTEMPTS})`
         );
         await delay(replicationRetryDelayMs(attempt));
+
         return await attemptFetch(attempt + 1);
       }
 
@@ -112,6 +114,7 @@ const fetchReplicationWithRetry = async (
           `[push] ${label} error, retrying in ${replicationRetryDelayMs(attempt)}ms (attempt ${attempt}/${REPLICATION_MAX_ATTEMPTS}): ${nextError.message}`
         );
         await delay(replicationRetryDelayMs(attempt));
+
         return await attemptFetch(attempt + 1, nextError);
       }
 
@@ -137,6 +140,7 @@ export const fetchExportInfringements = async (
     headers: bearerHeaders(ctx.apiKey),
     timeoutMs: 60_000,
   });
+
   const rawBody: unknown = await response.json().catch(() => null);
   const parsed = exportInfringementsSchema.safeParse(rawBody);
 
@@ -154,6 +158,7 @@ export const postImportSnapshot = async (
   infringements: z.infer<typeof cleanInfringementSchema>[]
 ) => {
   const url = new URL("/api/v1/import/snapshot", ctx.workerUrl);
+
   const { rawBody, response } = await fetchReplicationWithRetry(
     `POST ${url.pathname}`,
     url.toString(),
@@ -171,6 +176,7 @@ export const postImportSnapshot = async (
       }),
     (res, body) => {
       const parsed = importSnapshotSchema.safeParse(body);
+
       if (res.ok && parsed.success) {
         return { ok: true };
       }
@@ -181,6 +187,7 @@ export const postImportSnapshot = async (
       };
     }
   );
+
   const parsed = importSnapshotSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -198,6 +205,7 @@ export const postImportStored = async (
   final: boolean
 ) => {
   const url = new URL("/api/v1/import/stored", ctx.workerUrl);
+
   const { rawBody, response } = await fetchReplicationWithRetry(
     `POST ${url.pathname}`,
     url.toString(),
@@ -215,6 +223,7 @@ export const postImportStored = async (
       }),
     (res, body) => {
       const parsed = importStoredSchema.safeParse(body);
+
       if (res.ok && parsed.success) {
         return { ok: true };
       }
@@ -225,6 +234,7 @@ export const postImportStored = async (
       };
     }
   );
+
   const parsed = importStoredSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -249,6 +259,7 @@ export const fetchExportWatermarks = async (
     headers: bearerHeaders(ctx.apiKey),
     timeoutMs: 60_000,
   });
+
   const rawBody: unknown = await response.json().catch(() => null);
   const parsed = exportWatermarksSchema.safeParse(rawBody);
 
@@ -266,6 +277,7 @@ export const postImportWatermarks = async (
   watermarks: z.infer<typeof exportWatermarksSchema>["watermarks"]
 ) => {
   const url = new URL("/api/v1/import/watermarks", ctx.workerUrl);
+
   const response = await fetchWithTimeout(url.toString(), {
     body: JSON.stringify({ watermarks }),
     headers: {
@@ -276,6 +288,7 @@ export const postImportWatermarks = async (
     method: "POST",
     timeoutMs: 120_000,
   });
+
   const rawBody: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -296,6 +309,7 @@ export const postFinalizeStoredImport = async (
       method: "POST",
       timeoutMs: 120_000,
     });
+
     const rawBody: unknown = await response.json().catch(() => null);
 
     if (!response.ok) {
@@ -319,6 +333,7 @@ export const fetchDashboardSnapshot = async (
     headers: bearerHeaders(source.apiKey),
     timeoutMs: 120_000,
   });
+
   const rawBody: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {

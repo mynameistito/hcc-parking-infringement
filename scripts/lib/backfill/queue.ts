@@ -27,6 +27,7 @@ const pollWaveDrain = async (
     console.warn(
       "\nWave pause timed out — continuing to enqueue next wave anyway."
     );
+
     return;
   }
 
@@ -37,6 +38,7 @@ const pollWaveDrain = async (
     granularity,
     chunkDays
   );
+
   if (
     result.kind === "progress" &&
     result.progress.completed - baselineCompleted >= targetDelta
@@ -88,12 +90,15 @@ const logWaveResult = (
   const queueMessages = body?.queueMessages ?? 0;
   const delivery = body?.delivery ?? fallbackDelivery;
   const actionVerb = delivery === "direct" ? "processed" : "queued";
+
   const queueSuffix =
     delivery === "queue" && queueMessages > 0
       ? ` (${formatNumber(queueMessages)} queue msgs)`
       : "";
+
   const skippedSuffix =
     skipped > 0 ? ` · ${formatNumber(skipped)} skipped` : "";
+
   const remainingSuffix =
     remaining > 0 ? ` · ${formatNumber(remaining)} remaining` : "";
 
@@ -129,6 +134,7 @@ export const queueBackfillWaves = async (
       ...options,
       currentFrom,
     });
+
     bodies.push(body ?? {});
     const enqueued = body?.enqueued ?? 0;
     totalEnqueued += enqueued;
@@ -157,6 +163,7 @@ export const queueBackfillWaves = async (
       options.granularity,
       options.chunkDays
     );
+
     const baselineCompleted =
       progressBefore.kind === "progress"
         ? progressBefore.progress.completed

@@ -19,6 +19,7 @@ const donutSectorShape = (props: SectorShapeProps) => {
   const fill = isChartEntry(props.payload)
     ? props.payload.fill
     : "var(--chart-1)";
+
   return <Sector {...props} fill={fill} stroke="var(--background)" />;
 };
 
@@ -33,6 +34,7 @@ const chartEntryLabel = (
   payload: readonly { payload?: unknown }[] | undefined
 ): string => {
   const raw: unknown = payload?.[0]?.payload;
+
   return isChartEntry(raw) ? raw.label : "";
 };
 

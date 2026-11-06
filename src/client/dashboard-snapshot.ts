@@ -19,6 +19,7 @@ export const getDashboardSnapshotTime = (
   message: FullDashboardMessage
 ): number => {
   const source = message.live.lastSyncedAt ?? message.at;
+
   try {
     return parseAucklandInstant(source).getTime();
   } catch {
@@ -27,6 +28,7 @@ export const getDashboardSnapshotTime = (
 };
 
 export { getDashboardSnapshotWeight } from "@/client/dashboard-snapshot-storage";
+
 export {
   persistDashboardSnapshot,
   readPersistedDashboardSnapshot,
@@ -49,9 +51,11 @@ export const applyDashboardSnapshot = (
     ["public", "stats", "daily"],
     message.dailyTrend ?? []
   );
+
   if (message.paceTrends !== undefined) {
     queryClient.setQueryData(["public", "pace", "trends"], message.paceTrends);
   }
+
   queryClient.setQueryData(["public", "top", "street"], {
     groupBy: "street",
     items: streetChartItems,

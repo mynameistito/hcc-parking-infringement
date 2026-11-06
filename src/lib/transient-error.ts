@@ -24,6 +24,7 @@ export const extractHttpErrorMessage = (
 ): string | undefined => {
   if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
     const { error } = rawBody;
+
     return typeof error === "string" ? error : undefined;
   }
 
@@ -33,11 +34,13 @@ export const extractHttpErrorMessage = (
 /** Cloudflare DO SQLite daily free-tier quota (reads/writes) — not retryable. */
 export const isDoSqliteQuotaError = (error: unknown): boolean => {
   const message = formatErrorMessage(error);
+
   return DO_SQLITE_QUOTA_PATTERN.test(message);
 };
 
 export const isDoSqliteQuotaResponse = (rawBody: unknown): boolean => {
   const message = extractHttpErrorMessage(rawBody);
+
   return message !== undefined && DO_SQLITE_QUOTA_PATTERN.test(message);
 };
 
@@ -56,5 +59,6 @@ export const isRetryableError = (error: unknown): boolean => {
   }
 
   const message = formatErrorMessage(error);
+
   return TRANSIENT_ERROR_PATTERNS.some((pattern) => pattern.test(message));
 };

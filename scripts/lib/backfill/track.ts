@@ -29,6 +29,7 @@ export const warnIfWorkerLooksOutdated = (
   today: string
 ): void => {
   const expectedChunkDays = granularity === "day" ? 1 : 7;
+
   const expectedTotal = splitDateRange(
     from,
     body.end ?? today,
@@ -102,6 +103,7 @@ export const trackBackfill = async (
       console.log(
         `\n[backfill] nothing queued — ${initialProgress.progress.completed}/${initialProgress.progress.total} windows already ingested.`
       );
+
       return;
     }
 
@@ -109,6 +111,7 @@ export const trackBackfill = async (
       `\n[backfill] nothing queued — existing windows skipped (progress API unavailable on this port).`,
       `Expected ~${formatNumber(expectedTotal)} ${granularity} windows for ${start} → ${end}.`
     );
+
     return;
   }
 
@@ -126,6 +129,7 @@ export const trackBackfill = async (
         granularity,
         chunkDays
       );
+
       if (result.kind !== "progress") {
         return;
       }
@@ -135,6 +139,7 @@ export const trackBackfill = async (
 
       if (progress.completed >= progress.total) {
         process.stdout.write("\n\n[backfill] complete.\n");
+
         return;
       }
 
@@ -145,6 +150,7 @@ export const trackBackfill = async (
         process.stdout.write(
           "\n\n[backfill] tracker paused — no progress in 60s (queue may still be running).\n"
         );
+
         return;
       }
 
@@ -183,6 +189,7 @@ export const trackBackfill = async (
       process.stdout.write(
         "\n\n[backfill] tracker paused — no new records in 60s (queue may still be running).\n"
       );
+
       return;
     }
 

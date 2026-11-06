@@ -10,11 +10,13 @@ export const resolveReplicationSourceUrl = (
   args: readonly string[]
 ): string => {
   const explicit = readArg(args, "from");
+
   if (explicit !== undefined) {
     return explicit.replace(/\/$/u, "");
   }
 
   const fromPort = readArg(args, "from-port");
+
   if (fromPort !== undefined) {
     return `http://127.0.0.1:${fromPort}`;
   }
@@ -26,11 +28,13 @@ export const resolveReplicationTargetUrl = (
   args: readonly string[]
 ): string => {
   const explicit = readArg(args, "to");
+
   if (explicit !== undefined) {
     return explicit.replace(/\/$/u, "");
   }
 
   const workerUrl = process.env.WORKER_URL;
+
   if (
     workerUrl === undefined ||
     workerUrl.includes("127.0.0.1") ||
@@ -46,11 +50,13 @@ export const resolveReplicationTargetUrl = (
 
 export const resolveImportJsonTargetUrl = (args: readonly string[]): string => {
   const explicit = readArg(args, "to");
+
   if (explicit !== undefined) {
     return explicit.replace(/\/$/u, "");
   }
 
   const workerUrl = process.env.WORKER_URL;
+
   if (workerUrl !== undefined && !isLocalWorkerUrl(workerUrl)) {
     return workerUrl.replace(/\/$/u, "");
   }

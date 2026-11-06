@@ -25,6 +25,7 @@ export const getMapPoints = async (
   pendingGeocode: number;
 }> => {
   const result = await scope.parking.getMapPoints(limit);
+
   return {
     pendingGeocode: result.pendingGeocode,
     routes: result.routes.map((route) => ({

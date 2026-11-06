@@ -20,6 +20,7 @@ const processGeocodeBatch = async (
   batch: { street: string; suburb: string | null; town: string }[]
 ): Promise<{ geocoded: number; failed: number }> => {
   const store = getParkingStore(scope.env);
+
   const geometries = await overpassBatchRoadGeometry(
     batch.map((location) => location.street)
   );
@@ -30,6 +31,7 @@ const processGeocodeBatch = async (
 
       if (geometry !== undefined && isRealRoadGeometry(geometry)) {
         const centroid = centroidFromGeometry(geometry);
+
         const suburbLabel =
           location.suburb !== null && location.suburb !== ""
             ? `, ${location.suburb}`
@@ -44,6 +46,7 @@ const processGeocodeBatch = async (
           suburb: location.suburb,
           town: location.town,
         });
+
         return "geocoded" as const;
       }
 
@@ -52,6 +55,7 @@ const processGeocodeBatch = async (
         location.suburb,
         location.town
       );
+
       return "failed" as const;
     })
   );

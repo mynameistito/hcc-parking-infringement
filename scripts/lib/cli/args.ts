@@ -9,6 +9,7 @@ export const readArg = (
   name: string
 ): string | undefined => {
   const prefix = `--${name}=`;
+
   return args.find((arg) => arg.startsWith(prefix))?.slice(prefix.length);
 };
 
@@ -18,11 +19,13 @@ export const readArgValue = (
   name: string
 ): string | undefined => {
   const fromEquals = readArg(args, name);
+
   if (fromEquals !== undefined) {
     return fromEquals;
   }
 
   const flagIndex = args.indexOf(`--${name}`);
+
   if (flagIndex === -1) {
     return undefined;
   }

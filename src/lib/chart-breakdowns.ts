@@ -15,9 +15,11 @@ const aggregateVehicleMakes = (
   vehicles: readonly VehicleRankItem[]
 ): TopItem[] => {
   const totals = new Map<string, number>();
+
   for (const vehicle of vehicles) {
     totals.set(vehicle.make, (totals.get(vehicle.make) ?? 0) + vehicle.count);
   }
+
   return [...totals.entries()]
     .toSorted((left, right) => right[1] - left[1])
     .map(([label, count]) => ({ count, label }));
@@ -30,6 +32,7 @@ const pickRicherTopItems = (
   if (secondary.length > primary.length) {
     return toTopItems(secondary);
   }
+
   return [...primary];
 };
 
@@ -91,12 +94,14 @@ export const buildChartBreakdownFromInfringements = (
       record.suburb !== null && record.suburb.trim().length > 0
         ? record.suburb.trim()
         : "Unknown";
+
     incrementCount(suburbs, suburb);
 
     const offenceLabel = resolveOffenceDescription(
       record.offenceCode,
       record.offenceDescription
     );
+
     incrementCount(offences, offenceLabel);
 
     const category =
@@ -104,18 +109,21 @@ export const buildChartBreakdownFromInfringements = (
       record.offenceCategory.trim().length > 0
         ? record.offenceCategory.trim()
         : "Uncategorised";
+
     incrementCount(offenceCategories, category);
 
     const make =
       record.vehicleMake !== null && record.vehicleMake.trim().length > 0
         ? record.vehicleMake.trim()
         : "Unknown";
+
     incrementCount(vehicleMakes, make);
 
     const type =
       record.vehicleType !== null && record.vehicleType.trim().length > 0
         ? record.vehicleType.trim()
         : "Unknown";
+
     incrementCount(vehicleTypes, type);
 
     if (record.street.trim().length > 0 && record.street !== "Unknown") {
@@ -123,6 +131,7 @@ export const buildChartBreakdownFromInfringements = (
         record.street,
         suburb === "Unknown" ? undefined : suburb
       );
+
       incrementCount(streets, streetLabel);
     }
 
@@ -134,9 +143,11 @@ export const buildChartBreakdownFromInfringements = (
   }
 
   const towedItems: TopItem[] = [];
+
   if (towed > 0) {
     towedItems.push({ count: towed, label: "Towed" });
   }
+
   if (notTowed > 0) {
     towedItems.push({ count: notTowed, label: "Not towed" });
   }
@@ -161,6 +172,7 @@ export const chartBreakdownsHasData = (
   if (breakdowns === undefined) {
     return false;
   }
+
   return (
     breakdowns.offences.length > 0 ||
     breakdowns.suburbs.length > 0 ||
@@ -178,6 +190,7 @@ export const chartBreakdownsFullyPopulated = (
   if (breakdowns === undefined) {
     return false;
   }
+
   return (
     breakdowns.offenceCategories.length > 0 &&
     breakdowns.vehicleTypes.length > 0 &&
@@ -193,6 +206,7 @@ export const resolveChartBreakdowns = (
   message: FullDashboardMessage
 ): ChartBreakdowns => {
   const existing = message.chartBreakdowns;
+
   const derived: ChartBreakdowns = {
     offenceCategories: existing?.offenceCategories ?? [],
     offences: pickRicherTopItems(message.topOffences, existing?.offences ?? []),
@@ -222,6 +236,7 @@ export const resolveChartStreetItems = (
   if (fromRankedStreets.length > fromTopStreets.length) {
     return fromRankedStreets;
   }
+
   if (fromTopStreets.length > fromRankedStreets.length) {
     return fromTopStreets;
   }
@@ -230,6 +245,8 @@ export const resolveChartStreetItems = (
     (sum, item) => sum + item.count,
     0
   );
+
   const topTotal = fromTopStreets.reduce((sum, item) => sum + item.count, 0);
+
   return rankedTotal >= topTotal ? fromRankedStreets : fromTopStreets;
 };

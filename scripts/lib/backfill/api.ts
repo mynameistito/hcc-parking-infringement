@@ -32,14 +32,18 @@ export const postBackfillWave = async (
   }
 ): Promise<BackfillResponse | null> => {
   const url = new URL("/api/v1/sync/backfill", ctx.workerUrl);
+
   if (options.force) {
     url.searchParams.set("force", "true");
   }
+
   url.searchParams.set("delivery", options.delivery);
   url.searchParams.set("granularity", options.granularity);
+
   if (options.chunkDays !== undefined) {
     url.searchParams.set("chunkDays", options.chunkDays);
   }
+
   url.searchParams.set("from", options.currentFrom);
   url.searchParams.set("to", options.to);
 
@@ -93,9 +97,11 @@ export const fetchBackfillProgress = async (
     `${ctx.workerUrl}/api/v1/sync/backfill/progress`,
     ctx.workerUrl
   );
+
   url.searchParams.set("from", start);
   url.searchParams.set("to", end);
   url.searchParams.set("granularity", granularity);
+
   if (chunkDays !== undefined) {
     url.searchParams.set("chunkDays", chunkDays);
   }
@@ -103,6 +109,7 @@ export const fetchBackfillProgress = async (
   const response = await fetchWithTimeout(url.toString(), {
     headers: bearerHeaders(ctx.apiKey),
   });
+
   const rawBody: unknown = await response.json().catch(() => null);
 
   if (response.status === 404) {
@@ -110,6 +117,7 @@ export const fetchBackfillProgress = async (
   }
 
   const parsed = progressResponseSchema.safeParse(rawBody);
+
   if (!response.ok || !parsed.success) {
     throw new Error(
       describeFetchFailure(response, rawBody, "GET", url.toString())
@@ -126,6 +134,7 @@ export const fetchBackfillHealth = async (
   const response = await fetchWithTimeout(`${ctx.workerUrl}/api/v1/status`, {
     headers: bearerHeaders(ctx.apiKey),
   });
+
   const rawBody: unknown = await response.json().catch(() => null);
   const parsed = backfillHealthSchema.safeParse(rawBody);
 

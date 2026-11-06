@@ -22,6 +22,7 @@ export const importInfringements = async (
   assertParkingStoreWritable(scope);
   const payload = importBatchSchema.parse(body);
   const { cleaned, skipped } = cleanInfringements(payload.records);
+
   const result = await getParkingStore(scope.env).importInfringementBatch({
     final: payload.final,
     records: cleaned,

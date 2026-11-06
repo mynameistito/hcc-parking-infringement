@@ -22,10 +22,12 @@ loadDevVars();
 const args = scriptArgv();
 const { apiKey, workerUrl } = createWorkerContext();
 const csvPath = readArg(args, "file") ?? "data\\Infringement.csv";
+
 const batchSize = Math.min(
   parsePositiveInt(readArg(args, "batch-size"), 1000),
   5000
 );
+
 const skipRows = parseNonNegativeInt(readArg(args, "skip-rows"), 0);
 
 const importResponseSchema = z.object({
@@ -59,10 +61,12 @@ const postBatchOnce = async (
   if (!response.ok || !parsedBody.success) {
     if (response.status === 429 || response.status >= 500) {
       const retried = await retry();
+
       if (retried !== null) {
         return retried;
       }
     }
+
     console.error(`Import failed (${response.status}):`, rawBody);
     process.exit(1);
   }
@@ -82,7 +86,9 @@ const postBatch = async (
     if (attempt >= maxAttempts) {
       return null;
     }
+
     await delay(retryDelayMs);
+
     return await postBatch(records, final, attempt + 1);
   };
 
@@ -110,6 +116,7 @@ const dataLines = lines.slice(1).filter((line) => line.length > 0);
 
 const uploadFullBatch = async (final: boolean) => {
   const records = batch.splice(0);
+
   return await postBatch(records, final);
 };
 
@@ -133,8 +140,11 @@ for (const line of dataLines) {
 }
 
 const finalResult = await uploadFullBatch(true);
+
 importedRows += finalResult.recordsReceived;
+
 upsertedRows += finalResult.recordsUpserted;
+
 skippedRows += finalResult.skipped;
 
 console.log("CSV import complete:", {

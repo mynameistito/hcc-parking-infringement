@@ -29,6 +29,7 @@ const throwIfQuotaResponse = (rawBody: unknown): void => {
 
   const message =
     extractHttpErrorMessage(rawBody) ?? "DO SQLite quota exceeded";
+
   throw new SeedApplyQuotaError(
     `${message}\n\n${describeDoSqliteQuotaError()}`
   );
@@ -41,6 +42,7 @@ export const fetchSeedManifest = async (
   const response = await fetch(`${workerUrl}/api/v1/import/seed/manifest`, {
     headers: bearerHeaders(apiKey),
   });
+
   const body: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -68,9 +70,11 @@ export const finalizeSeedOnRemote = async (options: {
       method: "POST",
     }
   );
+
   const watermarksBody: unknown = await watermarksResponse
     .json()
     .catch(() => null);
+
   throwIfQuotaResponse(watermarksBody);
 
   if (!watermarksResponse.ok) {
@@ -86,6 +90,7 @@ export const finalizeSeedOnRemote = async (options: {
       method: "POST",
     }
   );
+
   const finalizeBody: unknown = await finalizeResponse.json().catch(() => null);
   throwIfQuotaResponse(finalizeBody);
 
@@ -128,10 +133,12 @@ export const applySeedOnRemote = async (options: {
   }
 
   const pendingChunks = infringementChunks.slice(startIndex);
+
   const chunkLimit =
     options.maxChunks === undefined
       ? pendingChunks.length
       : Math.max(0, options.maxChunks);
+
   const chunksToApply = pendingChunks.slice(0, chunkLimit);
   const appliedChunks: string[] = [];
 
@@ -144,6 +151,7 @@ export const applySeedOnRemote = async (options: {
       headers: jsonHeaders(options.apiKey),
       method: "POST",
     });
+
     const body: unknown = await response.json().catch(() => null);
     throwIfQuotaResponse(body);
 

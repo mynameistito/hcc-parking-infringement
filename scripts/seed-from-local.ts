@@ -45,10 +45,12 @@ const args = scriptArgv();
 const skipWatermarks = readFlag(args, "skip-watermarks");
 const uploadOnly = readFlag(args, "upload-only");
 const apply = readFlag(args, "apply");
+
 const chunkRecords = Math.min(
   parsePositiveInt(readArg(args, "chunk-records"), 50_000),
   50_000
 );
+
 const outDir = path.resolve(readArg(args, "out-dir") ?? "data/seed");
 const bucket = readArg(args, "bucket") ?? "hcc-parking-infringement-seed";
 const prefix = readArg(args, "prefix") ?? "parking-store/v1/";
@@ -86,6 +88,7 @@ if (!uploadOnly) {
 const filesOnDisk = await listSeedFilesToUpload(outDir);
 
 console.log(`[seed] uploading to r2://${bucket}/${prefix}`);
+
 await uploadSeedDirectory({
   bucket,
   dir: outDir,

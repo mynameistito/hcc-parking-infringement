@@ -23,5 +23,6 @@ export const flushBackfillDerivedState = (
 
   onFlush();
   clearBackfillStatsDirty(sql);
+
   return { flushed: true };
 };

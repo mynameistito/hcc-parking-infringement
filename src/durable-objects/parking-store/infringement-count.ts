@@ -4,11 +4,13 @@ const INFRINGEMENT_COUNT_KEY = "infringement_count";
 
 export const getCachedInfringementCount = (sql: SqlStorage): number | null => {
   const value = getSyncMeta(sql, INFRINGEMENT_COUNT_KEY);
+
   if (value === null) {
     return null;
   }
 
   const parsed = Number.parseInt(value, 10);
+
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 };
 
@@ -36,8 +38,10 @@ export const recomputeCachedInfringementCount = (sql: SqlStorage): number => {
   const totalRow = sql
     .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
     .one();
+
   const count = totalRow?.total ?? 0;
   setCachedInfringementCount(sql, count);
+
   return count;
 };
 
@@ -46,6 +50,7 @@ export const resolveInfringementCount = (
   mode: "cached" | "scan"
 ): number => {
   const cached = getCachedInfringementCount(sql);
+
   if (cached !== null) {
     return cached;
   }

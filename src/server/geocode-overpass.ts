@@ -63,20 +63,25 @@ const expandStreetAbbreviations = (value: string): string =>
 const streetNameMatches = (osmName: string, street: string): boolean => {
   const osm = expandStreetAbbreviations(osmName);
   const target = expandStreetAbbreviations(street);
+
   if (osm === target) {
     return true;
   }
+
   if (osm.includes(target) || target.includes(osm)) {
     return true;
   }
+
   const osmCore = osm.replace(STREET_SUFFIX_PATTERN, "");
   const targetCore = target.replace(STREET_SUFFIX_PATTERN, "");
+
   return osmCore === targetCore;
 };
 
 const overpassNamePattern = (street: string): string => {
   const expanded = expandStreetAbbreviations(street);
   const escaped = expanded.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+
   return `^${escaped}$`;
 };
 
@@ -116,6 +121,7 @@ export const overpassBatchRoadGeometry = async (
   }
 
   const bbox = `${HAMILTON_BBOX.south},${HAMILTON_BBOX.west},${HAMILTON_BBOX.north},${HAMILTON_BBOX.east}`;
+
   const wayQueries = streets
     .map(
       (street) =>
@@ -145,6 +151,7 @@ out geom;
   }
 
   const parsed = overpassResponseSchema.safeParse(await response.json());
+
   if (!parsed.success) {
     return new Map();
   }
@@ -153,6 +160,7 @@ out geom;
 
   for (const element of parsed.data.elements) {
     const name = element.tags?.name;
+
     if (
       element.geometry === undefined ||
       element.geometry.length < 3 ||

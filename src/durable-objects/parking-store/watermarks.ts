@@ -78,6 +78,7 @@ export const getLatestIngestWatermarkInRange = (
           .toArray();
 
   const [row] = rows;
+
   if (row === undefined) {
     return null;
   }

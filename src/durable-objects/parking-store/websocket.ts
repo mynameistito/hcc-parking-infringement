@@ -6,6 +6,7 @@ export const handleWebSocketMessage = (
 ): void => {
   const text =
     typeof message === "string" ? message : new TextDecoder().decode(message);
+
   if (text === "ping") {
     ws.send(JSON.stringify({ at: isoNow(), type: "pong" }));
   }

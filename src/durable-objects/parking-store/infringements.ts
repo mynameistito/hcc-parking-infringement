@@ -19,14 +19,17 @@ const buildInfringementWhere = (
     conditions.push("occurred_at >= ?");
     params.push(startOfDayInAucklandIso(query.from));
   }
+
   if (query.to !== undefined && query.to !== "") {
     conditions.push("occurred_at <= ?");
     params.push(endOfDayInAucklandIso(query.to));
   }
+
   if (query.street !== undefined && query.street !== "") {
     conditions.push("street = ?");
     params.push(query.street);
   }
+
   if (query.suburb !== undefined && query.suburb !== "") {
     if (query.suburb === "Unknown") {
       conditions.push("(suburb IS NULL OR suburb = '')");
@@ -35,10 +38,12 @@ const buildInfringementWhere = (
       params.push(query.suburb);
     }
   }
+
   if (query.vehicleMake !== undefined && query.vehicleMake !== "") {
     conditions.push("coalesce(nullif(trim(vehicle_make), ''), 'Unknown') = ?");
     params.push(query.vehicleMake);
   }
+
   if (query.vehicleModel !== undefined) {
     conditions.push("coalesce(nullif(trim(vehicle_model), ''), '') = ?");
     params.push(query.vehicleModel);

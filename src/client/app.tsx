@@ -51,9 +51,11 @@ const resolveConnectionStatus = (
   if (connected && !cached) {
     return "live";
   }
+
   if (cached) {
     return "cached";
   }
+
   return "connecting";
 };
 
@@ -65,9 +67,11 @@ const resolveDataStatus = (
   if (!ready) {
     return "loading";
   }
+
   if (connected && cached) {
     return "updating";
   }
+
   return "ready";
 };
 
@@ -78,27 +82,33 @@ export const App = () => {
     "public",
     "live",
   ]);
+
   const { data: dailyTrendData } = useDashboardCache<DailyStatPoint[]>([
     "public",
     "stats",
     "daily",
   ]);
+
   const dailyTrend = dailyTrendData ?? [];
+
   const { data: paceTrendsData } = useDashboardCache<PaceTrends | undefined>([
     "public",
     "pace",
     "trends",
   ]);
+
   const { data: streetsData } = useDashboardCache<TopStatsResponse>([
     "public",
     "top",
     "street",
   ]);
+
   const { data: recentData } = useDashboardCache<InfringementListResponse>([
     "public",
     "infringements",
     "recent",
   ]);
+
   const { data: chartBreakdownsData } = useDashboardCache<ChartBreakdowns>([
     "public",
     "chart",

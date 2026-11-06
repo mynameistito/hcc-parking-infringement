@@ -14,6 +14,7 @@ const INFRINGEMENT_UPSERT_BATCH = 500;
 
 const readConfiguredSeedPrefix = (env: Env): string | undefined => {
   const value = env.PARKING_STORE_SEED_PREFIX;
+
   return typeof value === "string" && value.length > 0 ? value : undefined;
 };
 
@@ -37,6 +38,7 @@ export const readSeedManifest = async (
   prefixOverride?: string
 ): Promise<{ manifest: SeedManifest; prefix: string }> => {
   const prefix = resolveSeedPrefix(env, prefixOverride);
+
   const raw = await readSeedObjectText(
     env,
     seedObjectKey(prefix, MANIFEST_FILE)
@@ -69,6 +71,7 @@ const upsertLinesInBatches = async (
     .map((line) => parseSeedInfringementLine(line));
 
   const upserted = await getParkingStore(env).importStoredInfringements(batch);
+
   return await upsertLinesInBatches(
     env,
     lines,
@@ -97,6 +100,7 @@ export const importSeedInfringementChunk = async (
     env,
     seedObjectKey(prefix, options.chunk)
   );
+
   if (raw === null) {
     throw new Error(`Seed chunk not found: ${options.chunk}`);
   }
@@ -135,6 +139,7 @@ export const importSeedWatermarks = async (
     .map((line) => parseSeedWatermarkLine(line));
 
   const imported = await getParkingStore(env).importWatermarks(watermarks);
+
   return { imported };
 };
 
@@ -142,5 +147,6 @@ export const finalizeSeedImport = async (
   env: Env
 ): Promise<{ recomputed: boolean }> => {
   await getParkingStore(env).finalizeStoredImport();
+
   return { recomputed: true };
 };

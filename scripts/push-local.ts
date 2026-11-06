@@ -40,20 +40,24 @@ loadDevVars();
 const args = scriptArgv();
 const skipWatermarks = readFlag(args, "skip-watermarks");
 const fresh = readFlag(args, "fresh");
+
 const batchSize = Math.min(
   parsePositiveInt(readArg(args, "batch-size"), 1000),
   5000
 );
+
 const pauseMs = parseNonNegativeInt(readArg(args, "pause-ms"), 500);
 const explicitStartAfter = readArg(args, "start-after");
 
 const resolveFromUrl = (): string => {
   const explicit = readArg(args, "from");
+
   if (explicit !== undefined) {
     return explicit.replace(/\/$/u, "");
   }
 
   const fromPort = readArg(args, "from-port");
+
   if (fromPort !== undefined) {
     return `http://127.0.0.1:${fromPort}`;
   }
@@ -63,11 +67,13 @@ const resolveFromUrl = (): string => {
 
 const resolveToUrl = (): string => {
   const explicit = readArg(args, "to");
+
   if (explicit !== undefined) {
     return explicit.replace(/\/$/u, "");
   }
 
   const workerUrl = process.env.WORKER_URL;
+
   if (workerUrl === undefined || workerUrl.includes("127.0.0.1")) {
     throw new Error(
       "Set --to=https://your-worker.workers.dev or WORKER_URL to the remote deployment."
@@ -90,6 +96,7 @@ const source = { apiKey, workerUrl: fromUrl };
 const destination = { apiKey, workerUrl: toUrl };
 
 console.log(`[push] ${fromUrl} → ${toUrl}`);
+
 if (pauseMs > 0) {
   console.log(`[push] pausing ${pauseMs}ms between batches`);
 }
@@ -113,6 +120,7 @@ if (fresh) {
   console.log("[push] ignoring any saved checkpoint (--fresh)");
 } else if (explicitStartAfter === undefined) {
   const checkpoint = await loadPushCheckpoint();
+
   if (
     checkpoint !== null &&
     checkpoint.fromUrl === fromUrl &&
@@ -126,6 +134,7 @@ if (fresh) {
       watermarkImported: checkpointWatermarkImported,
       watermarkOffset: checkpointWatermarkOffset,
     } = checkpoint;
+
     infringementCursor = checkpointCursor;
     infringementPushed = checkpointPushed;
     startPhase = phase;
@@ -160,6 +169,7 @@ if (startPhase === "infringements") {
       batchSize,
       total === 0 ? "scan" : "cached"
     );
+
     ({ total } = exported);
 
     if (exported.records.length === 0) {
@@ -252,6 +262,7 @@ if (!skipWatermarks) {
 }
 
 await postFinalizeStoredImport(destination);
+
 await clearPushCheckpoint();
 
 console.log(

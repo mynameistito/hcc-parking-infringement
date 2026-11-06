@@ -58,5 +58,6 @@ export const fetchMapSnapshot = async (
   const response = await fetch(`${workerUrl}/api/v1/locations/map`);
   const rawBody: unknown = await response.json();
   const parsed = mapResponseSchema.safeParse(rawBody);
+
   return parsed.success ? parsed.data.data : undefined;
 };

@@ -8,6 +8,7 @@ import type {
 import type { AppScope } from "@/server/app-scope.ts";
 
 export type { DailyStatRow, TopStatRow } from "@/durable-objects/types.ts";
+
 export type { LiveStats, TopGroupBy, TopWindow };
 
 export const getLiveStats = async (scope: AppScope): Promise<LiveStats> =>

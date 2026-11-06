@@ -66,12 +66,14 @@ const isTruncatedLabel = (stored: string, full: string): boolean => {
 
 const extractMarkerCode = (description: string): string | undefined => {
   const match = OFFENCE_MARKER_PREFIX_RE.exec(sanitizeOffenceText(description));
+
   return match?.groups?.code?.toUpperCase();
 };
 
 const stripMarkerPrefix = (description: string): string => {
   const sanitized = sanitizeOffenceText(description);
   const withoutPrefix = sanitized.replace(/^[PC]\d{2,4}[A-F]?\s+/iu, "");
+
   return withoutPrefix.length > 0 ? withoutPrefix : sanitized;
 };
 
@@ -79,11 +81,13 @@ const markerCodeFromCouncilCode = (
   code: string | null | undefined
 ): string | undefined => {
   const normalized = code?.trim() ?? "";
+
   if (normalized.length === 0) {
     return undefined;
   }
 
   const upper = normalized.toUpperCase();
+
   if (OFFENCE_DESCRIPTION_BY_CODE[upper] !== undefined) {
     return upper;
   }
@@ -93,6 +97,7 @@ const markerCodeFromCouncilCode = (
 
 const findCatalogByStoredPrefix = (description: string): string | undefined => {
   const normalized = normalizeForCompare(description);
+
   if (normalized.length === 0) {
     return undefined;
   }
@@ -102,6 +107,7 @@ const findCatalogByStoredPrefix = (description: string): string | undefined => {
 
   for (const label of Object.values(OFFENCE_DESCRIPTION_BY_CODE)) {
     const normalizedLabel = normalizeForCompare(label);
+
     if (
       normalizedLabel.startsWith(normalized) &&
       normalizedLabel.length > normalized.length &&
@@ -125,6 +131,7 @@ const resolveFromCodes = (
     }
 
     const catalog = OFFENCE_DESCRIPTION_BY_CODE[code];
+
     if (catalog === undefined) {
       continue;
     }
@@ -144,6 +151,7 @@ export const resolveOffenceDescription = (
 ): string => {
   const sanitized = sanitizeOffenceText(description);
   const markerFromDescription = extractMarkerCode(sanitized);
+
   const descriptionBody =
     markerFromDescription === undefined
       ? sanitized
@@ -163,6 +171,7 @@ export const resolveOffenceDescription = (
   }
 
   const resolvedFromPrefix = findCatalogByStoredPrefix(descriptionBody);
+
   if (resolvedFromPrefix !== undefined) {
     return resolvedFromPrefix;
   }

@@ -32,9 +32,11 @@ const trendTooltipLabel = (
   payload: readonly { payload?: unknown }[] | undefined
 ): string => {
   const raw: unknown = payload?.[0]?.payload;
+
   if (!isTrendPoint(raw)) {
     return "";
   }
+
   return formatTrendTooltipDate(raw.date);
 };
 
@@ -104,9 +106,11 @@ const formatTrendValue = (
   if (typeof value !== "number") {
     return String(value);
   }
+
   if (valueStyle === "currency") {
     return moneyFmt.format(value);
   }
+
   return numberFmt.format(value);
 };
 

@@ -21,11 +21,14 @@ export const parseGeometryJson = (
   if (raw === null || raw === undefined || raw === "") {
     return [];
   }
+
   try {
     const parsed: unknown = JSON.parse(raw);
+
     if (!isCoordinateRing(parsed)) {
       return [];
     }
+
     return parsed;
   } catch {
     return [];
@@ -43,6 +46,7 @@ export const normalizeLocationGeometry = (
   if (!isCoordinateRing(geometry)) {
     return [];
   }
+
   return filterRoadGeometry(geometry);
 };
 
@@ -54,11 +58,13 @@ export const toMapRouteRow = (row: {
   geometry_json: string | null;
 }): LocationMapPoint | null => {
   const geometry = filterRoadGeometry(parseGeometryJson(row.geometry_json));
+
   if (geometry.length === 0) {
     return null;
   }
 
   const suburbKey = row.suburb ?? "";
+
   return {
     count: row.count,
     geometry,

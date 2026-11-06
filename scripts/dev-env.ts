@@ -14,6 +14,7 @@ const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 export const isLocalWorkerUrl = (url: string): boolean => {
   try {
     const { hostname } = new URL(url);
+
     return (
       hostname === "127.0.0.1" ||
       hostname === "localhost" ||
@@ -48,6 +49,7 @@ export const localWorkerUrlAlternates = (workerUrl: string): string[] => {
 /** Default export source when `--from` / `--from-port` are not set. */
 export const defaultLocalPushSourceUrl = (): string => {
   const workerUrl = process.env.WORKER_URL;
+
   if (workerUrl !== undefined && isLocalWorkerUrl(workerUrl)) {
     return workerUrl.replace(/\/$/u, "");
   }
@@ -61,6 +63,7 @@ let devVarsLoaded = false;
 const ensureLocalNoProxy = (): void => {
   const hosts = ["localhost", "127.0.0.1", "::1"];
   const existing = process.env.NO_PROXY ?? process.env.no_proxy ?? "";
+
   const parts = existing
     .split(",")
     .map((part) => part.trim())
@@ -92,11 +95,13 @@ const parseDevVars = (content: string): Record<string, string> => {
 
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
+
     if (trimmed === "" || trimmed.startsWith("#")) {
       continue;
     }
 
     const equalsIndex = trimmed.indexOf("=");
+
     if (equalsIndex === -1) {
       continue;
     }
@@ -152,16 +157,21 @@ export const resolveWorkerUrl = (args: string[] = []): string => {
     .find((arg) => arg.startsWith("--port="))
     ?.split("=")[1]
     ?.trim();
+
   const portFlagIndex = args.indexOf("--port");
+
   const portFromFlag =
     portFlagIndex === -1 ? undefined : args[portFlagIndex + 1]?.trim();
+
   const port = portFromEquals ?? portFromFlag;
 
   if (port !== undefined && port !== "") {
     const normalizedPort = port.replaceAll(/^["']|["']$/gu, "");
+
     if (!/^\d+$/u.test(normalizedPort)) {
       throw new Error(`Invalid --port value "${port}" — expected a number.`);
     }
+
     return `http://127.0.0.1:${normalizedPort}`;
   }
 
@@ -180,6 +190,7 @@ export const fetchWithTimeout = async (
 ): Promise<Response> => {
   const timeoutMs = init?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   const controller = new AbortController();
+
   const timeout = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
@@ -212,6 +223,7 @@ export const assertWorkerReachable = async (
   options?: { path?: string; timeoutMs?: number }
 ): Promise<void> => {
   const baseUrl = workerUrl.replace(/\/$/u, "");
+
   const paths = [
     options?.path ?? "/api/v1/health/live",
     "/api/v1/health",
@@ -285,6 +297,7 @@ const extractErrorMessage = (rawBody: unknown): string | undefined => {
 
   if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
     const { error } = rawBody;
+
     if (typeof error === "string" && error.length > 0) {
       return error;
     }

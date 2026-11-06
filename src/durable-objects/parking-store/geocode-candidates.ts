@@ -18,6 +18,7 @@ export const isRecentGeocodeFailure = (
 
   try {
     const failedAtMs = parseAucklandInstant(failedAt).getTime();
+
     return Date.now() - failedAtMs < GEOCODE_FAILURE_RETRY_MS;
   } catch {
     return false;
@@ -33,6 +34,7 @@ export const locationNeedsGeocode = (
   }
 
   const geometry = filterRoadGeometry(parseGeometryJson(geometryJson));
+
   return geometry.length === 0;
 };
 

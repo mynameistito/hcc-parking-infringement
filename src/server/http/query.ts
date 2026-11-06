@@ -9,7 +9,9 @@ export const parsePositiveInt = (
   if (value === undefined || value === "") {
     return fallback;
   }
+
   const parsed = Number.parseInt(value, 10);
+
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
@@ -24,7 +26,9 @@ export const parseNonNegativeInt = (
   if (value === undefined || value === "") {
     return fallback;
   }
+
   const parsed = Number.parseInt(value, 10);
+
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
@@ -35,6 +39,7 @@ export const parseDateParam = (
   if (value === undefined || value === "") {
     return undefined;
   }
+
   return /^\d{4}-\d{2}-\d{2}$/u.test(value) ? value : undefined;
 };
 
@@ -49,6 +54,7 @@ export const optionalTrimmedQuery = (
   value: string | undefined
 ): string | undefined => {
   const trimmed = value?.trim();
+
   return trimmed !== undefined && trimmed !== "" ? trimmed : undefined;
 };
 
@@ -74,6 +80,7 @@ export const parseBackfillChunkDays = (
 ): number | undefined => {
   if (chunkDays !== undefined) {
     const parsed = Number.parseInt(chunkDays, 10);
+
     if (Number.isFinite(parsed) && parsed > 0) {
       return parsed;
     }

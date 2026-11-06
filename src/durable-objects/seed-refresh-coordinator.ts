@@ -35,10 +35,12 @@ const RETRY_BASE_DELAY_MS = 30_000;
 const MAX_RETRY_DELAY_MS = 6 * 60 * 60 * 1000;
 
 const countEntrySchema = z.tuple([z.string(), z.number()]);
+
 const refreshWindowSchema = z.object({
   end: z.string(),
   start: z.string(),
 });
+
 const refreshPlanSchema = z.object({
   bootstrapAfter: z.string().nullable(),
   existingLive: publicLiveStatsSchema.nullable(),
@@ -50,6 +52,7 @@ const refreshPlanSchema = z.object({
   to: z.string(),
   windows: z.array(refreshWindowSchema),
 });
+
 const refreshSummarySchema = z.object({
   amountCents: z.number(),
   chartOffenceCategories: z.array(countEntrySchema),
@@ -81,6 +84,7 @@ const refreshSummarySchema = z.object({
   towedToday: z.number(),
   vehicles: z.array(countEntrySchema),
 });
+
 const refreshResultSchema = z.object({
   from: z.string(),
   skipped: z.number(),
@@ -115,6 +119,7 @@ const workflowInstanceId = (input: StartSeedRefreshInput): string => {
   const date = new Date(input.scheduledTime);
   const hour = Math.floor(date.getUTCHours() / 6) * 6;
   const day = date.toISOString().slice(0, 10);
+
   return `seed-refresh-${day}-${String(hour).padStart(2, "0")}`;
 };
 
@@ -188,6 +193,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       state.plan_json === null
         ? null
         : refreshPlanSchema.parse(JSON.parse(state.plan_json));
+
     return {
       attempts: state.attempts,
       completedWindows: state.next_index,
@@ -203,6 +209,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
   private async repairAlarm(): Promise<void> {
     const state = this.readState();
+
     if (
       (state?.status === "planning" || state?.status === "running") &&
       (await this.ctx.storage.getAlarm()) === null
@@ -225,6 +232,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     beforeWindowIndex: number
   ): number[] {
     const published = new Set(plan.publishedInfringementNumbers);
+
     const summaries = this.ctx.storage.sql
       .exec<SummaryRow>(
         `SELECT summary_json
@@ -237,6 +245,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
     for (const row of summaries) {
       const summary = refreshSummarySchema.parse(JSON.parse(row.summary_json));
+
       for (const infringementNumber of summary.infringementNumbers) {
         published.add(infringementNumber);
       }
@@ -248,6 +257,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
   private async broadcastCurrentSnapshot(): Promise<void> {
     const parking = createParkingStoreReader(this.env, createSeedReadCache());
     const payload = await parking.readDashboardSnapshotPayload();
+
     for (const socket of this.ctx.getWebSockets()) {
       try {
         socket.send(payload);
@@ -268,8 +278,10 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       syncedAt: plan.syncedAt,
       to: plan.to,
     });
+
     const validatedResult: RefreshLiveSeedResult =
       refreshResultSchema.parse(result);
+
     this.ctx.storage.sql.exec(
       `UPDATE refresh_state
        SET status = 'complete', finished_at = ?, attempts = 0,
@@ -278,6 +290,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       nowIso(),
       JSON.stringify(validatedResult)
     );
+
     try {
       await this.broadcastCurrentSnapshot();
     } catch (error: unknown) {
@@ -290,6 +303,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
   private async finishPlanning(): Promise<SeedRefreshStatusDto> {
     const state = this.readState();
+
     if (state === null || state.status !== "planning") {
       return SeedRefreshCoordinator.statusFromState(state);
     }
@@ -304,11 +318,13 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       state.job_id
     );
     await this.ctx.storage.setAlarm(Date.now() + NEXT_ALARM_DELAY_MS);
+
     return SeedRefreshCoordinator.statusFromState(this.readState());
   }
 
   private async processNextSlice(): Promise<void> {
     const state = this.readState();
+
     if (
       state === null ||
       state.status !== "running" ||
@@ -319,8 +335,10 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
     const plan = refreshPlanSchema.parse(JSON.parse(state.plan_json));
     const window = plan.windows[state.next_index];
+
     if (window === undefined) {
       await this.complete(plan);
+
       return;
     }
 
@@ -336,8 +354,10 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       to: plan.to,
       window,
     });
+
     const validatedSummary: LiveSeedRefreshChunkSummary =
       refreshSummarySchema.parse(summary);
+
     this.ctx.storage.sql.exec(
       `INSERT INTO refresh_summaries (window_index, summary_json)
        VALUES (?, ?)
@@ -356,12 +376,14 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
   private async recordFailure(error: unknown): Promise<void> {
     const state = this.readState();
+
     if (state === null) {
       return;
     }
 
     const attempts = state.attempts + 1;
     const message = errorMessage(error);
+
     if (!isRetryableError(error)) {
       this.ctx.storage.sql.exec(
         `UPDATE refresh_state
@@ -377,6 +399,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
         jobId: state.job_id,
         windowIndex: state.next_index,
       });
+
       return;
     }
 
@@ -385,10 +408,12 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
       attempts,
       message
     );
+
     const delayMs = Math.min(
       RETRY_BASE_DELAY_MS * 2 ** (attempts - 1),
       MAX_RETRY_DELAY_MS
     );
+
     await this.ctx.storage.setAlarm(Date.now() + delayMs);
     console.warn("[seed-refresh] coordinator scheduled transient retry", {
       attempts,
@@ -404,12 +429,16 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     input: StartSeedRefreshInput
   ): Promise<SeedRefreshStatusDto> {
     const current = this.readState();
+
     if (current?.status === "running") {
       await this.repairAlarm();
+
       return SeedRefreshCoordinator.statusFromState(current);
     }
+
     if (current?.status === "planning") {
       await this.repairAlarm();
+
       return await this.finishPlanning();
     }
 
@@ -454,6 +483,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
   /** Return status and repair a missing alarm for an active refresh. */
   async getStatus(): Promise<SeedRefreshStatusDto> {
     await this.repairAlarm();
+
     return SeedRefreshCoordinator.statusFromState(this.readState());
   }
 
@@ -467,8 +497,10 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     try {
       if (this.readState()?.status === "planning") {
         await this.finishPlanning();
+
         return;
       }
+
       await this.processNextSlice();
     } catch (error: unknown) {
       await this.recordFailure(error);
@@ -486,11 +518,13 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
+
     try {
       server.send(payload);
     } catch {
       // The client can disconnect while the initial snapshot is loading.
     }
+
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -502,6 +536,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
 
     const text =
       typeof message === "string" ? message : new TextDecoder().decode(message);
+
     if (text === "ping") {
       socket.send(JSON.stringify({ at: nowIso(), type: "pong" }));
     }

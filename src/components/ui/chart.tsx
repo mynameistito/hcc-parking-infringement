@@ -5,9 +5,11 @@ import type { TooltipValueType } from "recharts";
 import { cn } from "@/lib/utils";
 
 const THEMES = { dark: ".dark", light: "" } as const;
+
 type ChartTheme = keyof typeof THEMES;
 
 const INITIAL_DIMENSION = { height: 200, width: 320 } as const;
+
 type TooltipNameType = number | string;
 
 export type ChartConfig = Record<
@@ -63,7 +65,9 @@ const readStringProperty = (obj: object, key: string): string | undefined => {
   if (!Object.hasOwn(obj, key)) {
     return undefined;
   }
+
   const value: unknown = Reflect.get(obj, key);
+
   return typeof value === "string" ? value : undefined;
 };
 
@@ -84,6 +88,7 @@ const getPayloadConfigFromPayload = (
       : undefined;
 
   const directKey = readStringProperty(payload, key);
+
   const nestedKey =
     nestedPayload === undefined
       ? undefined
@@ -102,6 +107,7 @@ const hasColorConfig = (itemConfig: ChartConfigEntry): boolean => {
   if ("theme" in itemConfig && itemConfig.theme !== undefined) {
     return true;
   }
+
   return "color" in itemConfig && itemConfig.color !== undefined;
 };
 
@@ -112,9 +118,11 @@ const resolveThemeColor = (
   if ("theme" in itemConfig && itemConfig.theme !== undefined) {
     return itemConfig.theme[theme];
   }
+
   if ("color" in itemConfig) {
     return itemConfig.color;
   }
+
   return undefined;
 };
 
@@ -132,9 +140,11 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
       dangerouslySetInnerHTML={{
         __html: CHART_THEMES.map((theme) => {
           const prefix = THEMES[theme];
+
           const cssVars = colorConfig
             .map(([key, itemConfig]) => {
               const color = resolveThemeColor(itemConfig, theme);
+
               return color !== undefined && color !== ""
                 ? `  --color-${key}: ${color};`
                 : null;
@@ -161,12 +171,15 @@ const resolveTooltipKey = (
   if (labelKey !== undefined) {
     return labelKey;
   }
+
   if (item?.dataKey !== undefined) {
     return String(item.dataKey);
   }
+
   if (item?.name !== undefined) {
     return String(item.name);
   }
+
   return fallback;
 };
 
@@ -177,12 +190,15 @@ const resolveSeriesKey = (
   if (nameKey !== undefined) {
     return nameKey;
   }
+
   if (item.name !== undefined) {
     return String(item.name);
   }
+
   if (item.dataKey !== undefined) {
     return String(item.dataKey);
   }
+
   return "value";
 };
 
@@ -190,6 +206,7 @@ const formatTooltipValue = (value: TooltipValueType): string => {
   if (typeof value === "number") {
     return value.toLocaleString();
   }
+
   return String(value);
 };
 
@@ -201,7 +218,9 @@ const readFillColor = (payload: unknown): string | undefined => {
   if (typeof payload !== "object" || payload === null) {
     return undefined;
   }
+
   const fill: unknown = Reflect.get(payload, "fill");
+
   return typeof fill === "string" ? fill : undefined;
 };
 
@@ -214,6 +233,7 @@ const resolveIndicatorColor = (
   }
 
   const fill = readFillColor(item.payload);
+
   if (fill !== undefined) {
     return fill;
   }
@@ -242,6 +262,7 @@ const TooltipIndicator = ({
 }: TooltipIndicatorProps) => {
   if (itemConfig?.icon !== undefined) {
     const Icon = itemConfig.icon;
+
     return <Icon />;
   }
 
@@ -300,6 +321,7 @@ const TooltipPayloadRow = ({
     item.name !== undefined
   ) {
     const { name, value } = item;
+
     return (
       <div
         className={cn(
@@ -390,6 +412,7 @@ const ChartTooltipContent = ({
     const [item] = payload;
     const key = resolveTooltipKey(labelKey, item, "value");
     const itemConfig = getPayloadConfigFromPayload(config, item, key);
+
     const value =
       labelKey === undefined && typeof label === "string"
         ? (config[label]?.label ?? label)
@@ -512,18 +535,23 @@ const resolveLegendKey = (
   if (nameKey !== undefined) {
     return nameKey;
   }
+
   if (typeof item.value === "string") {
     return item.value;
   }
+
   if (typeof item.value === "number") {
     return String(item.value);
   }
+
   if (typeof item.dataKey === "string") {
     return item.dataKey;
   }
+
   if (typeof item.dataKey === "number") {
     return String(item.dataKey);
   }
+
   return "value";
 };
 

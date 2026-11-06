@@ -47,6 +47,7 @@ export const syncSnapshotBetweenWorkers = async (
       options.batchSize,
       total === 0 ? "scan" : "cached"
     );
+
     ({ total } = page);
 
     if (page.records.length === 0) {

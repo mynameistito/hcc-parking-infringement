@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 const RankedBarChartInner = lazy(async () => {
   const module = await import("@/components/ranked-bar-chart-inner");
+
   return { default: module.RankedBarChartInner };
 });
 
@@ -50,6 +51,7 @@ export const RankedBarChart = ({
 
   const yMax = useMemo(() => {
     const maxValue = Math.max(...data.map((entry) => entry.value), 0);
+
     return buildYTicks(maxValue).at(-1) ?? 10;
   }, [data]);
 

@@ -8,6 +8,7 @@ import type { DailyStatRow } from "@/durable-objects/types/stats.ts";
 export type { BrowseSort } from "@/durable-objects/types/browse.ts";
 
 export type TopItem = PublicTopItem;
+
 export type DailyStatPoint = DailyStatRow;
 
 export type { LocationRankItem, VehicleRankItem };

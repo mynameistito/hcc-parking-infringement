@@ -22,11 +22,13 @@ const queryClient = new QueryClient({
 });
 
 const cachedSnapshot = readPersistedDashboardSnapshotSync();
+
 if (cachedSnapshot !== null) {
   restoreDashboardFromCache(queryClient, cachedSnapshot);
 }
 
 const root = document.querySelector("#root");
+
 if (!root) {
   throw new Error("Root element #root not found");
 }

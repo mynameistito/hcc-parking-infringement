@@ -50,6 +50,7 @@ const sendBackfillMessages = async (
   messages: BackfillMessage[]
 ): Promise<void> => {
   const batches: BackfillMessage[][] = [];
+
   for (let index = 0; index < messages.length; index += QUEUE_SEND_BATCH_SIZE) {
     batches.push(messages.slice(index, index + QUEUE_SEND_BATCH_SIZE));
   }
@@ -66,6 +67,7 @@ const sendBackfillMessages = async (
 
 const maxWindowsPerWave = (env: Env, delivery: BackfillDelivery): number => {
   const tuning = resolveBackfillTuning(env);
+
   return delivery === "direct"
     ? tuning.maxDirectPerWave
     : tuning.maxEnqueuePerWave;
@@ -96,6 +98,7 @@ const enqueueDailyWindows = async (
   force?: boolean
 ): Promise<void> => {
   const tuning = resolveBackfillTuning(scope.env);
+
   const messages = packBackfillQueueMessages(
     listDailyWindows(startDate, endDate),
     {
@@ -104,6 +107,7 @@ const enqueueDailyWindows = async (
       windowsPerMessage: tuning.queueWindowsPerMessage,
     }
   );
+
   await sendBackfillMessages(scope, messages);
 };
 
@@ -157,6 +161,7 @@ export const processBackfillMessage = async (
         message.startDate,
         message.endDate
       );
+
       if (alreadyIngested) {
         return { skipped: true, split: false };
       }
@@ -167,9 +172,11 @@ export const processBackfillMessage = async (
       message.startDate,
       message.endDate
     );
+
     if (!fetchedResult.ok) {
       const errorMessage = formatHccFetchError(fetchedResult.error);
       await recordFailure(errorMessage);
+
       return { error: errorMessage, failed: true, split: false };
     }
 
@@ -202,13 +209,16 @@ export const processBackfillMessage = async (
               message.endDate,
               message.force
             ));
+
         return { split: true };
       }
 
       const error =
         `HCC day ${message.startDate} exceeds page limit ` +
         `(${fetched.records.length} records) — skipping`;
+
       await recordFailure(error);
+
       return { error, failed: true, split: false };
     }
 
@@ -227,6 +237,7 @@ export const processBackfillMessage = async (
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     await recordFailure(errorMessage);
+
     return { error: errorMessage, failed: true, split: false };
   }
 };
@@ -279,6 +290,7 @@ export const startBackfill = async (
 
   const pending =
     options?.force === true ? chunks : await store.filterPendingChunks(chunks);
+
   const wave = pending.slice(0, maxWindowsPerWave(scope.env, delivery));
   const lastProcessed = wave.at(-1);
   const backfillWindows = toBackfillWindows(wave);
@@ -292,6 +304,7 @@ export const startBackfill = async (
       force: options?.force,
       windowsPerMessage: tuning.queueWindowsPerMessage,
     });
+
     queueMessages = packedMessages.length;
     await sendBackfillMessages(scope, packedMessages);
   }

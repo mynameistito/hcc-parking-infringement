@@ -32,6 +32,7 @@ const runAllGeocodeBatches = async (): Promise<{
     batch += 1;
 
     let result;
+
     try {
       result = await runGeocodeBatch(workerUrl, apiKey, limit);
     } catch (error) {

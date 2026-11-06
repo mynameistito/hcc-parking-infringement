@@ -17,6 +17,7 @@ const DEFAULT_SEED_CACHE_SECONDS = 60;
 
 const resolveR2AccessKeyId = (env: SeedR2Env): string | undefined => {
   const accessKeyId = env.R2_ACCESS_KEY_ID ?? env.R2_ACCESS_KEY;
+
   return accessKeyId !== undefined && accessKeyId.length > 0
     ? accessKeyId
     : undefined;
@@ -32,6 +33,7 @@ const bindingCacheUrl = (env: SeedR2Env, key: string): string =>
 
 const resolveR2AccountId = (env: SeedR2Env): string => {
   const accountId = env.R2_ACCOUNT_ID;
+
   if (accountId === undefined || accountId.length === 0) {
     throw new Error(
       "Set R2_ACCOUNT_ID in wrangler vars when using R2 S3 API credentials."
@@ -49,6 +51,7 @@ const hasR2Binding = (
 const hasR2S3Credentials = (env: SeedR2Env): boolean => {
   const accessKeyId = resolveR2AccessKeyId(env);
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+
   return (
     accessKeyId !== undefined &&
     secretAccessKey !== undefined &&
@@ -71,6 +74,7 @@ const readViaBinding = async (
   key: string
 ): Promise<string | null> => {
   const object = await bucket.get(key);
+
   if (object === null) {
     return null;
   }
@@ -84,11 +88,13 @@ const buildS3ObjectUrl = (
   key: string
 ): string => {
   const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+
   return `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${encodedKey}`;
 };
 
 const resolveSeedCacheSeconds = (env: SeedR2Env): number => {
   const value = Number.parseInt(env.PARKING_SEED_CACHE_SECONDS ?? "", 10);
+
   if (!Number.isFinite(value) || value < 0) {
     return DEFAULT_SEED_CACHE_SECONDS;
   }
@@ -105,6 +111,7 @@ const readCachedObjectTextUnsafe = async (
 
   const cache = await caches.open(SEED_OBJECT_CACHE);
   const response = await cache.match(url);
+
   if (response === undefined) {
     return null;
   }
@@ -123,8 +130,10 @@ const writeCachedObjectTextUnsafe = async (
 
   const cache = await caches.open(SEED_OBJECT_CACHE);
   const maxAge = resolveSeedCacheSeconds(env);
+
   if (maxAge === 0) {
     await cache.delete(url);
+
     return;
   }
 
@@ -184,6 +193,7 @@ const readViaS3Api = async (
 ): Promise<string | null> => {
   const accessKeyId = resolveR2AccessKeyId(env);
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+
   if (accessKeyId === undefined || secretAccessKey === undefined) {
     throw new Error("R2 S3 credentials are not configured.");
   }
@@ -194,13 +204,16 @@ const readViaS3Api = async (
     secretAccessKey,
     service: "s3",
   });
+
   const url = buildS3ObjectUrl(
     resolveR2AccountId(env),
     resolveSeedBucketName(env),
     key
   );
+
   const cached =
     resolveSeedCacheSeconds(env) === 0 ? null : await readCachedObjectText(url);
+
   if (cached !== null) {
     return cached;
   }
@@ -219,6 +232,7 @@ const readViaS3Api = async (
 
   const text = await response.text();
   await writeCachedObjectText(url, env, text);
+
   return text;
 };
 
@@ -241,6 +255,7 @@ const writeViaS3Api = async (
 ): Promise<void> => {
   const accessKeyId = resolveR2AccessKeyId(env);
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+
   if (accessKeyId === undefined || secretAccessKey === undefined) {
     throw new Error("R2 S3 credentials are not configured.");
   }
@@ -251,11 +266,13 @@ const writeViaS3Api = async (
     secretAccessKey,
     service: "s3",
   });
+
   const url = buildS3ObjectUrl(
     resolveR2AccountId(env),
     resolveSeedBucketName(env),
     key
   );
+
   const response = await client.fetch(url, {
     body: value,
     headers: { "Content-Type": contentType },
@@ -279,17 +296,22 @@ export const readSeedObjectText = async (
 
   if (hasR2Binding(env)) {
     const url = bindingCacheUrl(env, key);
+
     const cached =
       resolveSeedCacheSeconds(env) === 0
         ? null
         : await readCachedObjectText(url);
+
     if (cached !== null) {
       return cached;
     }
+
     const text = await readViaBinding(env.PARKING_SEED, key);
+
     if (text !== null) {
       await writeCachedObjectText(url, env, text);
     }
+
     return text;
   }
 
@@ -307,6 +329,7 @@ export const writeSeedObjectText = async (
   if (hasR2Binding(env)) {
     await writeViaBinding(env.PARKING_SEED, key, value, contentType);
     await deleteCachedObjectText(bindingCacheUrl(env, key));
+
     return;
   }
 

@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 
 const TrendChart = lazy(async () => {
   const module = await import("@/components/trend-chart");
+
   return { default: module.TrendChart };
 });
 
@@ -58,15 +59,19 @@ const maxLabelsForWindow = (window: TrendWindow): number => {
   if (window === "all") {
     return 8;
   }
+
   if (window === "365") {
     return 7;
   }
+
   if (window === "90") {
     return 6;
   }
+
   if (window === "7") {
     return 7;
   }
+
   return 7;
 };
 
@@ -74,6 +79,7 @@ const formatTrendTotal = (metric: TrendMetric, total: number): string => {
   if (metric === "totalCents") {
     return moneyFmt.format(total);
   }
+
   return numberFmt.format(total);
 };
 
@@ -81,6 +87,7 @@ const formatTrendAverage = (metric: TrendMetric, average: number): string => {
   if (metric === "totalCents") {
     return moneyFmt.format(average);
   }
+
   return numberFmt.format(Math.round(average));
 };
 
@@ -108,6 +115,7 @@ export const DailyTrendPanel = ({
 
   const windowDays =
     window === "all" ? dailyTrendSpanDays(dailyTrend) : WINDOW_DAYS[window];
+
   const maxLabels = maxLabelsForWindow(window);
 
   const chart = useMemo(
@@ -125,9 +133,11 @@ export const DailyTrendPanel = ({
 
   const average = useMemo(() => {
     const pointCount = chart.values.length;
+
     if (pointCount === 0) {
       return 0;
     }
+
     return total / pointCount;
   }, [chart.values.length, total]);
 
@@ -159,6 +169,7 @@ export const DailyTrendPanel = ({
               value={[metric]}
               onValueChange={(values: string[]) => {
                 const [value] = values;
+
                 if (value !== undefined && isTrendMetric(value)) {
                   setMetric(value);
                 }
@@ -180,6 +191,7 @@ export const DailyTrendPanel = ({
               value={[window]}
               onValueChange={(values: string[]) => {
                 const [value] = values;
+
                 if (value !== undefined && isTrendWindow(value)) {
                   setWindow(value);
                 }

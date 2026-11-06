@@ -12,14 +12,17 @@ const formatWindowLabel = (
   if (start === undefined || end === undefined) {
     return "waiting…";
   }
+
   if (start === end) {
     return start;
   }
+
   return `${start} → ${end}`;
 };
 
 const renderBar = (percent: number, width = 28): string => {
   const filled = Math.round((percent / 100) * width);
+
   return `[${"█".repeat(filled)}${"░".repeat(width - filled)}]`;
 };
 
@@ -30,6 +33,7 @@ export const formatNumber = (value: number): string =>
 /** Single-line progress summary when `/sync/backfill/progress` is available. */
 export const renderProgressLine = (progress: BackfillProgress): string => {
   const bar = renderBar(progress.percent);
+
   const windowLabel =
     progress.latestWindow === null
       ? "waiting…"

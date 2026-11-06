@@ -35,6 +35,7 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
       <ul className="flex flex-col gap-1">
         {items.map((item, index) => {
           const share = sum > 0 ? (item.count / sum) * 100 : 0;
+
           return (
             <li
               key={`${item.label}-${index}`}

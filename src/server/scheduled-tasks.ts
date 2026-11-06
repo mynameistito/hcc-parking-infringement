@@ -29,7 +29,9 @@ export const runScheduledMaintenance = async (
       reason: "cron",
       scheduledTime,
     });
+
     console.log("[seed-refresh] coordinator started", result);
+
     return;
   }
 

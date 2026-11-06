@@ -23,6 +23,7 @@ export const useAnimatedNumber = (
 
     const from = displayRef.current;
     const to = value;
+
     if (from === to) {
       return () => {
         if (frameRef.current !== null) {

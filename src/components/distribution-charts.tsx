@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 
 const RankedBarChart = lazy(async () => {
   const module = await import("@/components/ranked-bar-chart");
+
   return { default: module.RankedBarChart };
 });
 

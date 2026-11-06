@@ -10,6 +10,7 @@ export const flushBackfillDerivedStateSafely = async (
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
+
     return { flushed: false };
   }
 };

@@ -6,6 +6,7 @@ import type { SeedR2Env } from "./seed-r2-client";
 const fixture = () => {
   const objects = new Map<string, string>([["manifest.json", "old"]]);
   const entries = new Map<string, Response>();
+
   const cache = {
     delete: async (key: string) => await Promise.resolve(entries.delete(key)),
     match: async (key: string) =>
@@ -15,10 +16,13 @@ const fixture = () => {
       await Promise.resolve();
     },
   };
+
   vi.stubGlobal("caches", { open: async () => await Promise.resolve(cache) });
+
   const bucket = {
     get: async (key: string) => {
       const value = objects.get(key);
+
       return await Promise.resolve(
         value === undefined
           ? null
@@ -30,6 +34,7 @@ const fixture = () => {
       await Promise.resolve();
     },
   };
+
   // SAFETY: this fake implements the get/text and put binding operations used
   // by this adapter; no other R2 operations enter the tested interface.
   const env: SeedR2Env = {
@@ -38,6 +43,7 @@ const fixture = () => {
     PARKING_SEED_BUCKET: "test",
     R2_ACCOUNT_ID: "account",
   };
+
   return { entries, env, objects };
 };
 

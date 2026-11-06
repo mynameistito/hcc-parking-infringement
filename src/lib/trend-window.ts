@@ -22,11 +22,13 @@ export const dailyTrendSpanDays = (
   endDate = todayInAuckland()
 ): number => {
   let earliest: string | null = null;
+
   for (const point of dailyTrend) {
     if (earliest === null || point.date < earliest) {
       earliest = point.date;
     }
   }
+
   if (earliest === null) {
     return PACE_DAILY_TREND_DAYS;
   }
@@ -60,6 +62,7 @@ export const comparePeriods = (
   const previous = counts
     .slice(-days * 2, -days)
     .reduce((sum, value) => sum + value, 0);
+
   return toTrendResult(current, previous);
 };
 
@@ -67,9 +70,11 @@ const formatPointLabel = (dateKey: string, seriesLength: number): string => {
   if (seriesLength > 60) {
     return formatAucklandDateKey(dateKey, "d MMM").toUpperCase();
   }
+
   if (seriesLength > 14) {
     return formatAucklandDateKey(dateKey, "d MMM").toUpperCase();
   }
+
   return formatAucklandDateKey(dateKey, "EEE d").toUpperCase();
 };
 
@@ -96,6 +101,7 @@ export const xAxisTickInterval = (
   if (pointCount <= maxTicks || maxTicks <= 1) {
     return 0;
   }
+
   return Math.ceil(pointCount / maxTicks) - 1;
 };
 
@@ -107,18 +113,22 @@ export interface PaceWindowChart {
 
 const bucketWeekly = (series: DailyStatPoint[]): DailyStatPoint[] => {
   const weeks: DailyStatPoint[] = [];
+
   for (let index = 0; index < series.length; index += 7) {
     const chunk = series.slice(index, index + 7);
     const [first] = chunk;
+
     if (first === undefined) {
       continue;
     }
+
     weeks.push({
       count: chunk.reduce((sum, point) => sum + point.count, 0),
       date: first.date,
       totalCents: chunk.reduce((sum, point) => sum + point.totalCents, 0),
     });
   }
+
   return weeks;
 };
 
@@ -129,6 +139,7 @@ const buildPaceWindow = (
 ): PaceWindowChart => {
   const daily = sliceDays(dailyTrend, windowDays);
   const series = aggregate?.(daily) ?? daily;
+
   return {
     dates: datesForSeries(series),
     labels: labelsForSeries(series),
@@ -195,10 +206,12 @@ export const buildTrendWindowChart = (
 ): PaceWindowChart => {
   const normalized =
     typeof options === "boolean" ? { aggregateWeekly: options } : options;
+
   const aggregateWeekly = normalized.aggregateWeekly ?? windowDays > 90;
   const aggregate = aggregateWeekly ? bucketWeekly : undefined;
   const daily = sliceDays(dailyTrend, windowDays);
   const series = aggregate?.(daily) ?? daily;
+
   return {
     dates: datesForSeries(series),
     labels: labelsForSeries(series),
@@ -214,8 +227,10 @@ export const sumTrendWindow = (
   metric: TrendMetric
 ): number => {
   const daily = sliceDays(dailyTrend, windowDays);
+
   if (metric === "count") {
     return daily.reduce((sum, point) => sum + point.count, 0);
   }
+
   return daily.reduce((sum, point) => sum + point.totalCents, 0) / 100;
 };

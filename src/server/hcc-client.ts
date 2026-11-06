@@ -36,9 +36,11 @@ export const formatHccFetchError = (error: HccFetchError): string => {
   if (error.tag === "malformed") {
     return `HCC API response missing Paging metadata: ${error.detail}`;
   }
+
   if (error.tag === "malformed_json") {
     return "HCC API returned malformed JSON";
   }
+
   return error.tag === "cancelled"
     ? "HCC request cancelled"
     : "HCC transport failed";
@@ -66,9 +68,11 @@ export interface FetchInfringementsOptions {
 
 const apiBase = (env: HccClientEnv): string => {
   const base = env.HCC_API_BASE ?? DEFAULT_API_BASE;
+
   if (base.includes("get_parking_infringement")) {
     return base;
   }
+
   return `${base.replace(/\/$/u, "")}/get_parking_infringement`;
 };
 
@@ -80,34 +84,44 @@ const acquireHccSlot = async (signal?: AbortSignal): Promise<boolean> => {
   if (signal?.aborted === true) {
     return false;
   }
+
   if (hccInFlight < BACKFILL_HCC_CONCURRENCY) {
     hccInFlight += 1;
+
     return true;
   }
 
   const { promise, resolve } = Promise.withResolvers<boolean>();
   const waiter: { wake?: () => void } = {};
+
   const onAbort = () => {
     const index =
       waiter.wake === undefined ? -1 : hccWaiters.indexOf(waiter.wake);
+
     if (index !== -1) {
       hccWaiters.splice(index, 1);
     }
+
     resolve(false);
   };
+
   waiter.wake = () => {
     signal?.removeEventListener("abort", onAbort);
     resolve(true);
   };
+
   hccWaiters.push(waiter.wake);
   signal?.addEventListener("abort", onAbort, { once: true });
+
   return await promise;
 };
 
 const releaseHccSlot = (): void => {
   const next = hccWaiters.shift();
+
   if (next) {
     next();
+
     return;
   }
 
@@ -121,16 +135,19 @@ export const fetchInfringements = async (
   if (!(await acquireHccSlot(options.signal))) {
     return err({ tag: "cancelled" });
   }
+
   try {
     if (isAborted(options.signal)) {
       return err({ tag: "cancelled" });
     }
+
     const url = new URL(apiBase(env));
     url.searchParams.set("Page", String(options.page));
     url.searchParams.set("Start_Date", options.startDate);
     url.searchParams.set("End_Date", options.endDate);
 
     let response: Response;
+
     try {
       response = await (options.fetch ?? fetch)(url.toString(), {
         headers: { Accept: "application/json" },
@@ -157,17 +174,21 @@ export const fetchInfringements = async (
     }
 
     let body: unknown;
+
     try {
       body = await response.json();
     } catch (error) {
       if (isAborted(options.signal)) {
         return err({ tag: "cancelled" });
       }
+
       return err({
         tag: error instanceof SyntaxError ? "malformed_json" : "transport",
       });
     }
+
     const parsed = hccInfringementResponseSchema.safeParse(body);
+
     if (!parsed.success) {
       return err({
         detail: parsed.error.message,
@@ -211,6 +232,7 @@ export const hccTransportLayer = (
                   : AbortSignal.any([signal, options.signal]),
             })
         );
+
         return yield* result.ok
           ? Effect.succeed(result.value)
           : Effect.fail(result.error);
@@ -228,6 +250,7 @@ export const fetchAllInWindow = async (
   await Effect.runPromise(
     Effect.gen(function* runHccFetch() {
       const client = yield* HccClient;
+
       return yield* client.fetchAll(startDate, endDate);
     }).pipe(
       Effect.provide(
@@ -244,6 +267,7 @@ export const fetchAllInWindowOrThrow = async (
   endDate: string
 ): Promise<FetchAllResult> => {
   const result = await fetchAllInWindow(env, startDate, endDate);
+
   if (!result.ok) {
     throw new Error(formatHccFetchError(result.error));
   }

@@ -58,6 +58,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
   routes.get("/cache/status", async (c) => {
     assertApiKey(c.req.raw, c.env);
     const cache = await getCacheStatus(c.var.scope);
+
     return storedJson(c, {
       ...cache,
       hccFetchPolicy: {
@@ -96,6 +97,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
   routes.get("/status", async (c) => {
     assertApiKey(c.req.raw, c.env);
+
     const [latestRun, cache] = await Promise.all([
       getLatestSyncRun(c.var.scope),
       getCacheStatus(c.var.scope),
@@ -126,9 +128,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const result = await hourlySync(c.var.scope, "manual");
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -140,9 +144,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       const result = await startSeedRefresh(c.env, {
         reason: "manual",
       });
+
       return c.json({ coordinator: result, ok: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -157,6 +163,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -166,6 +173,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     const from = parseDateParam(c.req.query("from")) ?? BACKFILL_EARLIEST;
     const to = parseDateParam(c.req.query("to")) ?? todayInAuckland();
+
     const chunkDays = parseBackfillChunkDays(
       c.req.query("granularity"),
       c.req.query("chunkDays")
@@ -176,6 +184,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       from,
       to
     );
+
     if (rangeError !== undefined) {
       return jsonError(400, rangeError);
     }
@@ -186,9 +195,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         end: to,
         start: from,
       });
+
       return storedJson(c, { ok: true, ...progress });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -201,6 +212,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       const from = parseDateParam(c.req.query("from"));
       const to = parseDateParam(c.req.query("to"));
       const delivery = parseBackfillDelivery(c.req.query("delivery"));
+
       const chunkDays = parseBackfillChunkDays(
         c.req.query("granularity"),
         c.req.query("chunkDays")
@@ -211,6 +223,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         from,
         to
       );
+
       if (rangeError !== undefined) {
         return jsonError(400, rangeError);
       }
@@ -222,9 +235,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         force,
         start: from,
       });
+
       return c.json({ force, ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -235,9 +250,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     try {
       const body: unknown = await c.req.json();
       const result = await importInfringements(c.var.scope, body);
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(400, message);
     }
   });
@@ -253,6 +270,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       return c.json({ ok: true, payload });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -271,9 +289,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         limit,
         totalMode
       );
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -283,9 +303,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const result = await importSnapshotBatch(c.var.scope, await c.req.json());
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -295,9 +317,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const { manifest, prefix } = await readSeedManifest(c.env);
+
       return c.json({ ok: true, prefix, ...manifest });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -307,6 +331,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const body = seedChunkRequestSchema.parse(await c.req.json());
+
       const result = await importSeedInfringementChunk(c.env, {
         chunk: body.chunk,
         prefixOverride: body.prefix,
@@ -315,6 +340,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -326,10 +352,13 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
       const body = seedPrefixRequestSchema.parse(
         await c.req.json().catch(() => ({}))
       );
+
       const result = await importSeedWatermarks(c.env, body.prefix);
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -339,9 +368,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       await finalizeSeedImport(c.env);
+
       return c.json({ ok: true, recomputed: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -354,9 +385,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         c.var.scope,
         await c.req.json()
       );
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -369,9 +402,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const result = await exportStoredWatermarks(c.var.scope, offset, limit);
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -384,9 +419,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
         c.var.scope,
         await c.req.json()
       );
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -396,9 +433,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const result = await finalizeStoredImport(c.var.scope);
+
       return c.json({ ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       return jsonError(500, message);
     }
   });
@@ -407,6 +446,7 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
     assertApiKey(c.req.raw, c.env);
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 100);
     const result = await geocodeMissingLocations(c.var.scope, limit);
+
     return c.json({ ok: true, ...result });
   });
 

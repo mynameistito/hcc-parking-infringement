@@ -12,9 +12,11 @@ const booleanFields = new Set(["Is_Towed"]);
 
 const normalizeDate = (value: string): string => {
   const trimmed = value.trim();
+
   if (/^\d{4}\/\d{2}\/\d{2}$/u.test(trimmed)) {
     return trimmed.replaceAll("/", "-");
   }
+
   return trimmed;
 };
 
@@ -49,6 +51,7 @@ export const parseCsvLine = (line: string): string[] => {
   }
 
   cells.push(cell);
+
   return cells;
 };
 
@@ -64,6 +67,7 @@ export const toRawInfringementRecord = (
 
   for (let index = 0; index < headers.length; index += 1) {
     const key = headers[index];
+
     if (
       key === undefined ||
       key === "" ||
@@ -79,6 +83,7 @@ export const toRawInfringementRecord = (
       if (raw !== "") {
         record[key] = Number(raw);
       }
+
       continue;
     }
 

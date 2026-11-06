@@ -6,6 +6,7 @@ import {
 } from "@/lib/auckland-time.ts";
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/u;
+
 const WALL_CLOCK =
   /^(?<date>\d{4}-\d{2}-\d{2})T(?<time>\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)/u;
 
@@ -18,15 +19,18 @@ const extractWallClock = (
   const match = WALL_CLOCK.exec(value);
   const date = match?.groups?.date;
   const time = match?.groups?.time;
+
   if (date === undefined || time === undefined) {
     return null;
   }
+
   return { date, time };
 };
 
 /** Re-encode infringement occurrence times preserving NZ wall clock. */
 export const migrateWallClockInstant = (value: string): string => {
   const trimmed = value.trim();
+
   if (trimmed === "") {
     throw new TypeError("Cannot migrate empty instant");
   }
@@ -40,6 +44,7 @@ export const migrateWallClockInstant = (value: string): string => {
   }
 
   const wallClock = extractWallClock(trimmed);
+
   if (wallClock === null) {
     throw new TypeError(`Unrecognized wall-clock instant: ${value}`);
   }
@@ -50,6 +55,7 @@ export const migrateWallClockInstant = (value: string): string => {
 /** Re-encode sync/metadata instants (UTC Z, date-only, or wall clock). */
 export const migrateSyncInstant = (value: string): string => {
   const trimmed = value.trim();
+
   if (trimmed === "") {
     throw new TypeError("Cannot migrate empty instant");
   }
@@ -63,6 +69,7 @@ export const migrateSyncInstant = (value: string): string => {
   }
 
   const wallClock = extractWallClock(trimmed);
+
   if (wallClock === null) {
     throw new TypeError(`Unrecognized sync instant: ${value}`);
   }
@@ -80,10 +87,13 @@ export const migrateOptionalWallClockInstant = (
   if (value === null || value === undefined) {
     return null;
   }
+
   const trimmed = value.trim();
+
   if (trimmed === "") {
     return null;
   }
+
   return migrateWallClockInstant(trimmed);
 };
 
@@ -93,7 +103,9 @@ export const migrateOptionalClosedAt = (
   if (value === null || value === undefined) {
     return null;
   }
+
   const trimmed = value.trim();
+
   if (trimmed === "") {
     return null;
   }
@@ -111,10 +123,13 @@ export const migrateOptionalSyncInstant = (
   if (value === null || value === undefined) {
     return null;
   }
+
   const trimmed = value.trim();
+
   if (trimmed === "") {
     return null;
   }
+
   return migrateSyncInstant(trimmed);
 };
 
@@ -134,6 +149,7 @@ export const shouldMigrateSyncMetaValue = (
 
 export const migrateDashboardSnapshotPayload = (payload: string): string => {
   const parsed: unknown = JSON.parse(payload);
+
   if (!isRecord(parsed)) {
     return payload;
   }
@@ -143,16 +159,19 @@ export const migrateDashboardSnapshotPayload = (payload: string): string => {
   }
 
   const { live } = parsed;
+
   if (isRecord(live)) {
     if (typeof live.lastSyncedAt === "string") {
       live.lastSyncedAt = migrateSyncInstant(live.lastSyncedAt);
     }
+
     if (typeof live.lastRecordAt === "string") {
       live.lastRecordAt = migrateWallClockInstant(live.lastRecordAt);
     }
   }
 
   const recent = parsed.recentInfringements;
+
   if (Array.isArray(recent)) {
     for (const item of recent) {
       if (isRecord(item) && typeof item.occurredAt === "string") {

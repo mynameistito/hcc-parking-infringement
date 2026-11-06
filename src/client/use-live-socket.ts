@@ -78,6 +78,7 @@ const emit = (): void => {
 
 const liveSocketUrl = (): string => {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+
   return `${protocol}//${window.location.host}/api/v1/live/ws`;
 };
 
@@ -112,6 +113,7 @@ const onSnapshot = (message: FullDashboardMessage): void => {
     if (store.queryClient !== null) {
       applyDashboardSnapshot(store.queryClient, message);
     }
+
     persistDashboardSnapshot(message);
     store.lastSnapshotTime = messageTime;
     store.lastSnapshotWeight = messageWeight;
@@ -147,6 +149,7 @@ const connect = (): void => {
     store.connected = false;
     store.ws = null;
     emit();
+
     if (store.refCount > 0) {
       clearReconnectTimer();
       store.reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY_MS);
@@ -159,6 +162,7 @@ const connect = (): void => {
 
   ws.addEventListener("message", (event) => {
     const message = parseDashboardMessage(String(event.data));
+
     if (message !== null) {
       onSnapshot(message);
     }
@@ -180,6 +184,7 @@ const acquireLiveSocket = (queryClient: ReturnQueryClient): void => {
 
 const releaseLiveSocket = (): void => {
   store.refCount = Math.max(0, store.refCount - 1);
+
   if (store.refCount > 0) {
     return;
   }
@@ -189,6 +194,7 @@ const releaseLiveSocket = (): void => {
     if (store.refCount > 0) {
       return;
     }
+
     clearReconnectTimer();
     clearPingTimer();
     store.ws?.close();
@@ -200,6 +206,7 @@ const releaseLiveSocket = (): void => {
 
 const subscribe = (listener: Listener): (() => void) => {
   listeners.add(listener);
+
   return () => {
     listeners.delete(listener);
   };
@@ -227,18 +234,22 @@ export const useLiveSocket = (): LiveTransportState => {
 
     void (async () => {
       const cached = await readPersistedDashboardSnapshot();
+
       if (cancelled || cached === null) {
         return;
       }
 
       const cachedTime = getDashboardSnapshotTime(cached);
       const cachedWeight = getDashboardSnapshotWeight(cached);
+
       if (cachedTime < store.lastSnapshotTime) {
         return;
       }
+
       if (cachedWeight === 0 && store.lastSnapshotWeight > 0) {
         return;
       }
+
       // Live snapshot may arrive while IndexedDB is still loading; do not
       // regress to cached state when the socket already delivered fresh data.
       if (store.connected && cachedTime <= store.lastSnapshotTime) {
@@ -252,7 +263,9 @@ export const useLiveSocket = (): LiveTransportState => {
       store.cached = !store.connected;
       emit();
     })();
+
     acquireLiveSocket(queryClient);
+
     return () => {
       cancelled = true;
       releaseLiveSocket();

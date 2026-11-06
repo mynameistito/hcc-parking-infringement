@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 const DonutChartInner = lazy(async () => {
   const module = await import("@/components/donut-chart-inner");
+
   return { default: module.DonutChartInner };
 });
 
@@ -44,6 +45,7 @@ const buildChartData = (
   total: number;
 } => {
   const total = items.reduce((sum, item) => sum + item.count, 0);
+
   if (items.length === 0) {
     return { data: [], total: 0 };
   }

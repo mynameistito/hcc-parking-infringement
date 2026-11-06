@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 const TrendChart = lazy(async () => {
   const module = await import("@/components/trend-chart");
+
   return { default: module.TrendChart };
 });
 
@@ -20,12 +21,15 @@ const formatTrendPercent = (percent: number | null): string => {
   if (percent === null) {
     return "—";
   }
+
   let sign = "";
+
   if (percent > 0) {
     sign = "+";
   } else if (percent < 0) {
     sign = "−";
   }
+
   return `${sign}${Math.abs(percent).toFixed(1)}%`;
 };
 
@@ -33,6 +37,7 @@ const TrendBadge = ({ trend }: { trend: TrendResult }) => {
   const isDown = trend.direction === "down";
   const isUp = trend.direction === "up";
   let Icon = Minus;
+
   if (isUp) {
     Icon = ArrowUpRight;
   } else if (isDown) {
@@ -113,6 +118,7 @@ export const PacePanel = ({
   isLoading,
 }: PacePanelProps) => {
   const loading = isLoading === true;
+
   const panel = useMemo(
     () =>
       buildPacePanelData(

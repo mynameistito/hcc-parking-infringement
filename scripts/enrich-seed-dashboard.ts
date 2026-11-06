@@ -70,6 +70,7 @@ for (const chunk of manifest.infringementChunks) {
 
 const historical = buildChartBreakdownFromInfringements(records);
 const derived = resolveChartBreakdowns(message);
+
 const chartBreakdowns = {
   offenceCategories: historical.breakdowns.offenceCategories,
   offences:
@@ -87,6 +88,7 @@ const chartBreakdowns = {
       : historical.breakdowns.vehicleMakes,
   vehicleTypes: historical.breakdowns.vehicleTypes,
 };
+
 const topStreets = resolveChartStreetItems(message);
 
 const enriched = {
@@ -103,6 +105,7 @@ const updatedManifest = {
   ...manifest,
   exportedAt: new Date().toISOString(),
 };
+
 await writeFile(
   path.join(seedDir, MANIFEST_FILE),
   `${JSON.stringify(updatedManifest, null, 2)}\n`,

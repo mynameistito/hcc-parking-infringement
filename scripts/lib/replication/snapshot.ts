@@ -28,6 +28,7 @@ export const parkingStoreSnapshotSchema = z.object({
 });
 
 export type ParkingStoreSnapshot = z.infer<typeof parkingStoreSnapshotSchema>;
+
 export type IngestWatermarkExport = z.infer<typeof ingestWatermarkExportSchema>;
 
 export const parseParkingStoreSnapshot = (raw: unknown): ParkingStoreSnapshot =>
@@ -37,6 +38,7 @@ export const readParkingStoreSnapshot = async (
   filePath: string
 ): Promise<ParkingStoreSnapshot> => {
   const raw = await readFile(filePath, "utf-8");
+
   return parseParkingStoreSnapshot(JSON.parse(raw));
 };
 

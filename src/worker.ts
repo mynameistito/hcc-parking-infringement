@@ -7,14 +7,17 @@ import { processBackfillQueueBatch } from "@/server/backfill-queue.ts";
 import { runScheduledMaintenance } from "@/server/scheduled-tasks.ts";
 
 export { ParkingStore };
+
 export { SeedRefreshCoordinator };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
+
     if (!url.pathname.startsWith("/api/v1/")) {
       return await env.ASSETS.fetch(request.url);
     }
+
     return await app.fetch(request, env, ctx);
   },
 

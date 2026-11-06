@@ -23,6 +23,7 @@ export const createV1HealthRoutes = (): Hono<AppEnv> => {
   routes.get("/health", async (c) => {
     const cache = await getCacheStatus(c.var.scope);
     const readSource = getParkingStoreReadSource(c.env);
+
     return c.json({
       dataSource: cache.source,
       deployment: {
@@ -39,6 +40,7 @@ export const createV1HealthRoutes = (): Hono<AppEnv> => {
   routes.get("/cache", async (c) => {
     const cache = await getCacheStatus(c.var.scope);
     const readSource = getParkingStoreReadSource(c.env);
+
     return storedJson(c, {
       meta: {
         description: c.var.scope.isSeedMode

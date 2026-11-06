@@ -23,12 +23,14 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
   routes.get("/locations/streets", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
     const streets = await getTopStreets(c.var.scope, limit);
+
     return storedJson(c, { data: streets, meta: { source: "stored" } });
   });
 
   routes.get("/locations/suburbs", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
     const suburbs = await getTopSuburbs(c.var.scope, limit);
+
     return storedJson(c, { data: suburbs, meta: { source: "stored" } });
   });
 
@@ -36,6 +38,7 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 50), 100);
     c.executionCtx.waitUntil(geocodeMissingLocations(c.var.scope, 25));
     const map = await getMapPoints(c.var.scope, limit);
+
     return storedJson(c, {
       data: map,
       meta: {
@@ -49,19 +52,23 @@ export const createV1PublicRoutes = (): Hono<AppEnv> => {
   routes.get("/vehicles/top", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
     const vehicles = await getTopVehicles(c.var.scope, limit);
+
     return storedJson(c, { data: vehicles, meta: { source: "stored" } });
   });
 
   routes.get("/infringements/recent", async (c) => {
     const page = parsePositiveInt(c.req.query("page"), 1);
+
     const limit = Math.min(
       parsePositiveInt(c.req.query("limit"), INFRINGEMENTS_DEFAULT_PAGE_SIZE),
       INFRINGEMENTS_MAX_PAGE_SIZE
     );
+
     const result = await listInfringements(c.var.scope, {
       limit,
       page,
     });
+
     return storedJson(c, {
       meta: { source: "stored" },
       ...result,

@@ -27,6 +27,7 @@ export interface DailyStatRow {
 }
 
 export type TopGroupBy = "street" | "offence";
+
 export type TopWindow = "all" | "7d" | "30d";
 
 export interface TopStatRow {

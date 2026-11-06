@@ -11,7 +11,9 @@ import { aggregatePeriod } from "./stats-aggregates.ts";
 import { getSyncMeta } from "./sync.ts";
 
 export { aggregatePeriod, aggregateWindow } from "./stats-aggregates.ts";
+
 export type { WindowAggregate } from "./stats-aggregates.ts";
+
 export {
   mapPublicLiveStatsRow,
   readPublicLiveStats,
@@ -27,21 +29,25 @@ export const getLiveStats = (sql: SqlStorage): LiveStats => {
     .one();
 
   const now = new Date();
+
   const today = aggregatePeriod(
     sql,
     todayBounds(now).start,
     todayBounds(now).end
   );
+
   const thisMonth = aggregatePeriod(
     sql,
     monthBoundsInAuckland(now).start,
     monthBoundsInAuckland(now).end
   );
+
   const thisYear = aggregatePeriod(
     sql,
     yearBoundsInAuckland(now).start,
     yearBoundsInAuckland(now).end
   );
+
   const allTime = sql
     .exec<{ count: number; total_cents: number }>(
       "SELECT count(*) as count, coalesce(sum(amount_cents), 0) as total_cents FROM infringements"
@@ -80,6 +86,7 @@ export const getCacheStatus = (sql: SqlStorage): CacheStatus => {
     .one();
 
   const cachedTotal = getCachedInfringementCount(sql);
+
   const totalRecords =
     statsRow !== undefined && statsRow.all_time_total > 0
       ? statsRow.all_time_total

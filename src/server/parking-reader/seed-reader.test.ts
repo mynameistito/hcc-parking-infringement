@@ -6,6 +6,7 @@ import { createSeedReadCache } from "./seed-cache.ts";
 import { SeedParkingStoreReader } from "./seed-reader.ts";
 
 const exportedAt = "2026-11-06T07:00:00+13:00";
+
 const manifestData = {
   exportedAt,
   infringementChunks: [],
@@ -24,6 +25,7 @@ const statusFor = async (lastHccFetchAt?: unknown) => {
   // does not access runtime bindings when that context is already loaded.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const reader = new SeedParkingStoreReader({} as Env, cache);
+
   return await reader.getCacheStatus();
 };
 

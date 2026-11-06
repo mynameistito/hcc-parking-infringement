@@ -14,9 +14,11 @@ export const moneyFmt = new Intl.NumberFormat("en-NZ", {
 /** Display label for a vehicle from infringement fields. */
 export const formatVehicle = (record: PublicInfringement): string => {
   const parts = [record.vehicleMake, record.vehicleModel].filter(Boolean);
+
   if (parts.length > 0) {
     return parts.join(" ");
   }
+
   return record.vehicleType ?? "Unknown vehicle";
 };
 
@@ -32,5 +34,6 @@ export const formatStreetSuburb = (
   if (suburb !== undefined && suburb.length > 0 && suburb !== "Unknown") {
     return `${street}, ${suburb}`;
   }
+
   return street;
 };

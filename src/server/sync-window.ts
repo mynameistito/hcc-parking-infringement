@@ -53,6 +53,7 @@ export const syncWindow = async (
       options.start,
       options.end
     );
+
     if (alreadyIngested) {
       return {
         hccSkipped: true,
@@ -74,6 +75,7 @@ export const syncWindow = async (
       options.start,
       options.end
     );
+
     if (fetchResult.ok) {
       ({ records } = fetchResult.value);
       ({ possiblyTruncated } = fetchResult.value);
@@ -109,6 +111,7 @@ export const hourlySync = async (
 ): Promise<SyncWindowResult> => {
   const today = formatDateInAuckland(new Date());
   const start = addDays(today, -HOURLY_OVERLAP_DAYS);
+
   return await syncWindow(scope, { end: today, force: true, runType, start });
 };
 

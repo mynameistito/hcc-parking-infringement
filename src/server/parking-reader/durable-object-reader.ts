@@ -93,6 +93,7 @@ export class DurableObjectParkingStoreReader implements ParkingStoreReader {
     routes: LocationMapPoint[];
   }> {
     const result = await this.store().getMapPoints(limit);
+
     return {
       pendingGeocode: result.pendingGeocode,
       routes: result.routes.map((route) => ({
@@ -142,6 +143,7 @@ export class DurableObjectParkingStoreReader implements ParkingStoreReader {
   ): Promise<BackfillProgress> {
     const store = this.store();
     const total = splitDateRange(start, end, chunkDays).length;
+
     const snapshot = await store.getBackfillProgressSnapshot(
       start,
       end,

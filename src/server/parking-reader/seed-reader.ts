@@ -145,6 +145,7 @@ const matchesInfringementFilters = (
   }
 
   const occurredDate = record.occurredAt.slice(0, 10);
+
   if (query.from !== undefined && occurredDate < query.from) {
     return false;
   }
@@ -158,6 +159,7 @@ const matchesInfringementFilters = (
 
 const enrichSeedDashboardPayload = (raw: string): string => {
   const message = parseRawFullDashboardMessageJson(raw);
+
   if (message === null) {
     return raw;
   }
@@ -192,6 +194,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     }
 
     this.cache.manifestContext = await readSeedManifest(this.env);
+
     return this.cache.manifestContext;
   }
 
@@ -203,8 +206,10 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
   async readDashboardSnapshotPayload(): Promise<string> {
     const { manifest, prefix } = await this.loadManifestContext();
+
     const snapshotKey =
       manifest.dashboardSnapshotKey ?? DASHBOARD_SNAPSHOT_FILE;
+
     const objectKey = seedObjectKey(prefix, snapshotKey);
 
     if (
@@ -215,11 +220,14 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     }
 
     const raw = await readSeedObjectText(this.env, objectKey);
+
     if (raw === null) {
       const { manifest: seedManifest } = await this.loadManifestContext();
+
       const syncedAt =
         migrateOptionalSyncInstant(seedManifest.exportedAt) ??
         nowInAucklandIso();
+
       return enrichSeedDashboardPayload(
         JSON.stringify({
           at: syncedAt,
@@ -261,6 +269,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
     this.cache.snapshotKey = objectKey;
     this.cache.snapshotPayload = enrichSeedDashboardPayload(raw);
+
     return this.cache.snapshotPayload;
   }
 
@@ -296,6 +305,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
       }
 
       const chunkName = manifest.infringementChunks[chunkIndex];
+
       if (chunkName === undefined) {
         return records;
       }
@@ -304,6 +314,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
         this.env,
         seedObjectKey(prefix, chunkName)
       );
+
       if (raw !== null) {
         for (const line of raw.split(/\r?\n/u)) {
           if (line.trim().length === 0) {
@@ -311,11 +322,13 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
           }
 
           const record = parseSeedInfringementLine(line);
+
           if (record.infringementNumber <= after) {
             continue;
           }
 
           records.push(record);
+
           if (records.length >= limit) {
             return records;
           }
@@ -363,6 +376,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
       .map((line) => parseSeedWatermarkLine(line));
 
     const page = watermarks.slice(offset, offset + limit);
+
     const nextOffset =
       offset + page.length < watermarks.length ? offset + page.length : null;
 
@@ -375,13 +389,16 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
   async getPublicLiveStats(): Promise<PublicLiveStats> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot !== null) {
       return snapshot.live;
     }
 
     const { manifest } = await this.loadManifestContext();
+
     const syncedAt =
       migrateOptionalSyncInstant(manifest.exportedAt) ?? nowInAucklandIso();
+
     return {
       allTimeAmountCents: 0,
       allTimeTotal: manifest.totalInfringements,
@@ -414,6 +431,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
   async getDailyStats(from: string, to: string): Promise<DailyStatRow[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot === null) {
       return [];
     }
@@ -429,6 +447,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     limit: number
   ): Promise<TopStatRow[]> {
     const items = await this.getPublicTop(groupBy, limit);
+
     return items.map((item) => ({
       count: item.count,
       key: item.label,
@@ -441,6 +460,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     limit: number
   ): Promise<PublicTopItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot === null) {
       return [];
     }
@@ -453,16 +473,19 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
   async getTopStreets(limit: number): Promise<LocationRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     return snapshot?.streets.slice(0, limit) ?? [];
   }
 
   async getTopSuburbs(limit: number): Promise<LocationRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     return snapshot?.suburbs.slice(0, limit) ?? [];
   }
 
   async getTopVehicles(limit: number): Promise<VehicleRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     return snapshot?.vehicles.slice(0, limit) ?? [];
   }
 
@@ -471,6 +494,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     routes: LocationMapPoint[];
   }> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot === null) {
       return { pendingGeocode: 0, routes: [] };
     }
@@ -485,6 +509,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     query: BrowseQuery
   ): Promise<BrowseResult<LocationRankItem>> {
     void this.isSeedMode;
+
     return await Promise.resolve(emptyBrowseResult(query));
   }
 
@@ -492,6 +517,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     query: BrowseQuery
   ): Promise<BrowseResult<LocationRankItem>> {
     void this.isSeedMode;
+
     return await Promise.resolve(emptyBrowseResult(query));
   }
 
@@ -499,16 +525,19 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     query: BrowseQuery
   ): Promise<BrowseResult<VehicleRankItem>> {
     void this.isSeedMode;
+
     return await Promise.resolve(emptyBrowseResult(query));
   }
 
   async getStreetsInSuburb(): Promise<LocationRankItem[]> {
     void this.isSeedMode;
+
     return await Promise.resolve([]);
   }
 
   async getLatestSyncRun(): Promise<SyncRunRow | null> {
     void this.isSeedMode;
+
     return await Promise.resolve(null);
   }
 
@@ -518,6 +547,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     chunkDays: number
   ): Promise<BackfillProgress> {
     const cache = await this.getCacheStatus();
+
     return {
       chunkDays,
       completed: 0,
@@ -539,6 +569,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     if (!hasInfringementFilters(query) && query.page === 1) {
       const snapshot = await this.readDashboardSnapshot();
       const snapshotRows = snapshot?.recentInfringements ?? [];
+
       if (
         snapshot !== null &&
         snapshotRows.length > 0 &&
@@ -579,6 +610,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
         }
 
         matched.push(toInfringementRow(record, manifest.exportedAt));
+
         if (matched.length >= query.limit) {
           return {
             data: matched,

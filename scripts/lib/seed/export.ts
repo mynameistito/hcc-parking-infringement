@@ -60,6 +60,7 @@ const writeDashboardSnapshot = async (options: {
     options.onProgress?.(
       `[${options.label}] exported dashboard snapshot for R2 read mode`
     );
+
     return dashboardSnapshotKey;
   } catch (error) {
     options.onProgress?.(
@@ -67,6 +68,7 @@ const writeDashboardSnapshot = async (options: {
         error instanceof Error ? error.message : String(error)
       }`
     );
+
     return undefined;
   }
 };
@@ -168,6 +170,7 @@ export const exportSeedChunksFromWorker = async (
       options.chunkRecords,
       total === 0 ? "scan" : "cached"
     );
+
     ({ total } = page);
 
     if (page.records.length === 0) {

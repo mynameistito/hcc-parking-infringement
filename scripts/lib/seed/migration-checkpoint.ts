@@ -28,6 +28,7 @@ const readCheckpointFile =
     try {
       const raw = await readFile(CHECKPOINT_FILE, "utf-8");
       const parsed: unknown = JSON.parse(raw);
+
       if (!isSeedToDoMigrationCheckpoint(parsed)) {
         return null;
       }
@@ -42,6 +43,7 @@ export const loadSeedToDoMigrationCheckpoint = async (
   targetUrl: string
 ): Promise<SeedToDoMigrationCheckpoint | null> => {
   const checkpoint = await readCheckpointFile();
+
   if (checkpoint === null || checkpoint.targetUrl !== targetUrl) {
     return null;
   }

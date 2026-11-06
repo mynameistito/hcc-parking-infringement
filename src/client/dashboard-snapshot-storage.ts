@@ -60,6 +60,7 @@ const parseCachedSnapshot = (
   }
 
   const snapshot = parseFullDashboardMessage(candidate.snapshot);
+
   if (snapshot === null) {
     return null;
   }
@@ -82,6 +83,7 @@ const readDashboardSnapshotFromIndexedDb =
           DASHBOARD_SNAPSHOT_DB_STORE,
           "readonly"
         );
+
         const store = transaction.objectStore(DASHBOARD_SNAPSHOT_DB_STORE);
         const request = store.get(DASHBOARD_SNAPSHOT_CACHE_KEY);
 
@@ -111,6 +113,7 @@ const writeDashboardSnapshotToIndexedDb = async (
         DASHBOARD_SNAPSHOT_DB_STORE,
         "readwrite"
       );
+
       const store = transaction.objectStore(DASHBOARD_SNAPSHOT_DB_STORE);
       store.put(cached, DASHBOARD_SNAPSHOT_CACHE_KEY);
 
@@ -136,6 +139,7 @@ const persistDashboardSnapshotToLocalStorage = (
       snapshot,
       version: DASHBOARD_SNAPSHOT_CACHE_VERSION,
     };
+
     window.localStorage.setItem(
       DASHBOARD_SNAPSHOT_CACHE_KEY,
       JSON.stringify(cached)
@@ -151,12 +155,14 @@ export const readPersistedDashboardSnapshotSync =
   (): FullDashboardMessage | null => {
     try {
       const raw = window.localStorage.getItem(DASHBOARD_SNAPSHOT_CACHE_KEY);
+
       if (raw === null) {
         return null;
       }
 
       const parsed: unknown = JSON.parse(raw);
       const cached = parseCachedSnapshot(parsed);
+
       if (cached !== null && getDashboardSnapshotWeight(cached.snapshot) > 0) {
         return cached.snapshot;
       }
@@ -171,6 +177,7 @@ export const readPersistedDashboardSnapshot =
   async (): Promise<FullDashboardMessage | null> => {
     try {
       const cached = await readDashboardSnapshotFromIndexedDb();
+
       if (cached !== null && getDashboardSnapshotWeight(cached.snapshot) > 0) {
         return cached.snapshot;
       }
@@ -180,18 +187,21 @@ export const readPersistedDashboardSnapshot =
 
     try {
       const raw = window.localStorage.getItem(DASHBOARD_SNAPSHOT_CACHE_KEY);
+
       if (raw === null) {
         return null;
       }
 
       const parsed: unknown = JSON.parse(raw);
       const cached = parseCachedSnapshot(parsed);
+
       if (cached !== null && getDashboardSnapshotWeight(cached.snapshot) > 0) {
         try {
           await writeDashboardSnapshotToIndexedDb(cached);
         } catch {
           // Keep using the localStorage copy if migration is unavailable.
         }
+
         return cached.snapshot;
       }
 
