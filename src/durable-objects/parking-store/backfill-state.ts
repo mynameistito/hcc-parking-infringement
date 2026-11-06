@@ -19,14 +19,14 @@ export const markBackfillStatsDirty = (sql: SqlStorage): void => {
  * @param sql - The Durable Object SQL storage.
  * @returns Whether recomputation is pending.
  */
-export const isBackfillStatsDirty = (sql: SqlStorage): boolean =>
+const isBackfillStatsDirty = (sql: SqlStorage): boolean =>
   getSyncMeta(sql, BACKFILL_STATS_DIRTY_KEY) === "1";
 
 /**
  * Clears the pending backfill statistics marker.
  * @param sql - The Durable Object SQL storage.
  */
-export const clearBackfillStatsDirty = (sql: SqlStorage): void => {
+const clearBackfillStatsDirty = (sql: SqlStorage): void => {
   clearSyncMeta(sql, BACKFILL_STATS_DIRTY_KEY);
 };
 

@@ -14,7 +14,7 @@ import { GEOCODE_FAILURE_RETRY_MS } from "./constants.ts";
  * @param failedAt - Recorded failure instant, if available.
  * @returns Whether the failure should defer another attempt.
  */
-export const isRecentGeocodeFailure = (
+const isRecentGeocodeFailure = (
   failedAt: string | null | undefined
 ): boolean => {
   if (failedAt === null || failedAt === undefined || failedAt === "") {
@@ -36,7 +36,7 @@ export const isRecentGeocodeFailure = (
  * @param geocodeFailedAt - Last recorded failure instant, if available.
  * @returns Whether the location is eligible for geocoding.
  */
-export const locationNeedsGeocode = (
+const locationNeedsGeocode = (
   geometryJson: string | null | undefined,
   geocodeFailedAt: string | null | undefined
 ): boolean => {
@@ -80,16 +80,14 @@ export const filterGeocodeCandidates = (
   const results: GeocodeCandidate[] = [];
 
   for (const row of rows) {
-    if (!locationNeedsGeocode(row.geometry_json, row.geocode_failed_at)) {
-      continue;
+    if (locationNeedsGeocode(row.geometry_json, row.geocode_failed_at)) {
+      results.push({
+        count: row.count,
+        street: row.street,
+        suburb: row.suburb,
+        town: row.town,
+      });
     }
-
-    results.push({
-      count: row.count,
-      street: row.street,
-      suburb: row.suburb,
-      town: row.town,
-    });
 
     if (results.length >= limit) {
       break;

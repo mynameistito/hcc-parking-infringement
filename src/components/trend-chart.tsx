@@ -42,7 +42,7 @@ const ChartFallback = ({
 }) => (
   <div
     className={cn(
-      "bg-muted/30 rounded-[4px]",
+      "bg-muted/30 rounded-md",
       compact ? "h-[40px]" : "h-full min-h-0",
       className
     )}
@@ -90,7 +90,7 @@ export const TrendChart = ({
     return (
       <div
         className={cn(
-          "bg-muted/30 text-muted-foreground flex items-center justify-center rounded-[4px] text-[10px]",
+          "bg-muted/30 text-muted-foreground flex items-center justify-center rounded-md text-xs",
           compact ? "h-[40px]" : "h-full min-h-[200px]",
           className
         )}

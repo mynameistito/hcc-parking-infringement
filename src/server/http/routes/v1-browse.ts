@@ -15,6 +15,10 @@ import {
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 
+/**
+ * Build paginated ranking and infringement routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1BrowseRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

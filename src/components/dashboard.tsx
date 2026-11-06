@@ -28,8 +28,14 @@ import { EMPTY_CHART_BREAKDOWNS } from "@/contracts/public-api";
 import { parseAucklandInstant } from "@/lib/auckland-time";
 import type { PaceTrends } from "@/lib/trend-window";
 
+/**
+ * Live transport availability and cached fallback state.
+ */
 export type DashboardConnectionStatus = "live" | "cached" | "connecting";
 
+/**
+ * Dashboard data readiness and refresh state.
+ */
 export type DashboardDataStatus = "loading" | "ready" | "updating";
 
 interface DashboardProps {
@@ -155,7 +161,7 @@ const LiveStatusBadge = ({
 
   if (connectionStatus === "cached") {
     return (
-      <Badge variant="outline" className="bg-background gap-1.5">
+      <Badge variant="status">
         <Database className="size-3" aria-hidden="true" />
         Cached
       </Badge>
@@ -163,13 +169,17 @@ const LiveStatusBadge = ({
   }
 
   return (
-    <Badge variant="outline" className="bg-background gap-1.5">
+    <Badge variant="status">
       <Database className="size-3" aria-hidden="true" />
       Connecting
     </Badge>
   );
 };
 
+/**
+ * Display live infringement totals, trends, distributions, and recent activity.
+ * @returns The rendered interface for the supplied data.
+ */
 export const Dashboard = ({
   live,
   dailyTrend,
@@ -193,7 +203,7 @@ export const Dashboard = ({
               <p className="text-muted-foreground mb-2 text-xs font-semibold uppercase">
                 Hamilton City Council Open Data
               </p>
-              <h1 className="text-primary text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              <h1 className="text-primary text-3xl font-semibold tracking-tighter sm:text-5xl">
                 Hamilton parking infringements
               </h1>
               <p className="text-muted-foreground mt-3 max-w-3xl text-sm leading-6 sm:text-base">
@@ -206,9 +216,7 @@ export const Dashboard = ({
               <div className="flex flex-wrap items-center gap-2">
                 <LiveStatusBadge connectionStatus={connectionStatus} />
                 {dataStatus === "updating" ? (
-                  <Badge variant="outline" className="bg-background">
-                    Updating...
-                  </Badge>
+                  <Badge variant="status">Updating...</Badge>
                 ) : null}
                 <ThemeToggle />
               </div>
@@ -221,7 +229,7 @@ export const Dashboard = ({
         </header>
 
         {error !== null && error !== undefined && error.length > 0 ? (
-          <Alert variant="destructive" className="bg-background mb-6">
+          <Alert variant="destructiveNotice" className="mb-6">
             <AlertCircle className="size-4" aria-hidden="true" />
             <AlertTitle>Dashboard update failed</AlertTitle>
             <AlertDescription>{error}</AlertDescription>

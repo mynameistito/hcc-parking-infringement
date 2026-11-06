@@ -78,7 +78,7 @@ export const parseForceFlag = (value: string | undefined): boolean =>
  * @param value - The requested sort order.
  * @returns `name` for an explicit name sort, otherwise `count`.
  */
-export const parseBrowseSort = (value: string | undefined): "count" | "name" =>
+const parseBrowseSort = (value: string | undefined): "count" | "name" =>
   value === "name" ? "name" : "count";
 
 /**

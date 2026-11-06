@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import type {
-  BrowseSort,
   DailyStatPoint,
   LocationRankItem,
   TopItem,
@@ -25,12 +24,6 @@ export const publicLiveStatsSchema = z.object({
 
 /** Validated aggregate statistics returned to public clients. */
 export type PublicLiveStats = z.infer<typeof publicLiveStatsSchema>;
-
-/** @deprecated Use `publicLiveStatsSchema`. */
-export const liveStatsSchema = publicLiveStatsSchema;
-
-/** @deprecated Use `PublicLiveStats`. */
-export type LiveStats = PublicLiveStats;
 
 /** Daily time-series point for charts and pace panels. */
 export const dailyStatPointSchema = z.object({
@@ -114,49 +107,8 @@ export type InfringementListResponse = z.infer<
   typeof infringementListResponseSchema
 >;
 
-export const browseSortSchema = z.enum(["count", "name"]);
-
-export type { BrowseSort } from "@/contracts/store-shapes.ts";
-
-/** Filters, sorting, and pagination for a location or vehicle browse request. */
-export interface BrowseParams {
-  q?: string;
-  page?: number;
-  limit?: number;
-  sort?: BrowseSort;
-  suburb?: string;
-}
-
-/** Filters and pagination for an infringement exploration request. */
-export interface ExploreInfringementsParams {
-  street?: string;
-  suburb?: string;
-  vehicleMake?: string;
-  vehicleModel?: string;
-  page?: number;
-  limit?: number;
-}
-
-const browseResponseSchema = <T extends z.ZodType>(itemSchema: T) =>
-  z.object({
-    items: z.array(itemSchema),
-    limit: z.number(),
-    page: z.number(),
-    total: z.number(),
-  });
-
-export type { BrowseResponse } from "@/contracts/store-shapes.ts";
-
-export const locationBrowseResponseSchema = browseResponseSchema(
-  locationRankItemSchema
-);
-
-export const vehicleBrowseResponseSchema = browseResponseSchema(
-  vehicleRankItemSchema
-);
-
 /** Map route geometry for dashboard pins. */
-export interface MapRouteItem {
+interface MapRouteItem {
   readonly count: number;
   readonly geometry: number[][][];
   readonly id: string;
@@ -174,13 +126,13 @@ const mapRouteItemSchema = z.object({
   town: z.string(),
 });
 
-export const mapResponseSchema = z.object({
+const mapResponseSchema = z.object({
   pendingGeocode: z.number(),
   routes: z.array(mapRouteItemSchema),
 });
 
 /** Map routes and the number of locations awaiting geocoding. */
-export interface MapResponse {
+interface MapResponse {
   readonly pendingGeocode: number;
   readonly routes: MapRouteItem[];
 }
@@ -199,7 +151,7 @@ const paceTrendsSchema = z.object({
 });
 
 /** Comparison of recent infringement counts with preceding periods. */
-export type PaceTrends = z.infer<typeof paceTrendsSchema>;
+type PaceTrends = z.infer<typeof paceTrendsSchema>;
 
 const chartBreakdownsSchema = z.object({
   offenceCategories: z.array(topItemSchema),
@@ -255,17 +207,3 @@ export interface FullDashboardMessage {
   readonly type: "full";
   readonly vehicles: VehicleRankItem[];
 }
-
-/**
- * Reads the data field from an untrusted stored API JSON envelope.
- * @param json - Parsed JSON whose envelope shape has not yet been checked.
- * @returns The unvalidated data value for the caller to parse.
- * Throws an error when the value is not an object with a data field.
- */
-export const readStoredEnvelopeData = (json: unknown): unknown => {
-  if (typeof json !== "object" || json === null || !("data" in json)) {
-    throw new Error("Invalid response payload");
-  }
-
-  return Reflect.get(json, "data");
-};

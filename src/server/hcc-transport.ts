@@ -1,8 +1,10 @@
 import type { Effect } from "effect";
 import { Context } from "effect";
 
+import type { RawInfringementRecord } from "@/server/clean-schema.ts";
+
 /** Pagination metadata returned by the HCC open data API. */
-export interface HccPaging {
+interface HccPaging {
   Dataset_Name?: string;
   Current_Page: number;
   Page_Count: number;
@@ -12,7 +14,7 @@ export interface HccPaging {
 /** HCC infringement page and its pagination metadata. */
 export interface HccInfringementResponse {
   Paging: HccPaging[];
-  Data?: Record<string, unknown>[];
+  Data?: RawInfringementRecord[];
 }
 
 /** Structured failure returned by the HCC transport. */

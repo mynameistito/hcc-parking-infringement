@@ -22,7 +22,7 @@ const EMPTY_PACE_TRENDS: PublicPaceTrends = {
  * @param input - The untrusted payload to validate.
  * @returns A validated message, or null when validation fails.
  */
-export const parseRawFullDashboardMessage = (
+const parseRawFullDashboardMessage = (
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The WebSocket boundary is untrusted and safeParse validates this value immediately.
   input: unknown
 ): FullDashboardMessage | null => {
@@ -80,7 +80,7 @@ export const parseRawFullDashboardMessageJson = (
  * @param message - The validated full-dashboard message.
  * @returns The normalized public snapshot.
  */
-export const toPublicDashboardSnapshot = (
+const toPublicDashboardSnapshot = (
   message: FullDashboardMessage
 ): PublicDashboardSnapshot => ({
   at: message.at,

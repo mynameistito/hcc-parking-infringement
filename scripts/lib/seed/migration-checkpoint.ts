@@ -1,7 +1,8 @@
-/** Resume state for R2 seed → ParkingStore DO migration. */
-
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+/** Resume state for R2 seed → ParkingStore DO migration. */
 import path from "node:path";
+
+import { z } from "zod";
 
 const CHECKPOINT_DIR = path.join(".data", "migration");
 const CHECKPOINT_FILE = path.join(CHECKPOINT_DIR, "seed-to-do.json");
@@ -14,27 +15,20 @@ export interface SeedToDoMigrationCheckpoint {
   updatedAt: string;
 }
 
-const isSeedToDoMigrationCheckpoint = (
-  value: unknown
-): value is SeedToDoMigrationCheckpoint =>
-  typeof value === "object" &&
-  value !== null &&
-  "targetUrl" in value &&
-  typeof value.targetUrl === "string" &&
-  "completedChunks" in value &&
-  Array.isArray(value.completedChunks);
+const migrationCheckpointSchema = z.object({
+  completedChunks: z.array(z.string()),
+  lastChunk: z.string().nullable(),
+  targetUrl: z.string(),
+  updatedAt: z.string(),
+});
 
 const readCheckpointFile =
   async (): Promise<SeedToDoMigrationCheckpoint | null> => {
     try {
       const raw = await readFile(CHECKPOINT_FILE, "utf-8");
-      const parsed: unknown = JSON.parse(raw);
+      const parsed = migrationCheckpointSchema.safeParse(JSON.parse(raw));
 
-      if (!isSeedToDoMigrationCheckpoint(parsed)) {
-        return null;
-      }
-
-      return parsed;
+      return parsed.success ? parsed.data : null;
     } catch {
       return null;
     }

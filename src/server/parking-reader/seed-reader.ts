@@ -49,7 +49,16 @@ import type { SeedReadCache } from "./seed-cache.ts";
 import { emptyBrowseResult } from "./types.ts";
 import type { ParkingStoreReader } from "./types.ts";
 
-export { DASHBOARD_SNAPSHOT_FILE } from "@/server/seed-manifest.ts";
+const emptySeedBrowsePage = async <T>(
+  query: BrowseQuery
+): Promise<BrowseResult<T>> =>
+  await Promise.resolve(emptyBrowseResult<T>(query));
+
+const emptySeedStreets = async (): Promise<LocationRankItem[]> =>
+  await Promise.resolve([]);
+
+const emptySeedSyncRun = async (): Promise<SyncRunRow | null> =>
+  await Promise.resolve(null);
 
 const toInfringementRow = (
   record: CleanInfringement,
@@ -111,12 +120,14 @@ const toInfringementRowFromPublic = (
 });
 
 const hasInfringementFilters = (query: InfringementQuery): boolean =>
-  query.from !== undefined ||
-  query.to !== undefined ||
-  query.street !== undefined ||
-  query.suburb !== undefined ||
-  query.vehicleMake !== undefined ||
-  query.vehicleModel !== undefined;
+  [
+    query.from,
+    query.to,
+    query.street,
+    query.suburb,
+    query.vehicleMake,
+    query.vehicleModel,
+  ].some((value) => value !== undefined);
 
 const matchesInfringementFilters = (
   record: CleanInfringement,
@@ -344,11 +355,9 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
           const record = parseSeedInfringementLine(line);
 
-          if (record.infringementNumber <= after) {
-            continue;
+          if (record.infringementNumber > after) {
+            records.push(record);
           }
-
-          records.push(record);
 
           if (records.length >= limit) {
             return records;
@@ -584,59 +593,33 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
    * @param query - The requested pagination and search options.
    * @returns An empty page preserving the requested pagination.
    */
-  async browseSuburbs(
-    query: BrowseQuery
-  ): Promise<BrowseResult<LocationRankItem>> {
-    void this.isSeedMode;
-
-    return await Promise.resolve(emptyBrowseResult(query));
-  }
+  readonly browseSuburbs = emptySeedBrowsePage<LocationRankItem>;
 
   /**
    * Returns an empty street page because seed mode does not support browsing.
    * @param query - The requested pagination and search options.
    * @returns An empty page preserving the requested pagination.
    */
-  async browseStreets(
-    query: BrowseQuery
-  ): Promise<BrowseResult<LocationRankItem>> {
-    void this.isSeedMode;
-
-    return await Promise.resolve(emptyBrowseResult(query));
-  }
+  readonly browseStreets = emptySeedBrowsePage<LocationRankItem>;
 
   /**
    * Returns an empty vehicle page because seed mode does not support browsing.
    * @param query - The requested pagination and search options.
    * @returns An empty page preserving the requested pagination.
    */
-  async browseVehicles(
-    query: BrowseQuery
-  ): Promise<BrowseResult<VehicleRankItem>> {
-    void this.isSeedMode;
-
-    return await Promise.resolve(emptyBrowseResult(query));
-  }
+  readonly browseVehicles = emptySeedBrowsePage<VehicleRankItem>;
 
   /**
    * Returns no streets because seed mode does not support suburb browsing.
    * @returns An empty array.
    */
-  async getStreetsInSuburb(): Promise<LocationRankItem[]> {
-    void this.isSeedMode;
-
-    return await Promise.resolve([]);
-  }
+  readonly getStreetsInSuburb = emptySeedStreets;
 
   /**
    * Seed mode does not expose sync-run records.
    * @returns Null.
    */
-  async getLatestSyncRun(): Promise<SyncRunRow | null> {
-    void this.isSeedMode;
-
-    return await Promise.resolve(null);
-  }
+  readonly getLatestSyncRun = emptySeedSyncRun;
 
   /**
    * Builds a seed-mode progress response using the manifest record total.
@@ -715,10 +698,9 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
         if (skipped < startIndex) {
           skipped += 1;
-          continue;
+        } else {
+          matched.push(toInfringementRow(record, manifest.exportedAt));
         }
-
-        matched.push(toInfringementRow(record, manifest.exportedAt));
 
         if (matched.length >= query.limit) {
           return {

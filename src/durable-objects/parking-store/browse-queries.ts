@@ -6,9 +6,16 @@ import type {
 } from "@/durable-objects/types.ts";
 import { formatStreetSuburb } from "@/lib/format.ts";
 
+const COUNT_DESCENDING = "count DESC";
+
+interface SuburbSqlFilter {
+  clause: string;
+  params: string[];
+}
+
 const streetSuburbFilter = (
   suburb: string | undefined | null
-): { clause: string; params: string[] } => {
+): SuburbSqlFilter => {
   if (suburb === undefined || suburb === null || suburb === "") {
     return { clause: "", params: [] };
   }
@@ -20,6 +27,12 @@ const streetSuburbFilter = (
   return { clause: "AND suburb = ?", params: [suburb] };
 };
 
+/**
+ * Rank suburbs with search and pagination.
+ * @param sql - Parking storage SQL connection.
+ * @param query - Search, sorting, and pagination options.
+ * @returns The resulting `BrowseResult<LocationRankItem>` value.
+ */
 export const browseSuburbs = (
   sql: SqlStorage,
   query: BrowseQuery
@@ -29,7 +42,7 @@ export const browseSuburbs = (
   const offset = (query.page - 1) * query.limit;
 
   const orderBy =
-    query.sort === "name" ? "label COLLATE NOCASE ASC" : "count DESC";
+    query.sort === "name" ? "label COLLATE NOCASE ASC" : COUNT_DESCENDING;
 
   const totalRow = sql
     .exec<{ total: number }>(
@@ -79,6 +92,12 @@ export const browseSuburbs = (
   };
 };
 
+/**
+ * Rank streets with search and pagination.
+ * @param sql - Parking storage SQL connection.
+ * @param query - Search, sorting, and pagination options.
+ * @returns The resulting `BrowseResult<LocationRankItem>` value.
+ */
 export const browseStreets = (
   sql: SqlStorage,
   query: BrowseQuery
@@ -88,7 +107,7 @@ export const browseStreets = (
   const offset = (query.page - 1) * query.limit;
 
   const orderBy =
-    query.sort === "name" ? "street COLLATE NOCASE ASC" : "count DESC";
+    query.sort === "name" ? "street COLLATE NOCASE ASC" : COUNT_DESCENDING;
 
   const { clause: suburbFilter, params: suburbParams } = streetSuburbFilter(
     query.suburb
@@ -153,6 +172,12 @@ export const browseStreets = (
   };
 };
 
+/**
+ * Rank vehicle makes and models with search and pagination.
+ * @param sql - Parking storage SQL connection.
+ * @param query - Search, sorting, and pagination options.
+ * @returns The resulting `BrowseResult<VehicleRankItem>` value.
+ */
 export const browseVehicles = (
   sql: SqlStorage,
   query: BrowseQuery
@@ -164,7 +189,7 @@ export const browseVehicles = (
   const orderBy =
     query.sort === "name"
       ? "make COLLATE NOCASE ASC, model COLLATE NOCASE ASC"
-      : "count DESC";
+      : COUNT_DESCENDING;
 
   const totalRow = sql
     .exec<{ total: number }>(

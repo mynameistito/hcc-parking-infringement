@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 /**
  * Import a Hamilton parking infringement CSV into ParkingStore.
  *
@@ -5,8 +6,6 @@
  * bun run import:csv
  * bun run import:csv -- --file=data/Infringement.csv --batch-size=500
  */
-
-import { readFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { loadDevVars } from "@scripts/dev-env.ts";
@@ -15,6 +14,7 @@ import { parseCsvLine, toRawInfringementRecord } from "@scripts/lib/csv.ts";
 import { createWorkerContext } from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
+import type { RawInfringementRecord } from "@/server/clean-schema.ts";
 import { parseNonNegativeInt, parsePositiveInt } from "@/server/http/query.ts";
 
 loadDevVars();
@@ -41,7 +41,7 @@ const importResponseSchema = z.object({
 });
 
 const postBatchOnce = async (
-  records: Record<string, unknown>[],
+  records: RawInfringementRecord[],
   final: boolean,
   retry: () => Promise<z.infer<typeof importResponseSchema> | null>
 ) => {
@@ -75,7 +75,7 @@ const postBatchOnce = async (
 };
 
 const postBatch = async (
-  records: Record<string, unknown>[],
+  records: RawInfringementRecord[],
   final: boolean,
   attempt = 1
 ) => {
@@ -105,7 +105,7 @@ if (headerLine === undefined) {
 }
 
 const headers = parseCsvLine(headerLine);
-const batch: Record<string, unknown>[] = [];
+const batch: RawInfringementRecord[] = [];
 let importedRows = 0;
 let upsertedRows = 0;
 let skippedRows = 0;

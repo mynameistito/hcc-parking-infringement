@@ -21,7 +21,7 @@ export interface VehicleRankItem {
 }
 
 /** Supported browse ranking orders. */
-export type BrowseSort = "count" | "name";
+type BrowseSort = "count" | "name";
 
 /** Search, sorting, and pagination options for a browse request. */
 export interface BrowseQuery {
@@ -34,7 +34,7 @@ export interface BrowseQuery {
 
 /**
  * A page of browse results and its total matching count.
- * @typeParam T - The item type in the returned page.
+ * Generic T: The item type in the returned page.
  */
 export interface BrowseResult<T> {
   items: T[];

@@ -10,16 +10,15 @@ import { getCachedInfringementCount } from "./infringement-count.ts";
 import { aggregatePeriod } from "./stats-aggregates.ts";
 import { getSyncMeta } from "./sync.ts";
 
-export { aggregatePeriod, aggregateWindow } from "./stats-aggregates.ts";
+export { aggregateWindow } from "./stats-aggregates.ts";
 
-export type { WindowAggregate } from "./stats-aggregates.ts";
+export { readPublicLiveStats, recomputeStatsLive } from "./stats-live.ts";
 
-export {
-  mapPublicLiveStatsRow,
-  readPublicLiveStats,
-  recomputeStatsLive,
-} from "./stats-live.ts";
-
+/**
+ * Read current totals and the last synchronization timestamp.
+ * @param sql - Parking storage SQL connection.
+ * @returns The resulting `LiveStats` value.
+ */
 export const getLiveStats = (sql: SqlStorage): LiveStats => {
   const cached = sql
     .exec<{ last_synced_at: string | null }>(
@@ -66,6 +65,11 @@ export const getLiveStats = (sql: SqlStorage): LiveStats => {
   };
 };
 
+/**
+ * Read stored record counts and ingestion status.
+ * @param sql - Parking storage SQL connection.
+ * @returns The resulting `CacheStatus` value.
+ */
 export const getCacheStatus = (sql: SqlStorage): CacheStatus => {
   const statsRow = sql
     .exec<{ all_time_total: number }>(

@@ -17,6 +17,10 @@ import {
 } from "@/server/locations.ts";
 import { listInfringements } from "@/server/stats.ts";
 
+/**
+ * Build public location routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1PublicRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

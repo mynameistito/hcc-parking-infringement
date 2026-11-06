@@ -2,6 +2,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import type { CleanInfringement } from "@/server/clean-schema.ts";
 import {
@@ -36,7 +37,7 @@ const makeRecord = (
   ...overrides,
 });
 
-describe("buildLiveSeedSnapshot", () => {
+describe(buildLiveSeedSnapshot, () => {
   it("uses one supplied instant for rolling windows across Auckland midnight", () => {
     const snapshot = buildLiveSeedSnapshot({
       existingLive: null,
@@ -83,10 +84,12 @@ describe("buildLiveSeedSnapshot", () => {
       to: "2026-07-01",
     });
 
-    expect(snapshot.live.allTimeTotal).toBe(100);
-    expect(snapshot.live.today).toBe(1);
-    expect(snapshot.live.towedToday).toBe(1);
-    expect(snapshot.dailyTrend).toEqual([
+    expect(snapshot.live).toMatchObject({
+      allTimeTotal: 100,
+      today: 1,
+      towedToday: 1,
+    });
+    expect(snapshot.dailyTrend).toStrictEqual([
       { count: 1, date: "2026-06-29", totalCents: 4000 },
       { count: 0, date: "2026-06-30", totalCents: 0 },
       { count: 1, date: "2026-07-01", totalCents: 4000 },
@@ -100,7 +103,7 @@ describe("buildLiveSeedSnapshot", () => {
   });
 });
 
-describe("refreshLiveSeedChunkFromHcc", () => {
+describe(refreshLiveSeedChunkFromHcc, () => {
   it("keeps persisted plan cutoffs when chunk work crosses Auckland midnight", async () => {
     const server = createServer((_request, response) => {
       response.writeHead(200, { "Content-Type": "application/json" });
@@ -128,18 +131,12 @@ describe("refreshLiveSeedChunkFromHcc", () => {
     try {
       server.listen(0, "127.0.0.1");
       await once(server, "listening");
-      const address = server.address();
+      const address = z.object({ port: z.number() }).parse(server.address());
 
-      if (address === null || typeof address === "string") {
-        throw new Error("Expected the HTTP fixture to have a TCP address");
-      }
-
-      // SAFETY: this focused aggregation fixture only needs the R2 put operation;
-      // it does not claim to implement or verify the complete R2 protocol.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- SAFETY: chunk refresh only invokes put on this binding.
       const bucket = {
+        get: async () => await Promise.resolve(null),
         put: async () => await Promise.resolve(null),
-      } as unknown as R2Bucket;
+      };
 
       const env = {
         HCC_API_BASE: `http://127.0.0.1:${address.port}`,
@@ -161,8 +158,8 @@ describe("refreshLiveSeedChunkFromHcc", () => {
       const first = await refreshLiveSeedChunkFromHcc(env, options);
       vi.setSystemTime(new Date("2026-06-30T12:00:01Z"));
       const second = await refreshLiveSeedChunkFromHcc(env, options);
-      expect([first.last7d, second.last7d]).toEqual([2, 2]);
-      expect([first.last24h, second.last24h]).toEqual([1, 1]);
+      expect([first.last7d, second.last7d]).toStrictEqual([2, 2]);
+      expect([first.last24h, second.last24h]).toStrictEqual([1, 1]);
       expect(first.lastHccFetchAt).not.toBe(second.lastHccFetchAt);
     } finally {
       vi.useRealTimers();

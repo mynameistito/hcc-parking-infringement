@@ -16,10 +16,7 @@ export const getCachedInfringementCount = (sql: SqlStorage): number | null =>
  * @param sql - The Durable Object SQL storage.
  * @param count - The count to store.
  */
-export const setCachedInfringementCount = (
-  sql: SqlStorage,
-  count: number
-): void => {
+const setCachedInfringementCount = (sql: SqlStorage, count: number): void => {
   setSyncMeta(sql, INFRINGEMENT_COUNT_KEY, String(count));
 };
 

@@ -1,5 +1,5 @@
 /** Theme-aligned chart palette with enough hues for full breakdown legends. */
-export const CHART_PALETTE = [
+const CHART_PALETTE = [
   "var(--chart-1)",
   "var(--chart-2)",
   "var(--chart-3)",

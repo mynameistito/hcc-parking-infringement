@@ -102,7 +102,7 @@ interface RefreshStateRow extends Record<string, SqlStorageValue> {
   readonly reason: "cron" | "manual";
   readonly result_json: string | null;
   readonly started_at: string;
-  readonly status: "planning" | "running" | "complete" | "errored";
+  readonly status: Exclude<SeedRefreshStatusDto["status"], "idle">;
 }
 
 interface SummaryRow extends Record<string, SqlStorageValue> {
@@ -129,11 +129,18 @@ const chunkName = (window: {
 }): string =>
   `${SEED_REFRESH_CHUNK_PREFIX}${window.start}-${window.end}.ndjson`;
 
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+const errorMessage = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause);
 
-/** Coordinates free-tier-safe seed refresh slices and hibernating live sockets. */
+/**
+ *  Coordinates free-tier-safe seed refresh slices and hibernating live sockets.
+ */
 export class SeedRefreshCoordinator extends DurableObject<Env> {
+  /**
+   * Initialize the durable service and its persisted state.
+   * @param ctx - Durable Object runtime state.
+   * @param env - Worker runtime bindings.
+   */
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     void ctx.blockConcurrencyWhile(async () => {
@@ -374,7 +381,7 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(Date.now() + NEXT_ALARM_DELAY_MS);
   }
 
-  private async recordFailure(error: unknown): Promise<void> {
+  private async recordFailure(cause: unknown): Promise<void> {
     const state = this.readState();
 
     if (state === null) {
@@ -382,9 +389,9 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     }
 
     const attempts = state.attempts + 1;
-    const message = errorMessage(error);
+    const message = errorMessage(cause);
 
-    if (!isRetryableError(error)) {
+    if (!isRetryableError(cause)) {
       this.ctx.storage.sql.exec(
         `UPDATE refresh_state
          SET status = 'errored', attempts = ?, last_error = ?, finished_at = ?
@@ -424,7 +431,11 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     });
   }
 
-  /** Start a refresh, or return the currently active refresh without overlap. */
+  /**
+   *  Start a refresh, or return the currently active refresh without overlap.
+   * @param input - Operation input.
+   * @returns The resulting `Promise<SeedRefreshStatusDto>` value.
+   */
   async startRefresh(
     input: StartSeedRefreshInput
   ): Promise<SeedRefreshStatusDto> {
@@ -480,14 +491,20 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     }
   }
 
-  /** Return status and repair a missing alarm for an active refresh. */
+  /**
+   *  Return status and repair a missing alarm for an active refresh.
+   * @returns The resulting `Promise<SeedRefreshStatusDto>` value.
+   */
   async getStatus(): Promise<SeedRefreshStatusDto> {
     await this.repairAlarm();
 
     return SeedRefreshCoordinator.statusFromState(this.readState());
   }
 
-  /** Low-frequency repair hook for the coordinator's only durable job. */
+  /**
+   *  Low-frequency repair hook for the coordinator's only durable job.
+   * @returns The resulting `Promise<SeedRefreshStatusDto>` value.
+   */
   async heartbeat(): Promise<SeedRefreshStatusDto> {
     return await this.getStatus();
   }
@@ -507,7 +524,11 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     }
   }
 
-  /** Upgrade seed-mode dashboard clients onto hibernating WebSockets. */
+  /**
+   *  Upgrade seed-mode dashboard clients onto hibernating WebSockets.
+   * @param request - Incoming HTTP request.
+   * @returns The resulting `Promise<Response>` value.
+   */
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
@@ -528,14 +549,20 @@ export class SeedRefreshCoordinator extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  /** Respond to client keepalives without waking a standard Worker socket. */
+  /**
+   *  Respond to client keepalives without waking a standard Worker socket.
+   * @param socket - Socket supplied to this operation.
+   * @param message - Validated dashboard snapshot.
+   */
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): void {
     if (!this.ctx.getWebSockets().includes(socket)) {
       return;
     }
 
     const text =
-      typeof message === "string" ? message : new TextDecoder().decode(message);
+      message instanceof ArrayBuffer
+        ? new TextDecoder().decode(message)
+        : message;
 
     if (text === "ping") {
       socket.send(JSON.stringify({ at: nowIso(), type: "pong" }));

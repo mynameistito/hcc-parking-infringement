@@ -63,8 +63,8 @@ const requiredApiKey = (): string => {
   return apiKey;
 };
 
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+const errorMessage = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause);
 
 const parseInstant = (value: string, label: string): number => {
   const parsed = Date.parse(value);
@@ -109,7 +109,7 @@ const requestCoordinator = async (
     timeoutMs: 60_000,
   });
 
-  const rawBody: unknown = await response.json().catch(() => null);
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsed = coordinatorResponseSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -183,7 +183,7 @@ const verifyPublishedSnapshot = async (
 ): Promise<void> => {
   const url = `${liveUrl}/api/v1/stats/live`;
   const response = await fetchWithTimeout(url, { timeoutMs: 60_000 });
-  const rawBody: unknown = await response.json().catch(() => null);
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsed = liveStatsResponseSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {

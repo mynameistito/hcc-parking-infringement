@@ -16,13 +16,3 @@ export const createSeedReadCache = (): SeedReadCache => ({
   snapshotKey: null,
   snapshotPayload: null,
 });
-
-/**
- * Clears the manifest and snapshot held by a seed read cache.
- * @param cache - Cache to reset in place.
- */
-export const resetSeedReadCache = (cache: SeedReadCache): void => {
-  cache.manifestContext = null;
-  cache.snapshotPayload = null;
-  cache.snapshotKey = null;
-};

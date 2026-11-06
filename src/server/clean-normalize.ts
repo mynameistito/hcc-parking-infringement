@@ -1,16 +1,23 @@
 import { resolveOffenceDescription } from "@/lib/offence-catalog.ts";
 
-const STREET_SUFFIXES: Record<string, string> = {
-  AVE: "Ave",
-  CRES: "Cres",
-  CT: "Ct",
-  DR: "Dr",
-  LN: "Ln",
-  PL: "Pl",
-  RD: "Rd",
-  ST: "St",
-  TCE: "Tce",
-};
+interface NormalizedOffence {
+  code: string;
+  label: string;
+}
+
+const STREET_SUFFIXES = new Map(
+  Object.entries({
+    AVE: "Ave",
+    CRES: "Cres",
+    CT: "Ct",
+    DR: "Dr",
+    LN: "Ln",
+    PL: "Pl",
+    RD: "Rd",
+    ST: "St",
+    TCE: "Tce",
+  })
+);
 
 const titleCaseWords = (value: string): string =>
   value
@@ -23,8 +30,10 @@ const titleCaseWords = (value: string): string =>
 
       const upper = word.toUpperCase();
 
-      if (STREET_SUFFIXES[upper] !== undefined) {
-        return STREET_SUFFIXES[upper];
+      const suffix = STREET_SUFFIXES.get(upper);
+
+      if (suffix !== undefined) {
+        return suffix;
       }
 
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
@@ -113,10 +122,10 @@ const sentenceCase = (value: string): string => {
 export const normalizeOffence = (
   description: string,
   offenceCode: string
-): { code: string; label: string } => {
+): NormalizedOffence => {
   const trimmed = description.trim();
 
-  const prefixMatch = /^(?<code>[A-Z]\d{2,4})\s+(?<description>.+)$/iu.exec(
+  const prefixMatch = /^(?<code>[A-Z]\d{2,4})\s+(?<description>\S.*)$/iu.exec(
     trimmed
   );
 
@@ -151,11 +160,13 @@ export const normalizeCourtServeMethod = (raw: string): string | null => {
     return null;
   }
 
-  const labels: Record<string, string> = {
-    P: "Posted",
-  };
+  const labels = new Map(
+    Object.entries({
+      P: "Posted",
+    })
+  );
 
-  return labels[value] ?? value;
+  return labels.get(value) ?? value;
 };
 
 /**

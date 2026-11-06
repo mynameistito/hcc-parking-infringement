@@ -8,10 +8,13 @@ import type { TrendResult } from "@/lib/trend.ts";
 
 import { aggregateWindow } from "./stats.ts";
 
-export const computePaceTrend = (
-  sql: SqlStorage,
-  days: number
-): TrendResult => {
+/**
+ * Compare a recent period with its preceding period.
+ * @param sql - Parking storage SQL connection.
+ * @param days - Number of calendar days in the period.
+ * @returns The resulting `TrendResult` value.
+ */
+const computePaceTrend = (sql: SqlStorage, days: number): TrendResult => {
   const now = new Date();
   const today = formatDateInAuckland(now);
   const todayWindow = dateBounds(today);
@@ -50,6 +53,11 @@ export const computePaceTrend = (
   return toTrendResult(current, previous);
 };
 
+/**
+ * Read weekly, monthly, and annual infringement pace.
+ * @param sql - Parking storage SQL connection.
+ * @returns The resulting `PublicPaceTrends` value.
+ */
 export const readPaceTrends = (sql: SqlStorage): PublicPaceTrends => ({
   last30d: computePaceTrend(sql, 30),
   last365d: computePaceTrend(sql, 365),

@@ -3,7 +3,7 @@
  * @param value - The maximum value to cover.
  * @returns A rounded ceiling, or 10 for nonpositive values.
  */
-export const niceCeil = (value: number): number => {
+const niceCeil = (value: number): number => {
   if (value <= 0) {
     return 10;
   }

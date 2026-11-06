@@ -136,10 +136,12 @@ export const getTopStats = (
   window: TopWindow,
   limit: number
 ): TopStatRow[] => {
+  const windowDays = window === "7d" ? 7 : 30;
+
   const startDate =
     window === "all"
       ? null
-      : formatDateInAuckland(subDays(new Date(), window === "7d" ? 7 : 30));
+      : formatDateInAuckland(subDays(new Date(), windowDays));
 
   if (groupBy === "street") {
     const rows =

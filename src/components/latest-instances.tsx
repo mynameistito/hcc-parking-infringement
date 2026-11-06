@@ -42,13 +42,15 @@ interface LatestInstancesProps {
 const EMPTY_CELL = "—";
 const DEFAULT_SORTING: SortingState = [{ desc: true, id: "occurredAt" }];
 
-const SORT_LABELS: Record<string, string> = {
-  fine: "Fine",
-  occurredAt: "Date",
-  offence: "Offence",
-  street: "Street",
-  vehicle: "Vehicle",
-};
+const SORT_LABELS = new Map(
+  Object.entries({
+    fine: "Fine",
+    occurredAt: "Date",
+    offence: "Offence",
+    street: "Street",
+    vehicle: "Vehicle",
+  })
+);
 
 const features = tableFeatures({
   columnVisibilityFeature,
@@ -204,11 +206,7 @@ const columns = columnHelper.columns([
       return (
         <div className="flex flex-col gap-1">
           <p>{offence}</p>
-          {isTowed ? (
-            <Badge variant="destructive" className="text-[0.6rem]">
-              Towed
-            </Badge>
-          ) : null}
+          {isTowed ? <Badge variant="destructive">Towed</Badge> : null}
         </div>
       );
     },
@@ -233,7 +231,7 @@ const formatSortSummary = (sorting: SortingState): string => {
     return "Newest first";
   }
 
-  const label = SORT_LABELS[active.id] ?? active.id;
+  const label = SORT_LABELS.get(active.id) ?? active.id;
 
   if (active.id === "occurredAt") {
     return active.desc ? "Newest first" : "Oldest first";
@@ -247,10 +245,10 @@ const formatSortSummary = (sorting: SortingState): string => {
 };
 
 const MobileRowsSkeleton = () => (
-  <div className="grid gap-2 md:hidden" aria-label="Loading ticket cards">
+  <section className="grid gap-2 md:hidden" aria-label="Loading ticket cards">
     {Array.from({ length: 4 }, (_, index) => (
-      <Card className="gap-0 py-3" key={index}>
-        <CardContent className="px-3">
+      <Card variant="placeholder" key={index}>
+        <CardContent variant="compact">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Skeleton className="h-4 w-full max-w-[13rem]" />
@@ -262,7 +260,7 @@ const MobileRowsSkeleton = () => (
         </CardContent>
       </Card>
     ))}
-  </div>
+  </section>
 );
 
 const MobileInfringementCard = ({
@@ -277,8 +275,8 @@ const MobileInfringementCard = ({
 
   return (
     <article>
-      <Card className="gap-2 py-3">
-        <CardHeader className="flex items-start justify-between gap-3 px-3 text-xs">
+      <Card variant="ticket">
+        <CardHeader variant="ticket">
           <div className="min-w-0">
             <time
               className="text-muted-foreground font-mono tabular-nums"
@@ -294,13 +292,11 @@ const MobileInfringementCard = ({
             {moneyFmt.format(infringement.amountCents / 100)}
           </strong>
         </CardHeader>
-        <CardContent className="px-3 text-xs">
+        <CardContent variant="ticket">
           <div className="text-muted-foreground flex flex-wrap items-center gap-2">
             <span className="wrap-anywhere">{formatVehicle(infringement)}</span>
             {infringement.isTowed ? (
-              <Badge variant="destructive" className="text-[0.6rem]">
-                Towed
-              </Badge>
+              <Badge variant="destructive">Towed</Badge>
             ) : null}
           </div>
           <p className="text-muted-foreground mt-2 leading-snug wrap-anywhere">
@@ -317,7 +313,10 @@ const getNextInfringementsPage = (loadedCount: number): number =>
     ? 1
     : Math.floor(loadedCount / INFRINGEMENTS_DEFAULT_PAGE_SIZE) + 1;
 
-/** Displays recent infringements with sortable columns and incremental loading. */
+/**
+ * Displays recent infringements with sortable columns and incremental loading.
+ * @returns The sortable infringement table and loading controls.
+ */
 export const LatestInstances = ({
   recentInfringements,
   total,
@@ -328,7 +327,17 @@ export const LatestInstances = ({
   const [loadingMore, setLoadingMore] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const initialSignatureRef = useRef("");
+
+  const signature = recentInfringements
+    .map((row) => row.infringementNumber)
+    .join(",");
+
+  const [initialSignature, setInitialSignature] = useState(signature);
+
+  if (signature !== initialSignature) {
+    setInitialSignature(signature);
+    setExtraRows([]);
+  }
 
   const totalCount = total ?? recentInfringements.length;
 
@@ -338,19 +347,6 @@ export const LatestInstances = ({
   );
 
   const hasMore = rows.length < totalCount;
-
-  useEffect(() => {
-    const signature = recentInfringements
-      .map((row) => row.infringementNumber)
-      .join(",");
-
-    if (signature === initialSignatureRef.current) {
-      return;
-    }
-
-    initialSignatureRef.current = signature;
-    setExtraRows([]);
-  }, [recentInfringements]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) {
@@ -367,42 +363,40 @@ export const LatestInstances = ({
         page: nextPage,
       });
 
-      if (result.data.length === 0) {
-        return;
+      if (result.data.length > 0) {
+        setExtraRows((current) => [...current, ...result.data]);
       }
-
-      setExtraRows((current) => [...current, ...result.data]);
-    } finally {
-      setLoadingMore(false);
+    } catch (error) {
+      console.error("Failed to load more infringements", error);
     }
+
+    setLoadingMore(false);
   }, [hasMore, loadingMore, rows.length]);
 
   useEffect(() => {
     const root = scrollRef.current;
+    const canLoad = isLoading !== true && !loadingMore && hasMore;
 
-    if (root === null || isLoading === true || loadingMore || !hasMore) {
-      return;
-    }
-
-    if (root.getClientRects().length === 0) {
-      return;
-    }
-
-    if (root.scrollHeight <= root.clientHeight + 8) {
+    if (
+      root !== null &&
+      canLoad &&
+      root.getClientRects().length > 0 &&
+      root.scrollHeight <= root.clientHeight + 8
+    ) {
       void loadMore();
     }
-  }, [hasMore, isLoading, loadMore, loadingMore, rows.length]);
+  }, [hasMore, isLoading, loadMore, loadingMore]);
 
   useEffect(() => {
     const root = scrollRef.current;
     const sentinel = sentinelRef.current;
-    let observer: IntersectionObserver | undefined;
+    const canObserve = hasMore && isLoading !== true;
+    let observer: IntersectionObserver | null = null;
 
     if (
       root !== null &&
       sentinel !== null &&
-      hasMore &&
-      isLoading !== true &&
+      canObserve &&
       root.getClientRects().length > 0
     ) {
       observer = new IntersectionObserver(
@@ -446,10 +440,10 @@ export const LatestInstances = ({
 
   return (
     <Card
-      className="bg-card min-w-0 overflow-visible"
+      className="min-w-0 overflow-visible"
       aria-label="Latest parking infringements"
     >
-      <CardContent className="p-4 sm:p-5 lg:p-6">
+      <CardContent variant="roomy">
         <div className="mb-3 flex items-start justify-between gap-3 sm:items-center">
           <h2 className="text-primary text-sm font-semibold">
             Latest Instances
@@ -505,7 +499,7 @@ export const LatestInstances = ({
           ref={scrollRef}
           aria-label="Latest infringements table"
           tabIndex={0}
-          className="border-border hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border md:block"
+          className="border-border hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-lg border md:block"
         >
           {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
           <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
@@ -516,7 +510,7 @@ export const LatestInstances = ({
               <col />
               <col className="w-[5rem]" />
             </colgroup>
-            <thead className="bg-muted text-muted-foreground sticky top-0 z-10 shadow-[0_1px_0_0_var(--border)]">
+            <thead className="bg-muted text-muted-foreground shadow-table-header sticky top-0 z-10">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (

@@ -7,6 +7,27 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@utility chart-height {
+  height: var(--chart-height);
+}
+
+@utility chart-max-height {
+  max-height: var(--chart-max-height);
+}
+
+@utility chart-swatch {
+  background-color: var(--chart-color);
+}
+
+@utility chart-indicator {
+  background-color: var(--chart-color);
+  border-color: var(--chart-color);
+}
+
+@utility shadow-table-header {
+  box-shadow: 0 1px 0 0 var(--border);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

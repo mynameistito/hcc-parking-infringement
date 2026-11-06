@@ -1,8 +1,13 @@
+import type { CSSProperties } from "react";
+
 import { chartColorAt } from "@/lib/chart-colors";
 import { numberFmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export interface PieLegendItem {
+/**
+ * A category label and count displayed in a chart legend.
+ */
+interface PieLegendItem {
   count: number;
   label: string;
 }
@@ -13,6 +18,10 @@ interface PieLegendProps {
   total?: number;
 }
 
+/**
+ * Display category counts and their percentage shares.
+ * @returns The rendered interface for the supplied data.
+ */
 export const PieLegend = ({ items, className, total }: PieLegendProps) => {
   const sum = total ?? items.reduce((acc, item) => acc + item.count, 0);
 
@@ -36,14 +45,18 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
         {items.map((item, index) => {
           const share = sum > 0 ? (item.count / sum) * 100 : 0;
 
+          const swatchStyle: CSSProperties & { "--chart-color": string } = {
+            "--chart-color": chartColorAt(index),
+          };
+
           return (
             <li
-              key={`${item.label}-${index}`}
-              className="hover:bg-muted/60 grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-[4px] px-1 py-0.5"
+              key={item.label}
+              className="hover:bg-muted/60 grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-md px-1 py-0.5"
             >
               <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: chartColorAt(index) }}
+                className="chart-swatch size-2.5 shrink-0 rounded-full"
+                style={swatchStyle}
                 aria-hidden="true"
               />
               <span className="text-foreground min-w-0 break-words">

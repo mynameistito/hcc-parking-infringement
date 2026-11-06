@@ -11,7 +11,7 @@ import { formatStreetSuburb, formatVehicle } from "@/lib/format";
 import { resolveOffenceDescription } from "@/lib/offence-catalog";
 import { percentChange, toTrendResult } from "@/lib/trend";
 
-describe("publicLiveStatsSchema", () => {
+describe("public live statistics parsing", () => {
   it("parses public live stats", () => {
     const parsed = publicLiveStatsSchema.parse({
       allTimeAmountCents: 100,
@@ -31,7 +31,7 @@ describe("publicLiveStatsSchema", () => {
   });
 });
 
-describe("resolveOffenceDescription", () => {
+describe(resolveOffenceDescription, () => {
   it("expands truncated P546 labels from the council feed", () => {
     expect(
       resolveOffenceDescription("P546", "Failed to correctly activate the")
@@ -66,7 +66,7 @@ describe("resolveOffenceDescription", () => {
   });
 });
 
-describe("toPublicInfringement", () => {
+describe(toPublicInfringement, () => {
   it("resolves truncated offence descriptions for the public API", () => {
     const row: InfringementRow = {
       amountCents: 7000,
@@ -141,12 +141,12 @@ describe("toPublicInfringement", () => {
     };
 
     const publicRow = toPublicInfringement(row);
-    expect(publicInfringementSchema.parse(publicRow)).toEqual(publicRow);
-    expect("firstSeenAt" in publicRow).toBe(false);
+    expect(publicInfringementSchema.parse(publicRow)).toStrictEqual(publicRow);
+    expect("firstSeenAt" in publicRow).toBeFalsy();
   });
 });
 
-describe("formatVehicle", () => {
+describe(formatVehicle, () => {
   it("joins make and model", () => {
     expect(
       formatVehicle({
@@ -186,7 +186,7 @@ describe("formatVehicle", () => {
   });
 });
 
-describe("formatStreetSuburb", () => {
+describe(formatStreetSuburb, () => {
   it("joins street and suburb", () => {
     expect(formatStreetSuburb("Victoria St", "Hamilton Central")).toBe(
       "Victoria St, Hamilton Central"

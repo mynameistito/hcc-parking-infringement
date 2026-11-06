@@ -88,25 +88,13 @@ export class ParkingStore extends DurableObject<Env> {
    * @param ws - The socket that sent the message.
    * @param message - The received text or binary message.
    */
-  webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
-    void this.ctx;
-    onWebSocketMessage(ws, message);
-  }
-
-  /**
-   * Handles closure of an accepted socket; no additional cleanup is required.
-   * @param _ws - The closed socket.
-   * @param _code - The WebSocket close code.
-   * @param _reason - The close reason.
-   * @param _wasClean - Whether the close handshake completed cleanly.
-   */
-  webSocketClose(
-    _ws: WebSocket,
-    _code: number,
-    _reason: string,
-    _wasClean: boolean
+  override webSocketMessage(
+    ws: WebSocket,
+    message: string | ArrayBuffer
   ): void {
-    void this.ctx;
+    if (this.ctx.getWebSockets().includes(ws)) {
+      onWebSocketMessage(ws, message);
+    }
   }
 
   private get sql(): SqlStorage {

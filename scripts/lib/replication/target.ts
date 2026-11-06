@@ -6,6 +6,11 @@ import {
 } from "@scripts/dev-env.ts";
 import { readArg } from "@scripts/lib/cli/args.ts";
 
+/**
+ * Resolve the source worker from command-line options.
+ * @param args - Command-line argument tokens.
+ * @returns The formatted or resolved string value.
+ */
 export const resolveReplicationSourceUrl = (
   args: readonly string[]
 ): string => {
@@ -24,6 +29,11 @@ export const resolveReplicationSourceUrl = (
   return defaultLocalPushSourceUrl();
 };
 
+/**
+ * Resolve the destination worker from command-line options.
+ * @param args - Command-line argument tokens.
+ * @returns The formatted or resolved string value.
+ */
 export const resolveReplicationTargetUrl = (
   args: readonly string[]
 ): string => {
@@ -48,6 +58,11 @@ export const resolveReplicationTargetUrl = (
   return workerUrl.replace(/\/$/u, "");
 };
 
+/**
+ * Resolve the worker receiving a JSON import.
+ * @param args - Command-line argument tokens.
+ * @returns The formatted or resolved string value.
+ */
 export const resolveImportJsonTargetUrl = (args: readonly string[]): string => {
   const explicit = readArg(args, "to");
 

@@ -1,19 +1,23 @@
 import { Context, Effect, Layer } from "effect";
 
 import { err, ok } from "@/lib/result.ts";
+import type { RawInfringementRecord } from "@/server/clean-schema.ts";
 import { HccTransport } from "@/server/hcc-transport.ts";
 import type {
   HccFetchError,
   HccInfringementResponse,
 } from "@/server/hcc-transport.ts";
 
+/**
+ * Record and pagination totals from a complete source fetch.
+ */
 export interface FetchAllResult {
   lastPageRecords: number;
   pageCount: number;
   pagesFetched: number;
   pageSize: number;
   possiblyTruncated: boolean;
-  records: Record<string, unknown>[];
+  records: RawInfringementRecord[];
 }
 
 const isFullPage = (recordCount: number, pageSize: number): boolean =>
@@ -21,9 +25,12 @@ const isFullPage = (recordCount: number, pageSize: number): boolean =>
 
 const readPageRecords = (
   response: HccInfringementResponse
-): Record<string, unknown>[] =>
+): RawInfringementRecord[] =>
   response.Data !== undefined && response.Data.length > 0 ? response.Data : [];
 
+/**
+ * Effect service for fetching all pages in a source date range.
+ */
 export class HccClient extends Context.Service<
   HccClient,
   {
@@ -35,7 +42,7 @@ export class HccClient extends Context.Service<
 >()("hcc/HccClient") {}
 
 /** Pagination policy depends on an explicitly supplied HCC transport. */
-export const makeHccClient = Effect.gen(function* makePaginationClient() {
+const makeHccClient = Effect.gen(function* makePaginationClient() {
   const transport = yield* HccTransport;
 
   const fetchAll = Effect.fn("HccClient.fetchAll")(function* fetchAll(

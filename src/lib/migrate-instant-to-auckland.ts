@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   endOfDayInAucklandIso,
   instantInAucklandIso,
@@ -10,8 +12,19 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/u;
 const WALL_CLOCK =
   /^(?<date>\d{4}-\d{2}-\d{2})T(?<time>\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)/u;
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+const snapshotRecordSchema = z.record(z.string(), z.json());
+
+const migrateTimestampField = (
+  record: z.infer<typeof snapshotRecordSchema>,
+  key: string,
+  migrate: (value: string) => string
+): void => {
+  const parsed = z.string().safeParse(record[key]);
+
+  if (parsed.success) {
+    record[key] = migrate(parsed.data);
+  }
+};
 
 const extractWallClock = (
   value: string
@@ -182,34 +195,36 @@ export const shouldMigrateSyncMetaValue = (
  * @returns The updated JSON, or the original payload for non-object JSON.
  */
 export const migrateDashboardSnapshotPayload = (payload: string): string => {
-  const parsed: unknown = JSON.parse(payload);
+  const result = snapshotRecordSchema.safeParse(JSON.parse(payload));
 
-  if (!isRecord(parsed)) {
+  if (!result.success) {
     return payload;
   }
 
-  if (typeof parsed.at === "string") {
-    parsed.at = migrateSyncInstant(parsed.at);
-  }
+  const parsed = result.data;
+  migrateTimestampField(parsed, "at", migrateSyncInstant);
 
-  const { live } = parsed;
+  const live = snapshotRecordSchema.safeParse(parsed.live);
 
-  if (isRecord(live)) {
-    if (typeof live.lastSyncedAt === "string") {
-      live.lastSyncedAt = migrateSyncInstant(live.lastSyncedAt);
-    }
-
-    if (typeof live.lastRecordAt === "string") {
-      live.lastRecordAt = migrateWallClockInstant(live.lastRecordAt);
-    }
+  if (live.success) {
+    migrateTimestampField(live.data, "lastSyncedAt", migrateSyncInstant);
+    migrateTimestampField(live.data, "lastRecordAt", migrateWallClockInstant);
+    parsed.live = live.data;
   }
 
   const recent = parsed.recentInfringements;
 
   if (Array.isArray(recent)) {
-    for (const item of recent) {
-      if (isRecord(item) && typeof item.occurredAt === "string") {
-        item.occurredAt = migrateWallClockInstant(item.occurredAt);
+    for (const [index, item] of recent.entries()) {
+      const record = snapshotRecordSchema.safeParse(item);
+
+      if (record.success) {
+        migrateTimestampField(
+          record.data,
+          "occurredAt",
+          migrateWallClockInstant
+        );
+        recent[index] = record.data;
       }
     }
   }

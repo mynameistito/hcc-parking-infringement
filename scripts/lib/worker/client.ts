@@ -10,6 +10,8 @@ export interface WorkerScriptContext {
 /**
  * Read `API_KEY` or `CRON_SECRET` from the environment.
  * Exits the process when neither is set.
+ * @param message - Diagnostic shown when credentials are absent.
+ * @returns The configured administration credential.
  */
 export const requireApiKey = (
   message = "Missing API_KEY (environment or `.dev.vars`)."
@@ -24,7 +26,11 @@ export const requireApiKey = (
   return apiKey;
 };
 
-/** Build a script context from `WORKER_URL` (or override) and a valid API key. */
+/**
+ * Build the authenticated worker connection for a script.
+ * @param workerUrl - Worker origin, defaulting to the configured URL.
+ * @returns The worker URL and required API credential.
+ */
 export const createWorkerContext = (
   workerUrl = getWorkerUrl()
 ): WorkerScriptContext => ({
@@ -32,7 +38,11 @@ export const createWorkerContext = (
   workerUrl,
 });
 
-/** Standard JSON + bearer auth headers for worker API calls. */
+/**
+ * Build authentication headers for worker API calls.
+ * @param apiKey - Administration credential.
+ * @returns JSON accept and bearer authorization headers.
+ */
 export const bearerHeaders = (apiKey: string): HeadersInit => ({
   Accept: "application/json",
   Authorization: `Bearer ${apiKey}`,
@@ -45,6 +55,10 @@ const storedTotalSchema = z.object({
 /**
  * Count infringements in ParkingStore for an inclusive date range
  * via the gated `/api/v1/infringements` endpoint.
+ * @param ctx - Authenticated worker connection.
+ * @param from - Inclusive starting date.
+ * @param to - Inclusive ending date.
+ * @returns The reported count, or zero when no valid total is returned.
  */
 export const fetchStoredInfringementCount = async (
   ctx: WorkerScriptContext,

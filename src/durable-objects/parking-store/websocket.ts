@@ -10,7 +10,9 @@ export const handleWebSocketMessage = (
   message: string | ArrayBuffer
 ): void => {
   const text =
-    typeof message === "string" ? message : new TextDecoder().decode(message);
+    message instanceof ArrayBuffer
+      ? new TextDecoder().decode(message)
+      : message;
 
   if (text === "ping") {
     ws.send(JSON.stringify({ at: isoNow(), type: "pong" }));
@@ -40,7 +42,7 @@ export const broadcastToWebSockets = (
  * @param ws - The socket to notify.
  * @param payload - The serialized message to send.
  */
-export const pushToWebSocket = (ws: WebSocket, payload: string): void => {
+const pushToWebSocket = (ws: WebSocket, payload: string): void => {
   try {
     ws.send(payload);
   } catch {

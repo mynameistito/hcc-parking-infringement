@@ -54,7 +54,7 @@ const chunkRecords = Math.min(
 const outDir = path.resolve(readArg(args, "out-dir") ?? "data/seed");
 const bucket = readArg(args, "bucket") ?? "hcc-parking-infringement-seed";
 const prefix = readArg(args, "prefix") ?? "parking-store/v1/";
-const pauseMs = Number.parseInt(readArg(args, "pause-ms") ?? "1000", 10);
+const pauseMs = Math.trunc(Number(readArg(args, "pause-ms") ?? "1000"));
 
 const sourceUrl = resolveReplicationSourceUrl(args);
 const apiKey = requireApiKey();

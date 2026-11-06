@@ -1,3 +1,8 @@
+import type { JSONValue } from "hono/utils/types";
+import { z } from "zod";
+
+const httpErrorSchema = z.object({ error: z.string() });
+
 const DO_SQLITE_QUOTA_PATTERN =
   /exceeded allowed rows (?:read|written) in durable objects free tier/iu;
 
@@ -16,8 +21,8 @@ const TRANSIENT_ERROR_PATTERNS = [
   /enotfound/iu,
 ] as const;
 
-const formatErrorMessage = (error: unknown): string =>
-  error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+const formatErrorMessage = (cause: unknown): string =>
+  cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
 
 /**
  * Extracts a string error field from an untrusted HTTP response body.
@@ -25,24 +30,20 @@ const formatErrorMessage = (error: unknown): string =>
  * @returns The error message, or undefined when absent or not a string.
  */
 export const extractHttpErrorMessage = (
-  rawBody: unknown
+  rawBody: JSONValue
 ): string | undefined => {
-  if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
-    const { error } = rawBody;
+  const parsed = httpErrorSchema.safeParse(rawBody);
 
-    return typeof error === "string" ? error : undefined;
-  }
-
-  return undefined;
+  return parsed.success ? parsed.data.error : undefined;
 };
 
 /**
  * Checks for the Durable Object SQLite daily quota, which is not retryable.
- * @param error - Error or other thrown value to inspect.
+ * @param cause - Error or other thrown value to inspect.
  * @returns Whether the quota message is present.
  */
-export const isDoSqliteQuotaError = (error: unknown): boolean => {
-  const message = formatErrorMessage(error);
+export const isDoSqliteQuotaError = (cause: unknown): boolean => {
+  const message = formatErrorMessage(cause);
 
   return DO_SQLITE_QUOTA_PATTERN.test(message);
 };
@@ -52,7 +53,7 @@ export const isDoSqliteQuotaError = (error: unknown): boolean => {
  * @param rawBody - Parsed response body of unknown shape.
  * @returns Whether the body contains the quota message.
  */
-export const isDoSqliteQuotaResponse = (rawBody: unknown): boolean => {
+export const isDoSqliteQuotaResponse = (rawBody: JSONValue): boolean => {
   const message = extractHttpErrorMessage(rawBody);
 
   return message !== undefined && DO_SQLITE_QUOTA_PATTERN.test(message);
@@ -72,15 +73,15 @@ export const describeDoSqliteQuotaError = (): string =>
 
 /**
  * Checks whether a queue, Durable Object, or network error merits a retry.
- * @param error - Error or other thrown value to inspect.
+ * @param cause - Error or other thrown value to inspect.
  * @returns Whether the failure appears transient.
  */
-export const isRetryableError = (error: unknown): boolean => {
-  if (isDoSqliteQuotaError(error)) {
+export const isRetryableError = (cause: unknown): boolean => {
+  if (isDoSqliteQuotaError(cause)) {
     return false;
   }
 
-  const message = formatErrorMessage(error);
+  const message = formatErrorMessage(cause);
 
   return TRANSIENT_ERROR_PATTERNS.some((pattern) => pattern.test(message));
 };

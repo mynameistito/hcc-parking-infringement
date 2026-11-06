@@ -54,11 +54,11 @@ const writer = await createSnapshotWriter(outPath, {
   source: sourceUrl,
 });
 
-let cursor = 0;
+let cursor: number | null = 0;
 let exported = 0;
 let total = 0;
 
-while (true) {
+while (cursor !== null) {
   const page = await fetchExportInfringements(
     source,
     cursor,
@@ -74,25 +74,19 @@ while (true) {
 
   writer.appendInfringements(page.records);
   exported += page.records.length;
-  cursor = page.nextCursor ?? cursor;
+  cursor = page.nextCursor;
 
   console.log(
     `[export:json] infringements ${formatNumber(exported)}/${formatNumber(total)}`
   );
-
-  if (page.nextCursor === null) {
-    break;
-  }
-
-  cursor = page.nextCursor;
 }
 
 const watermarks: IngestWatermarkExport[] = [];
 
 if (!skipWatermarks) {
-  let offset = 0;
+  let offset: number | null = 0;
 
-  while (true) {
+  while (offset !== null) {
     const page = await fetchExportWatermarks(source, offset, batchSize);
 
     if (page.watermarks.length === 0) {
@@ -100,17 +94,11 @@ if (!skipWatermarks) {
     }
 
     watermarks.push(...page.watermarks);
-    offset = page.nextOffset ?? offset;
+    offset = page.nextOffset;
 
     console.log(
       `[export:json] watermarks ${formatNumber(watermarks.length)}/${formatNumber(page.total)}`
     );
-
-    if (page.nextOffset === null) {
-      break;
-    }
-
-    offset = page.nextOffset;
   }
 }
 

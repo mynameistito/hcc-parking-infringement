@@ -24,6 +24,9 @@ import type {
 } from "@/durable-objects/types.ts";
 import type { ParkingStoreReadSource } from "@/server/parking-read-source.ts";
 
+/**
+ * Read operations shared by seed and Durable Object storage.
+ */
 export interface ParkingStoreReader {
   readonly source: ParkingStoreReadSource;
   readonly isSeedMode: boolean;
@@ -84,6 +87,11 @@ export interface ParkingStoreReader {
   ) => Promise<ExportWatermarksResult>;
 }
 
+/**
+ * Build an empty page preserving the requested pagination.
+ * @param query - Search, sorting, and pagination options.
+ * @returns The resulting `BrowseResult<T>` value.
+ */
 export const emptyBrowseResult = <T>(query: BrowseQuery): BrowseResult<T> => ({
   items: [],
   limit: query.limit,

@@ -3,9 +3,19 @@ import { AwsClient } from "aws4fetch";
 const DEFAULT_SEED_BUCKET = "hcc-parking-infringement-seed";
 const SEED_OBJECT_CACHE = "parking-seed-objects";
 
+/** Text-object operations required by the seed storage adapter. */
+interface SeedBucket {
+  get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
+  put: (
+    key: string,
+    value: string,
+    options: R2PutOptions
+  ) => Promise<R2Object | null>;
+}
+
 /** Worker bindings and optional S3 settings for seed object storage. */
 export interface SeedR2Env {
-  PARKING_SEED?: R2Bucket;
+  PARKING_SEED?: SeedBucket;
   R2_ACCESS_KEY_ID?: string;
   R2_ACCESS_KEY?: string;
   R2_SECRET_ACCESS_KEY?: string;
@@ -46,7 +56,7 @@ const resolveR2AccountId = (env: SeedR2Env): string => {
 
 const hasR2Binding = (
   env: SeedR2Env
-): env is SeedR2Env & { PARKING_SEED: R2Bucket } =>
+): env is SeedR2Env & { PARKING_SEED: SeedBucket } =>
   env.PARKING_SEED !== undefined;
 
 const hasR2S3Credentials = (env: SeedR2Env): boolean => {
@@ -64,7 +74,7 @@ const hasR2S3Credentials = (env: SeedR2Env): boolean => {
  * Verifies that a seed bucket binding or S3 credentials are available.
  * @param env - Seed storage bindings and settings.
  */
-export const assertSeedR2Configured = (env: SeedR2Env): void => {
+const assertSeedR2Configured = (env: SeedR2Env): void => {
   if (hasR2Binding(env) || hasR2S3Credentials(env)) {
     return;
   }
@@ -75,7 +85,7 @@ export const assertSeedR2Configured = (env: SeedR2Env): void => {
 };
 
 const readViaBinding = async (
-  bucket: R2Bucket,
+  bucket: SeedBucket,
   key: string
 ): Promise<string | null> => {
   const object = await bucket.get(key);
@@ -243,7 +253,7 @@ const readViaS3Api = async (
 };
 
 const writeViaBinding = async (
-  bucket: R2Bucket,
+  bucket: SeedBucket,
   key: string,
   value: string,
   contentType: string

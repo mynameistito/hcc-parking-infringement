@@ -75,6 +75,10 @@ const resolveDataStatus = (
   return "ready";
 };
 
+/**
+ * Compose dashboard queries with live updates and cached startup data.
+ * @returns The rendered interface for the supplied data.
+ */
 export const App = () => {
   const { cached, connected, ready } = useLiveSocket();
 

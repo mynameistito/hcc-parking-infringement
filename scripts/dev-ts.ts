@@ -36,8 +36,16 @@ const resolveTailscaleHost = async (): Promise<string> => {
   }
 
   try {
-    const child = spawn("tailscale", ["ip", "-4"], {
-      shell: true,
+    const tailscalePath =
+      process.platform === "win32"
+        ? path.join(
+            process.env.ProgramFiles ?? "C:\\Program Files",
+            "Tailscale",
+            "tailscale.exe"
+          )
+        : "/usr/bin/tailscale";
+
+    const child = spawn(tailscalePath, ["ip", "-4"], {
       stdio: ["ignore", "pipe", "ignore"],
     });
 
@@ -138,10 +146,9 @@ console.log("Tailnet dashboard:", workerUrl);
 
 console.log("WORKER_URL for scripts:", workerUrl, "\n");
 
-const child = spawn("bunx", ["vite", ...viteArgs], {
+const child = spawn(process.execPath, ["x", "vite", ...viteArgs], {
   cwd: rootDir,
   env: process.env,
-  shell: true,
   stdio: "inherit",
 });
 

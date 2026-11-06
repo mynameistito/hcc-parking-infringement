@@ -21,6 +21,10 @@ import { handleSeedDashboardWebSocket } from "@/server/seed-websocket.ts";
 import { getDailyStats, getLiveStats, getTopStats } from "@/server/stats.ts";
 import { getParkingStore } from "@/server/store.ts";
 
+/**
+ * Build public statistics routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1StatsRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

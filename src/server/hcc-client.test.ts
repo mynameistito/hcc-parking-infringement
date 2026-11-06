@@ -11,7 +11,7 @@ import {
 import { HccClient, hccClientLayer } from "@/server/hcc-pagination";
 import { HccTransport } from "@/server/hcc-transport";
 
-describe("formatHccFetchError", () => {
+describe(formatHccFetchError, () => {
   it("formats HTTP failures", () => {
     expect(
       formatHccFetchError({ body: "rate limited", status: 429, tag: "http" })
@@ -36,12 +36,12 @@ const malformed: typeof fetch = async () =>
 
 describe("HCC request boundary", () => {
   it("returns typed transport and malformed JSON failures", async () => {
-    expect(
-      await fetchInfringements(env, { ...request, fetch: failed })
-    ).toEqual({ error: { tag: "transport" }, ok: false });
-    expect(
-      await fetchInfringements(env, { ...request, fetch: malformed })
-    ).toEqual({ error: { tag: "malformed_json" }, ok: false });
+    await expect(
+      fetchInfringements(env, { ...request, fetch: failed })
+    ).resolves.toStrictEqual({ error: { tag: "transport" }, ok: false });
+    await expect(
+      fetchInfringements(env, { ...request, fetch: malformed })
+    ).resolves.toStrictEqual({ error: { tag: "malformed_json" }, ok: false });
   });
 
   it("propagates cancellation through pagination", async () => {
@@ -69,13 +69,16 @@ describe("HCC request boundary", () => {
       );
     };
 
-    expect(
-      await fetchAllInWindow(env, request.startDate, request.endDate, {
+    await expect(
+      fetchAllInWindow(env, request.startDate, request.endDate, {
         fetch: fetchPage,
         signal: controller.signal,
       })
-    ).toEqual({ error: { tag: "cancelled" }, ok: false });
-    expect(observed.map((signal) => signal?.aborted)).toEqual([true, true]);
+    ).resolves.toStrictEqual({ error: { tag: "cancelled" }, ok: false });
+    expect(observed.map((signal) => signal?.aborted)).toStrictEqual([
+      true,
+      true,
+    ]);
 
     for (const signal of observed) {
       expect(signal?.reason).toBe(controller.signal.reason);
@@ -114,7 +117,10 @@ describe("HCC request boundary", () => {
 
     const next = fetchInfringements(env, { ...request, fetch: blocked });
     controller.abort();
-    expect(await cancelled).toEqual({ error: { tag: "cancelled" }, ok: false });
+    await expect(cancelled).resolves.toStrictEqual({
+      error: { tag: "cancelled" },
+      ok: false,
+    });
     releases[0]?.();
     await active[0];
     await Promise.resolve();
@@ -125,7 +131,7 @@ describe("HCC request boundary", () => {
     }
 
     const nextResult = await next;
-    expect(nextResult.ok).toBe(true);
+    expect(nextResult.ok).toBeTruthy();
     await Promise.all(active);
   });
 });
@@ -169,9 +175,9 @@ describe("HCC pagination", () => {
     await bothStarted.promise;
     pageThree.resolve(new Response("page 3", { status: 503 }));
     await Promise.resolve();
-    expect(settled).toBe(false);
+    expect(settled).toBeFalsy();
     pageTwo.resolve(new Response("page 2", { status: 429 }));
-    expect(await result).toEqual({
+    await expect(result).resolves.toStrictEqual({
       error: { body: "page 2", status: 429, tag: "http" },
       ok: false,
     });
@@ -227,8 +233,8 @@ describe("HccClient service", () => {
     try {
       const signal = await started.promise;
       await Effect.runPromise(Fiber.interrupt(fiber));
-      expect(signal.aborted).toBe(true);
-      expect(caller.signal.aborted).toBe(false);
+      expect(signal.aborted).toBeTruthy();
+      expect(caller.signal.aborted).toBeFalsy();
     } finally {
       caller.abort();
       await Effect.runPromise(Fiber.interrupt(fiber));
@@ -255,7 +261,7 @@ describe("HccClient service", () => {
       }).pipe(Effect.provide(hccClientLayer.pipe(Layer.provide(transport))))
     );
 
-    expect(result.records).toEqual([{ page: 1 }, { page: 2 }]);
-    expect(result.possiblyTruncated).toBe(true);
+    expect(result.records).toStrictEqual([{ page: 1 }, { page: 2 }]);
+    expect(result.possiblyTruncated).toBeTruthy();
   });
 });

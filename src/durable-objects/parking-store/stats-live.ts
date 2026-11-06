@@ -32,7 +32,7 @@ interface StatsLiveRow extends Record<string, SqlStorageValue> {
  * @param row - Stored row, or undefined when statistics are not initialized.
  * @returns Public live statistics with zero defaults for an absent row.
  */
-export const mapPublicLiveStatsRow = (
+const mapPublicLiveStatsRow = (
   row: StatsLiveRow | undefined
 ): PublicLiveStats => {
   if (row === undefined) {

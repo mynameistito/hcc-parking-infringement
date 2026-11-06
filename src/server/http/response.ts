@@ -22,9 +22,9 @@ const STORED_HEADERS = {
  * @param status - The HTTP status to return.
  * @returns The JSON response with stored-data cache headers.
  */
-export const storedJson = (
+export const storedJson = <T>(
   c: Context<AppEnv>,
-  body: unknown,
+  body: T,
   status: ContentfulStatusCode = 200
 ) => c.json(body, status, STORED_HEADERS);
 

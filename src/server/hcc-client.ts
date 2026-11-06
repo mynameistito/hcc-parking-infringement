@@ -4,6 +4,7 @@ import { z } from "zod";
 import { BACKFILL_HCC_CONCURRENCY } from "@/lib/backfill-constants.ts";
 import { err, ok } from "@/lib/result.ts";
 import type { Result } from "@/lib/result.ts";
+import { rawInfringementRecordSchema } from "@/server/clean-schema.ts";
 import { HccClient, hccClientLayer } from "@/server/hcc-pagination.ts";
 import type { FetchAllResult } from "@/server/hcc-pagination.ts";
 import { HccTransport } from "@/server/hcc-transport.ts";
@@ -15,7 +16,6 @@ import type {
 export type {
   HccFetchError,
   HccInfringementResponse,
-  HccPaging,
 } from "@/server/hcc-transport.ts";
 
 export type { FetchAllResult } from "@/server/hcc-pagination.ts";
@@ -59,7 +59,7 @@ const hccPagingSchema = z.object({
 });
 
 const hccInfringementResponseSchema = z.object({
-  Data: z.array(z.record(z.string(), z.unknown())).optional(),
+  Data: z.array(rawInfringementRecordSchema).optional(),
   Paging: z.array(hccPagingSchema).min(1),
 });
 

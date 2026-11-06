@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+interface RoadCentroid {
+  lat: number;
+  lon: number;
+}
+
 const HAMILTON_BBOX = {
   east: 175.35,
   north: -37.68,
@@ -13,7 +18,7 @@ const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const USER_AGENT = "hcc-parking-infringement/1.0 (hamilton parking ticker)";
 
 const STREET_SUFFIX_PATTERN =
-  /\s+(?<suffix>street|road|avenue|drive|place|lane|court|crescent|terrace|parade)$/u;
+  / (?<suffix>street|road|avenue|drive|place|lane|court|crescent|terrace|parade)$/u;
 
 const overpassElementSchema = z.object({
   geometry: z
@@ -37,14 +42,6 @@ const overpassResponseSchema = z.object({
 
 /** Road geometry as lines of latitude and longitude pairs. */
 export type RoadGeometry = [number, number][][];
-
-/** Geocoded location and associated road geometry. */
-export interface GeocodeResult {
-  lat: number;
-  lon: number;
-  displayName: string;
-  geometry: RoadGeometry;
-}
 
 const normalizeStreetName = (value: string): string =>
   value.toLowerCase().replaceAll(".", "").replaceAll(/\s+/gu, " ").trim();
@@ -100,12 +97,7 @@ export const isRealRoadGeometry = (geometry: RoadGeometry): boolean =>
  * @param geometry - Road lines containing latitude and longitude pairs.
  * @returns The mean latitude and longitude.
  */
-export const centroidFromGeometry = (
-  geometry: RoadGeometry
-): {
-  lat: number;
-  lon: number;
-} => {
+export const centroidFromGeometry = (geometry: RoadGeometry): RoadCentroid => {
   let sumLat = 0;
   let sumLon = 0;
   let count = 0;
@@ -187,19 +179,18 @@ out geom;
       continue;
     }
 
-    const line = element.geometry.map(
-      (point) => [point.lat, point.lon] as [number, number]
-    );
+    const line = element.geometry.map((point): [number, number] => [
+      point.lat,
+      point.lon,
+    ]);
 
     for (const street of streets) {
-      if (!streetNameMatches(name, street)) {
-        continue;
+      if (streetNameMatches(name, street)) {
+        const existing = results.get(street) ?? [];
+        existing.push(line);
+        results.set(street, existing);
+        break;
       }
-
-      const existing = results.get(street) ?? [];
-      existing.push(line);
-      results.set(street, existing);
-      break;
     }
   }
 

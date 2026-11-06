@@ -10,6 +10,10 @@ import { storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 import { getParkingStoreReadSource } from "@/server/parking-read-source.ts";
 
+/**
+ * Build liveness and readiness routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1HealthRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { PublicInfringement } from "@/contracts/public-api";
 
@@ -60,8 +60,8 @@ const clickHeader = (container: HTMLElement, label: string) => {
   });
 };
 
-describe("LatestInstances", () => {
-  test("renders all columns and sorts dates in both directions", () => {
+describe(LatestInstances, () => {
+  it("renders all columns and sorts dates in both directions", () => {
     const { container, root } = mount();
 
     try {
@@ -93,7 +93,7 @@ describe("LatestInstances", () => {
     }
   });
 
-  test("sorts fine amounts numerically in both directions", () => {
+  it("sorts fine amounts numerically in both directions", () => {
     const { container, root } = mount();
 
     try {

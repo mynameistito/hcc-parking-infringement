@@ -19,7 +19,7 @@ const extractBearerToken = (
     return null;
   }
 
-  const match = /^Bearer\s+(?<token>.+)$/iu.exec(authorization);
+  const match = /^Bearer\s+(?<token>\S.*)$/iu.exec(authorization);
 
   return match?.groups?.token?.trim() ?? null;
 };
@@ -58,7 +58,7 @@ export const verifyApiKey = (request: Request, env: Env): boolean => {
  * @param env - Worker environment containing the cron secret.
  * @returns Whether the configured secret matches.
  */
-export const verifyCronSecret = (request: Request, env: Env): boolean => {
+const verifyCronSecret = (request: Request, env: Env): boolean => {
   const secret = env.CRON_SECRET?.trim();
 
   if (secret === undefined || secret === "") {

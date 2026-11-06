@@ -18,6 +18,7 @@ export const badgeVariants = cva(
           "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
         secondary:
           "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
+        status: "border-border bg-background text-foreground gap-1.5",
         success: "border-success/35 bg-success/10 text-success",
       },
     },

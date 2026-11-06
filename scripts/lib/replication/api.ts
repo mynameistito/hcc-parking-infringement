@@ -1,6 +1,5 @@
-/** HTTP helpers for pushing local ParkingStore data to a remote worker. */
-
 import { setTimeout as delay } from "node:timers/promises";
+/** HTTP helpers for pushing local ParkingStore data to a remote worker. */
 
 import {
   describeConnectionFailure,
@@ -9,6 +8,7 @@ import {
 } from "@scripts/dev-env.ts";
 import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
 import { bearerHeaders } from "@scripts/lib/worker/client.ts";
+import type { JSONValue } from "hono/utils/types";
 import { z } from "zod";
 
 import {
@@ -58,7 +58,7 @@ const REPLICATION_MAX_ATTEMPTS = 5;
 
 const replicationRetryDelayMs = (attempt: number): number => attempt * 2000;
 
-const throwIfDoQuotaResponse = (rawBody: unknown): void => {
+const throwIfDoQuotaResponse = (rawBody: JSONValue): void => {
   if (!isDoSqliteQuotaResponse(rawBody)) {
     return;
   }
@@ -76,16 +76,16 @@ const fetchReplicationWithRetry = async (
   run: () => Promise<Response>,
   isSuccess: (
     response: Response,
-    rawBody: unknown
+    rawBody: JSONValue
   ) => { ok: true } | { ok: false; fatal: boolean }
-): Promise<{ rawBody: unknown; response: Response }> => {
+): Promise<{ rawBody: JSONValue; response: Response }> => {
   const attemptFetch = async (
     attempt: number,
     lastError?: Error
-  ): Promise<{ rawBody: unknown; response: Response }> => {
+  ): Promise<{ rawBody: JSONValue; response: Response }> => {
     try {
       const response = await run();
-      const rawBody: unknown = await response.json().catch(() => null);
+      const rawBody = z.json().parse(await response.json().catch(() => null));
       throwIfDoQuotaResponse(rawBody);
       const result = isSuccess(response, rawBody);
 
@@ -149,7 +149,7 @@ export const fetchExportInfringements = async (
     timeoutMs: 60_000,
   });
 
-  const rawBody: unknown = await response.json().catch(() => null);
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsed = exportInfringementsSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -288,7 +288,7 @@ export const fetchExportWatermarks = async (
     timeoutMs: 60_000,
   });
 
-  const rawBody: unknown = await response.json().catch(() => null);
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsed = exportWatermarksSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -322,7 +322,7 @@ export const postImportWatermarks = async (
     timeoutMs: 120_000,
   });
 
-  const rawBody: unknown = await response.json().catch(() => null);
+  const rawBody = z.json().parse(await response.json().catch(() => null));
 
   if (!response.ok) {
     throw new Error(
@@ -347,7 +347,7 @@ export const postFinalizeStoredImport = async (
       timeoutMs: 120_000,
     });
 
-    const rawBody: unknown = await response.json().catch(() => null);
+    const rawBody = z.json().parse(await response.json().catch(() => null));
 
     if (!response.ok) {
       throw new Error(
@@ -376,7 +376,7 @@ export const fetchDashboardSnapshot = async (
     timeoutMs: 120_000,
   });
 
-  const rawBody: unknown = await response.json().catch(() => null);
+  const rawBody = z.json().parse(await response.json().catch(() => null));
 
   if (!response.ok) {
     throw new Error(
@@ -384,13 +384,11 @@ export const fetchDashboardSnapshot = async (
     );
   }
 
-  if (
-    typeof rawBody !== "object" ||
-    rawBody === null ||
-    !("payload" in rawBody)
-  ) {
+  const parsed = z.object({ payload: z.json() }).safeParse(rawBody);
+
+  if (!parsed.success) {
     throw new Error("Dashboard snapshot response missing payload");
   }
 
-  return JSON.stringify(rawBody.payload);
+  return JSON.stringify(parsed.data.payload);
 };

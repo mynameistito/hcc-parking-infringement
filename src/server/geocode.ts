@@ -66,6 +66,12 @@ const processGeocodeBatch = async (
   };
 };
 
+/**
+ * Resolve coordinates for a bounded batch of pending locations.
+ * @param scope - Request services and storage mode.
+ * @param limit - Maximum number of locations to process.
+ * @returns The resulting `Promise<{ geocoded: number; failed: number; pending: number }>` value.
+ */
 export const geocodeMissingLocations = async (
   scope: AppScope,
   limit = 50

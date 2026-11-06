@@ -85,6 +85,9 @@ import {
   isWindowIngested,
 } from "./watermarks.ts";
 
+/**
+ * Storage operations exposed by the parking Durable Object.
+ */
 export interface ParkingStoreApi {
   applySyncWindow: (payload: SyncWindowPayload) => SyncWindowResult;
   recordBackfillFailure: (start: string, end: string, error: string) => void;
@@ -160,6 +163,12 @@ export interface ParkingStoreApi {
   countInfringements: () => number;
 }
 
+/**
+ * Compose storage operations with live dashboard updates.
+ * @param getSql - Accessor for the active storage connection.
+ * @param live - Live dashboard update coordinator.
+ * @returns The resulting `ParkingStoreApi` value.
+ */
 export const createParkingStoreApi = (
   getSql: () => SqlStorage,
   live: LiveCoordinator

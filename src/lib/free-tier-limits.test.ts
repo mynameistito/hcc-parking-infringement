@@ -8,27 +8,27 @@ import {
   resolveBackfillTuning,
 } from "./free-tier-limits.ts";
 
-describe("parseFreeTierMode", () => {
+describe(parseFreeTierMode, () => {
   it("accepts common truthy values", () => {
-    expect(parseFreeTierMode("true")).toBe(true);
-    expect(parseFreeTierMode("1")).toBe(true);
-    expect(parseFreeTierMode("yes")).toBe(true);
+    expect(parseFreeTierMode("true")).toBeTruthy();
+    expect(parseFreeTierMode("1")).toBeTruthy();
+    expect(parseFreeTierMode("yes")).toBeTruthy();
   });
 
   it("treats missing or false values as disabled", () => {
-    expect(parseFreeTierMode()).toBe(false);
-    expect(parseFreeTierMode("false")).toBe(false);
+    expect(parseFreeTierMode()).toBeFalsy();
+    expect(parseFreeTierMode("false")).toBeFalsy();
   });
 });
 
-describe("resolveBackfillTuning", () => {
+describe(resolveBackfillTuning, () => {
   it("uses conservative queue and concurrency limits on the free plan", () => {
     const env = {
       FREE_TIER_MODE: "true",
     };
 
-    expect(isFreeTierMode(env)).toBe(true);
-    expect(resolveBackfillTuning(env)).toEqual({
+    expect(isFreeTierMode(env)).toBeTruthy();
+    expect(resolveBackfillTuning(env)).toStrictEqual({
       hccConcurrency: 2,
       maxDirectPerWave: 4,
       maxEnqueuePerWave: 60,

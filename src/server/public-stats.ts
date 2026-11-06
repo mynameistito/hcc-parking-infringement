@@ -5,10 +5,7 @@ import { formatDateInAuckland } from "@/lib/auckland-time.ts";
 import { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants.ts";
 import type { AppScope } from "@/server/app-scope.ts";
 
-export type {
-  PublicLiveStats,
-  PublicTopItem,
-} from "@/durable-objects/types.ts";
+export type { PublicTopItem } from "@/durable-objects/types.ts";
 
 /**
  * Reads the current public live statistics.

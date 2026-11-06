@@ -1,5 +1,4 @@
-import type { ComponentProps } from "react";
-import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts";
+import { z } from "zod";
 
 import {
   ChartContainer,
@@ -11,31 +10,10 @@ import { isChartEntry } from "@/lib/chart-entry";
 import type { ChartEntry } from "@/lib/chart-entry";
 import { numberFmt } from "@/lib/format";
 
+const { Bar, BarChart, Cell, XAxis, YAxis } = await import("recharts");
+
 const truncateLabel = (label: string, maxLength = 22): string =>
   label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
-
-type BarShapeProps = ComponentProps<typeof Rectangle> & {
-  payload?: ChartEntry;
-};
-
-const barFillForIndex = (
-  props: BarShapeProps,
-  index: string | number | undefined
-): string => {
-  if (index === 0 || index === "0") {
-    return "var(--color-value)";
-  }
-
-  if (isChartEntry(props.payload)) {
-    return props.payload.fill;
-  }
-
-  return "var(--color-value)";
-};
-
-const rankedBarShape = (props: BarShapeProps, index?: string | number) => (
-  <Rectangle {...props} fill={barFillForIndex(props, index)} />
-);
 
 const rankedBarChartConfig = {
   value: {
@@ -57,6 +35,10 @@ interface RankedBarChartInnerProps {
   yMax: number;
 }
 
+/**
+ * Render the loaded Recharts ranked bar visualization.
+ * @returns The rendered interface for the supplied data.
+ */
 export const RankedBarChartInner = ({
   data,
   yMax,
@@ -85,11 +67,13 @@ export const RankedBarChartInner = ({
       <ChartTooltip
         content={
           <ChartTooltipContent
-            formatter={(value) =>
-              typeof value === "number"
-                ? numberFmt.format(value)
-                : String(value)
-            }
+            formatter={(value) => {
+              const parsed = z.number().safeParse(value);
+
+              return parsed.success
+                ? numberFmt.format(parsed.data)
+                : String(value);
+            }}
             hideIndicator
             labelFormatter={(_, payload) => chartEntryLabel(payload)}
           />
@@ -101,8 +85,11 @@ export const RankedBarChartInner = ({
         dataKey="value"
         isAnimationActive={false}
         radius={[0, 4, 4, 0]}
-        shape={rankedBarShape}
-      />
+      >
+        {data.map((entry) => (
+          <Cell key={entry.label} fill={entry.fill} />
+        ))}
+      </Bar>
     </BarChart>
   </ChartContainer>
 );

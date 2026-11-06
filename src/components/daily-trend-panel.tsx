@@ -46,11 +46,7 @@ const WINDOW_LABELS: Record<TrendWindow, string> = {
 };
 
 const isTrendWindow = (value: string): value is TrendWindow =>
-  value === "7" ||
-  value === "30" ||
-  value === "90" ||
-  value === "365" ||
-  value === "all";
+  Object.hasOwn(WINDOW_LABELS, value);
 
 const isTrendMetric = (value: string): value is TrendMetric =>
   value === "count" || value === "totalCents";
@@ -100,11 +96,15 @@ const CHART_MIN_HEIGHT = "min-h-[280px]";
 
 const ChartSkeleton = () => (
   <Skeleton
-    className={cn("w-full flex-1 rounded-[4px]", CHART_MIN_HEIGHT)}
+    className={cn("w-full flex-1", CHART_MIN_HEIGHT)}
     aria-hidden="true"
   />
 );
 
+/**
+ * Display daily volume and selectable reporting periods.
+ * @returns The rendered interface for the supplied data.
+ */
 export const DailyTrendPanel = ({
   dailyTrend,
   isLoading,
@@ -145,17 +145,15 @@ export const DailyTrendPanel = ({
 
   return (
     <Card
-      className="overflow-hidden py-0"
+      variant="panel"
+      className="overflow-hidden"
       aria-label="Daily infringement trend"
     >
-      <CardHeader className="border-border gap-3 border-b p-4 sm:p-5">
+      <CardHeader variant="responsive">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-1">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp
-                className="size-4 text-[var(--ring)]"
-                aria-hidden="true"
-              />
+            <CardTitle icon>
+              <TrendingUp className="text-ring size-4" aria-hidden="true" />
               Volume trend
             </CardTitle>
             <CardDescription>
@@ -175,13 +173,8 @@ export const DailyTrendPanel = ({
                 }
               }}
             >
-              <ToggleGroupItem value="count" className="px-2.5 text-xs">
-                Tickets
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="totalCents"
-                className="gap-1 px-2.5 text-xs"
-              >
+              <ToggleGroupItem value="count">Tickets</ToggleGroupItem>
+              <ToggleGroupItem value="totalCents">
                 <Banknote data-icon="inline-start" aria-hidden="true" />
                 Fines
               </ToggleGroupItem>
@@ -197,27 +190,20 @@ export const DailyTrendPanel = ({
                 }
               }}
             >
-              <ToggleGroupItem value="7" className="px-2.5 text-xs">
-                7D
-              </ToggleGroupItem>
-              <ToggleGroupItem value="30" className="px-2.5 text-xs">
-                30D
-              </ToggleGroupItem>
-              <ToggleGroupItem value="90" className="px-2.5 text-xs">
-                90D
-              </ToggleGroupItem>
-              <ToggleGroupItem value="365" className="px-2.5 text-xs">
-                1Y
-              </ToggleGroupItem>
-              <ToggleGroupItem value="all" className="px-2.5 text-xs">
-                All
-              </ToggleGroupItem>
+              <ToggleGroupItem value="7">7D</ToggleGroupItem>
+              <ToggleGroupItem value="30">30D</ToggleGroupItem>
+              <ToggleGroupItem value="90">90D</ToggleGroupItem>
+              <ToggleGroupItem value="365">1Y</ToggleGroupItem>
+              <ToggleGroupItem value="all">All</ToggleGroupItem>
             </ToggleGroup>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_10.5rem] lg:items-stretch">
+      <CardContent
+        variant="responsive"
+        className="lg:grid-cols-[minmax(0,1fr)_10.5rem] lg:items-stretch"
+      >
         <div className={cn("flex min-w-0 flex-col", CHART_MIN_HEIGHT)}>
           {loading ? (
             <ChartSkeleton />
@@ -236,11 +222,11 @@ export const DailyTrendPanel = ({
         </div>
 
         <dl className="grid grid-cols-2 gap-2 self-end lg:grid-cols-1 lg:self-stretch">
-          <div className="border-border bg-muted/40 rounded-[6px] border px-3 py-2">
-            <dt className="text-muted-foreground text-[11px]">
+          <div className="border-border bg-muted/40 rounded-lg border px-3 py-2">
+            <dt className="text-muted-foreground text-xs">
               {WINDOW_LABELS[window]} total
             </dt>
-            <dd className="mt-0.5 font-mono text-lg font-semibold tracking-[-0.03em] tabular-nums">
+            <dd className="mt-0.5 font-mono text-lg font-semibold tracking-tight tabular-nums">
               {loading ? (
                 <Skeleton className="h-6 w-20" />
               ) : (
@@ -248,11 +234,11 @@ export const DailyTrendPanel = ({
               )}
             </dd>
           </div>
-          <div className="border-border bg-muted/40 rounded-[6px] border px-3 py-2">
-            <dt className="text-muted-foreground text-[11px]">{pointLabel}</dt>
+          <div className="border-border bg-muted/40 rounded-lg border px-3 py-2">
+            <dt className="text-muted-foreground text-xs">{pointLabel}</dt>
             <dd
               className={cn(
-                "mt-0.5 font-mono text-lg font-semibold tracking-[-0.03em] tabular-nums"
+                "mt-0.5 font-mono text-lg font-semibold tracking-tight tabular-nums"
               )}
             >
               {loading ? (

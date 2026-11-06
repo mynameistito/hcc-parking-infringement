@@ -118,7 +118,7 @@ export const getLatestIngestWatermarkInRange = (
  * @param sql - The Durable Object SQL storage.
  * @returns A positive live-stat total, otherwise the cached count or zero.
  */
-export const readTotalRecordsForProgress = (sql: SqlStorage): number => {
+const readTotalRecordsForProgress = (sql: SqlStorage): number => {
   const statsRow = sql
     .exec<{ all_time_total: number }>(
       "SELECT all_time_total FROM stats_live WHERE id = ? LIMIT 1",

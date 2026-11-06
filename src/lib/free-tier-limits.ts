@@ -1,16 +1,16 @@
 /** Cloudflare Workers Free plan budgets (headroom below hard limits). */
 
 /** Daily Durable Object SQLite write limit used for free-tier budgeting. */
-export const FREE_TIER_DO_SQLITE_WRITES_PER_DAY = 100_000;
+const FREE_TIER_DO_SQLITE_WRITES_PER_DAY = 100_000;
 
 /** Daily queue operation limit used for free-tier budgeting. */
-export const FREE_TIER_QUEUE_OPS_PER_DAY = 10_000;
+const FREE_TIER_QUEUE_OPS_PER_DAY = 10_000;
 
 /** Leave room for hourly sync, stats flush, and dashboard reads. */
-export const FREE_TIER_DO_WRITE_HEADROOM = 10_000;
+const FREE_TIER_DO_WRITE_HEADROOM = 10_000;
 
 /** Queue operations reserved outside the backfill budget. */
-export const FREE_TIER_QUEUE_OP_HEADROOM = 1000;
+const FREE_TIER_QUEUE_OP_HEADROOM = 1000;
 
 /** Daily SQLite write budget after reserving headroom. */
 export const FREE_TIER_DO_DAILY_WRITE_BUDGET =

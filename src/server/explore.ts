@@ -54,20 +54,6 @@ export const browseVehicles = async (
   await scope.parking.browseVehicles(query);
 
 /**
- * Reads ranked streets within a suburb.
- * @param scope - The application scope containing the parking reader.
- * @param suburb - The suburb to query.
- * @param limit - Maximum number of streets to return.
- * @returns Ranked street records.
- */
-export const getStreetsInSuburb = async (
-  scope: AppScope,
-  suburb: string,
-  limit = 20
-): Promise<LocationRankItem[]> =>
-  await scope.parking.getStreetsInSuburb(suburb, limit);
-
-/**
  * Reads vehicles ranked by infringement count.
  * @param scope - The application scope containing the parking reader.
  * @param limit - Maximum number of vehicles to return.

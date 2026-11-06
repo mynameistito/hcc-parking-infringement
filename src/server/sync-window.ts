@@ -3,6 +3,7 @@ import { formatDateInAuckland } from "@/lib/auckland-time.ts";
 import { BACKFILL_CHUNK_DAYS_DEFAULT } from "@/lib/backfill-constants.ts";
 import { addDays } from "@/lib/date-range.ts";
 import type { AppScope } from "@/server/app-scope.ts";
+import type { RawInfringementRecord } from "@/server/clean-schema.ts";
 import { cleanInfringements } from "@/server/clean.ts";
 import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
 import type { FetchAllResult } from "@/server/hcc-client.ts";
@@ -75,7 +76,7 @@ export const syncWindow = async (
     }
   }
 
-  let records: Record<string, unknown>[];
+  let records: RawInfringementRecord[];
   let possiblyTruncated: boolean;
 
   if (prefetched === undefined) {
@@ -130,7 +131,7 @@ export const hourlySync = async (
   return await syncWindow(scope, { end: today, force: true, runType, start });
 };
 
-export const DEFAULT_BACKFILL_CHUNK_DAYS = BACKFILL_CHUNK_DAYS_DEFAULT;
+const DEFAULT_BACKFILL_CHUNK_DAYS = BACKFILL_CHUNK_DAYS_DEFAULT;
 
 /**
  * Splits an inclusive date range into consecutive bounded windows.

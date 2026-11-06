@@ -7,8 +7,6 @@ import type {
 } from "@/durable-objects/types.ts";
 import type { AppScope } from "@/server/app-scope.ts";
 
-export type { DailyStatRow, TopStatRow } from "@/durable-objects/types.ts";
-
 export type {
   LiveStats,
   TopGroupBy,

@@ -21,7 +21,13 @@ import { splitDateRange } from "@/server/sync.ts";
 const POLL_MS = 2000;
 const IDLE_POLL_LIMIT = 30;
 
-/** Warn when the worker response shape suggests an outdated deployment. */
+/**
+ *  Warn when the worker response shape suggests an outdated deployment.
+ * @param body - Body supplied to this operation.
+ * @param granularity - Granularity supplied to this operation.
+ * @param from - Inclusive starting date.
+ * @param today - Today supplied to this operation.
+ */
 export const warnIfWorkerLooksOutdated = (
   body: BackfillResponse,
   granularity: string,
@@ -75,6 +81,12 @@ export const warnIfWorkerLooksOutdated = (
 /**
  * Poll progress until complete or idle timeout.
  * Uses `/sync/backfill/progress` when available, otherwise `/api/v1/status`.
+ * @param ctx - Durable Object runtime state.
+ * @param start - Inclusive window start.
+ * @param end - Inclusive window end.
+ * @param granularity - Granularity supplied to this operation.
+ * @param chunkDays - Chunk Days supplied to this operation.
+ * @param enqueued - Enqueued supplied to this operation.
  */
 export const trackBackfill = async (
   ctx: WorkerScriptContext,

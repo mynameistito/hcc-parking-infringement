@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { parsePublicDashboardSnapshotJson } from "@/contracts/dashboard-snapshot.ts";
 import type {
   ChartBreakdowns,
@@ -115,7 +117,7 @@ export interface RefreshLiveSeedResult {
 }
 
 const parseRefreshDays = (value: string | undefined): number => {
-  const parsed = Number.parseInt(value ?? "", 10);
+  const parsed = Math.trunc(Number(value ?? ""));
 
   if (!Number.isFinite(parsed) || parsed < 1) {
     return DEFAULT_REFRESH_DAYS;
@@ -336,36 +338,16 @@ const readRefreshCursor = async (
     return null;
   }
 
-  const parsed: unknown = JSON.parse(cursorRaw);
+  const parsed = z
+    .object({
+      publishedInfringementNumbers: z.array(
+        z.number().refine(Number.isSafeInteger)
+      ),
+      version: z.literal(2),
+    })
+    .safeParse(JSON.parse(cursorRaw));
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 2 ||
-    !("publishedInfringementNumbers" in parsed)
-  ) {
-    return null;
-  }
-
-  const candidate: unknown = parsed.publishedInfringementNumbers;
-
-  if (!Array.isArray(candidate)) {
-    return null;
-  }
-
-  const values: unknown[] = candidate;
-
-  if (
-    !values.every(
-      (value): value is number =>
-        typeof value === "number" && Number.isSafeInteger(value)
-    )
-  ) {
-    return null;
-  }
-
-  return values;
+  return parsed.success ? parsed.data.publishedInfringementNumbers : null;
 };
 
 const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
@@ -414,7 +396,7 @@ const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
       bootstrapAfter: null,
       manifest: null,
       prefix:
-        typeof prefix === "string" && prefix.length > 0
+        prefix !== undefined && prefix.length > 0
           ? prefix
           : "parking-store/v1/",
       publishedInfringementNumbers: [],

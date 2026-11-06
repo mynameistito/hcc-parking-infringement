@@ -15,7 +15,7 @@ const INFRINGEMENT_UPSERT_BATCH = 500;
 const readConfiguredSeedPrefix = (env: Env): string | undefined => {
   const value = env.PARKING_STORE_SEED_PREFIX;
 
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return value !== undefined && value.length > 0 ? value : undefined;
 };
 
 const resolveSeedPrefix = (env: Env, override?: string): string => {

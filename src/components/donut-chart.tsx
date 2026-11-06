@@ -3,6 +3,7 @@ import { lazy, Suspense, useMemo } from "react";
 import { PieLegend } from "@/components/pie-legend";
 import { Skeleton } from "@/components/ui/skeleton";
 import { chartColorAt } from "@/lib/chart-colors";
+import type { ChartEntry } from "@/lib/chart-entry";
 import { numberFmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +13,10 @@ const DonutChartInner = lazy(async () => {
   return { default: module.DonutChartInner };
 });
 
-export interface DonutChartItem {
+/**
+ * A labeled count displayed as a donut segment.
+ */
+interface DonutChartItem {
   count: number;
   label: string;
 }
@@ -29,21 +33,21 @@ interface DonutChartProps {
 
 const ChartFallback = ({ size }: { size: "md" | "lg" }) => (
   <Skeleton
-    className={cn(
-      "mx-auto rounded-full",
-      size === "lg" ? "size-44" : "size-36"
-    )}
+    circular
+    className={cn("mx-auto", size === "lg" ? "size-44" : "size-36")}
     aria-hidden="true"
   />
 );
 
+interface DonutChartData {
+  data: ChartEntry[];
+  total: number;
+}
+
 const buildChartData = (
   items: DonutChartItem[],
   collapseAfter?: number
-): {
-  data: { fill: string; label: string; value: number }[];
-  total: number;
-} => {
+): DonutChartData => {
   const total = items.reduce((sum, item) => sum + item.count, 0);
 
   if (items.length === 0) {
@@ -76,6 +80,10 @@ const buildChartData = (
   return { data, total };
 };
 
+/**
+ * Display category shares with an optional legend.
+ * @returns The rendered interface for the supplied data.
+ */
 export const DonutChart = ({
   items,
   className,
@@ -93,7 +101,7 @@ export const DonutChart = ({
     return (
       <div
         className={cn(
-          "bg-muted/30 text-muted-foreground flex items-center justify-center rounded-[4px] text-xs",
+          "bg-muted/30 text-muted-foreground flex items-center justify-center rounded-md text-xs",
           size === "lg" ? "h-52" : "h-44",
           className
         )}

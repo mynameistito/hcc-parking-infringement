@@ -10,7 +10,10 @@ import { processBackfillMessage } from "@/server/sync-backfill.ts";
 
 const BACKFILL_RETRY_DELAY_SECONDS = 30;
 
-export type BackfillMessageOutcome =
+/**
+ * Accepted or failed outcome of one queued backfill window.
+ */
+type BackfillMessageOutcome =
   | {
       endDate: string;
       error: string;
@@ -230,6 +233,11 @@ const logBackfillBatchSummary = (
   }
 };
 
+/**
+ * Process and acknowledge a batch of backfill queue messages.
+ * @param messages - Messages supplied to this operation.
+ * @param env - Worker runtime bindings.
+ */
 export const processBackfillQueueBatch = async (
   messages: readonly Message<BackfillMessage | LegacyBackfillMessage>[],
   env: Env

@@ -1,3 +1,4 @@
+import type { RawInfringementRecord } from "@/server/clean-schema.ts";
 /** Parse Hamilton infringement CSV rows into raw HCC-shaped records. */
 
 const numberFields = new Set([
@@ -20,7 +21,11 @@ const normalizeDate = (value: string): string => {
   return trimmed;
 };
 
-/** Parse a single CSV line respecting quoted fields and commas. */
+/**
+ *  Parse a single CSV line respecting quoted fields and commas.
+ * @param line - Line supplied to this operation.
+ * @returns The resulting `string[]` value.
+ */
 export const parseCsvLine = (line: string): string[] => {
   const cells: string[] = [];
   let cell = "";
@@ -33,21 +38,14 @@ export const parseCsvLine = (line: string): string[] => {
     if (char === '"' && quoted && next === '"') {
       cell += '"';
       index += 1;
-      continue;
-    }
-
-    if (char === '"') {
+    } else if (char === '"') {
       quoted = !quoted;
-      continue;
-    }
-
-    if (char === "," && !quoted) {
+    } else if (char === "," && !quoted) {
       cells.push(cell);
       cell = "";
-      continue;
+    } else {
+      cell += char;
     }
-
-    cell += char;
   }
 
   cells.push(cell);
@@ -58,12 +56,15 @@ export const parseCsvLine = (line: string): string[] => {
 /**
  * Map CSV header + value cells to a raw infringement object
  * suitable for `POST /api/v1/import/infringements`.
+ * @param headers - Headers supplied to this operation.
+ * @param values - Values supplied to this operation.
+ * @returns The resulting `RawInfringementRecord` value.
  */
 export const toRawInfringementRecord = (
   headers: string[],
   values: string[]
-): Record<string, unknown> => {
-  const record: Record<string, unknown> = {};
+): RawInfringementRecord => {
+  const record: RawInfringementRecord = {};
 
   for (let index = 0; index < headers.length; index += 1) {
     const key = headers[index];
@@ -83,19 +84,14 @@ export const toRawInfringementRecord = (
       if (raw !== "") {
         record[key] = Number(raw);
       }
-
-      continue;
-    }
-
-    if (booleanFields.has(key)) {
+    } else if (booleanFields.has(key)) {
       record[key] = raw === "1" || raw.toLowerCase() === "true";
-      continue;
+    } else {
+      record[key] =
+        key === "Infringement_Date" || key === "Infringement_Closed_Date"
+          ? normalizeDate(raw)
+          : raw;
     }
-
-    record[key] =
-      key === "Infringement_Date" || key === "Infringement_Closed_Date"
-        ? normalizeDate(raw)
-        : raw;
   }
 
   return record;

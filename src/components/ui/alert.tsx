@@ -1,6 +1,6 @@
 import { cva } from "class-variance-authority";
 import type { VariantProps } from "class-variance-authority";
-import * as React from "react";
+import type { ComponentProps } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,8 @@ const alertVariants = cva(
         default: "bg-card text-card-foreground",
         destructive:
           "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
+        destructiveNotice:
+          "bg-background text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
       },
     },
   }
@@ -24,7 +26,7 @@ const Alert = ({
   className,
   variant,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) => (
+}: ComponentProps<"div"> & VariantProps<typeof alertVariants>) => (
   <div
     data-slot="alert"
     role="alert"
@@ -33,7 +35,7 @@ const Alert = ({
   />
 );
 
-const AlertTitle = ({ className, ...props }: React.ComponentProps<"div">) => (
+const AlertTitle = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     data-slot="alert-title"
     className={cn(
@@ -44,10 +46,7 @@ const AlertTitle = ({ className, ...props }: React.ComponentProps<"div">) => (
   />
 );
 
-const AlertDescription = ({
-  className,
-  ...props
-}: React.ComponentProps<"div">) => (
+const AlertDescription = ({ className, ...props }: ComponentProps<"div">) => (
   <div
     data-slot="alert-description"
     className={cn(
@@ -58,12 +57,4 @@ const AlertDescription = ({
   />
 );
 
-const AlertAction = ({ className, ...props }: React.ComponentProps<"div">) => (
-  <div
-    data-slot="alert-action"
-    className={cn("absolute top-2 right-2", className)}
-    {...props}
-  />
-);
-
-export { Alert, AlertTitle, AlertDescription, AlertAction };
+export { Alert, AlertTitle, AlertDescription };

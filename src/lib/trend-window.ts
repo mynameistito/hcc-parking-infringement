@@ -10,15 +10,13 @@ import {
 } from "@/lib/trend";
 import type { TrendResult } from "@/lib/trend";
 
-export { PACE_DAILY_TREND_DAYS } from "@/lib/pace-constants";
-
 /**
  * Builds a filled series for the requested number of days ending today.
  * @param dailyTrend - Available daily totals.
  * @param days - The number of days to include.
  * @returns Daily totals in date order, with missing dates filled with zeroes.
  */
-export const sliceDays = (
+const sliceDays = (
   dailyTrend: DailyStatPoint[],
   days: number
 ): DailyStatPoint[] => fillDailySeries(dailyTrend, days).slice(-days);
@@ -57,7 +55,7 @@ export const dailyTrendSpanDays = (
  * @param days - The number of days to include.
  * @returns The sum of counts in the window.
  */
-export const sumWindow = (dailyTrend: DailyStatPoint[], days: number): number =>
+const sumWindow = (dailyTrend: DailyStatPoint[], days: number): number =>
   sliceDays(dailyTrend, days).reduce((sum, point) => sum + point.count, 0);
 
 const hasComparablePriorWindow = (

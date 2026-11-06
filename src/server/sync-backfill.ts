@@ -23,10 +23,7 @@ import { getParkingStore } from "@/server/store.ts";
 import { splitDateRange, syncWindow } from "@/server/sync-window.ts";
 import type { SyncWindowResult } from "@/server/sync-window.ts";
 
-export {
-  BACKFILL_EARLIEST,
-  PAGE_SIZE_LIMIT,
-} from "@/lib/backfill-constants.ts";
+export { BACKFILL_EARLIEST } from "@/lib/backfill-constants.ts";
 
 const QUEUE_SEND_BATCH_SIZE = 100;
 
@@ -95,7 +92,7 @@ const enqueueDailyWindows = async (
   scope: AppScope,
   startDate: string,
   endDate: string,
-  force?: boolean
+  force = false
 ): Promise<void> => {
   const tuning = resolveBackfillTuning(scope.env);
 
@@ -254,10 +251,10 @@ export const processBackfillMessage = async (
  * @param windows - Windows to process.
  * @param force - Whether to process already ingested windows.
  */
-export const runBackfillWaveDirect = async (
+const runBackfillWaveDirect = async (
   scope: AppScope,
   windows: readonly BackfillWindow[],
-  force?: boolean
+  force = false
 ): Promise<void> => {
   if (windows.length === 0) {
     return;
@@ -343,5 +340,3 @@ export const startBackfill = async (
     total: chunks.length,
   };
 };
-
-export { DEFAULT_BACKFILL_CHUNK_DAYS } from "@/server/sync-window.ts";

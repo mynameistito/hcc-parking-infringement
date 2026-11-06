@@ -41,14 +41,14 @@ const PieCard = ({
   isLoading,
   collapseAfter,
 }: PieCardProps) => (
-  <Card className="bg-background gap-3 py-4">
-    <CardHeader className="px-4">
+  <Card variant="plain">
+    <CardHeader>
       <CardTitle>
         <h3>{title}</h3>
       </CardTitle>
       <CardDescription>{description}</CardDescription>
     </CardHeader>
-    <CardContent className="px-4">
+    <CardContent>
       {isLoading ? (
         <ChartAreaSkeleton variant="donut" />
       ) : (
@@ -63,6 +63,10 @@ const PieCard = ({
   </Card>
 );
 
+/**
+ * Display the street ranking and category distributions.
+ * @returns The rendered interface for the supplied data.
+ */
 export const DistributionCharts = ({
   breakdowns,
   streets,
@@ -72,13 +76,14 @@ export const DistributionCharts = ({
   const streetTotal = streets.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <Card className="overflow-hidden py-0" aria-label="Distribution charts">
-      <CardHeader className="border-border border-b">
-        <CardTitle className="flex items-center gap-2">
-          <PieChartIcon
-            className="size-4 text-[var(--ring)]"
-            aria-hidden="true"
-          />
+    <Card
+      variant="panel"
+      className="overflow-hidden"
+      aria-label="Distribution charts"
+    >
+      <CardHeader variant="panel">
+        <CardTitle icon>
+          <PieChartIcon className="text-ring size-4" aria-hidden="true" />
           Distributions
         </CardTitle>
         <CardDescription>
@@ -86,9 +91,9 @@ export const DistributionCharts = ({
           outcomes. Every category is listed in the legend.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4 p-4">
-        <Card className="bg-muted/30 gap-3 py-4">
-          <CardHeader className="px-4">
+      <CardContent variant="grid">
+        <Card variant="inset">
+          <CardHeader>
             <CardTitle>
               <h3>All streets</h3>
             </CardTitle>
@@ -97,7 +102,7 @@ export const DistributionCharts = ({
               {numberFmt.format(streetTotal)} tickets
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-4">
+          <CardContent>
             {loading ? (
               <ChartAreaSkeleton rows={10} variant="bars" />
             ) : (

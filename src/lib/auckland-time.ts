@@ -2,7 +2,7 @@ import { addDays as addDaysFns } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 /** IANA timezone for Hamilton parking infringement calendar boundaries. */
-export const AUCKLAND_TZ = "Pacific/Auckland";
+const AUCKLAND_TZ = "Pacific/Auckland";
 
 const ISO_WITH_OFFSET = "yyyy-MM-dd'T'HH:mm:ssXXX";
 const ISO_WITH_MS_OFFSET = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
@@ -15,7 +15,7 @@ interface AucklandBounds {
 }
 
 /** Pacific/Auckland ISO instant with numeric offset (not UTC Z). */
-export const AUCKLAND_INSTANT =
+const AUCKLAND_INSTANT =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?[+-]\d{2}:\d{2}$/u;
 
 /**

@@ -162,7 +162,9 @@ if (startPhase === "infringements") {
   let cursor = infringementCursor;
   let pushed = infringementPushed;
 
-  while (true) {
+  let moreInfringements = true;
+
+  while (moreInfringements) {
     const exported = await fetchExportInfringements(
       source,
       cursor,
@@ -195,12 +197,11 @@ if (startPhase === "infringements") {
       `[push] infringements ${formatNumber(pushed)}/${formatNumber(total)} (cursor=${formatNumber(cursor)})`
     );
 
-    if (exported.nextCursor === null) {
-      break;
-    }
+    moreInfringements = exported.nextCursor !== null;
 
-    cursor = exported.nextCursor;
-    await pauseBetweenBatches();
+    if (moreInfringements) {
+      await pauseBetweenBatches();
+    }
   }
 
   infringementCursor = cursor;
@@ -225,7 +226,9 @@ if (!skipWatermarks) {
   let importedWatermarks = watermarkImported;
   let watermarkTotal = 0;
 
-  while (true) {
+  let moreWatermarks = true;
+
+  while (moreWatermarks) {
     const exported = await fetchExportWatermarks(source, offset, batchSize);
     watermarkTotal = exported.total;
 
@@ -252,12 +255,11 @@ if (!skipWatermarks) {
       `[push] watermarks ${formatNumber(importedWatermarks)}/${formatNumber(watermarkTotal)}`
     );
 
-    if (exported.nextOffset === null) {
-      break;
-    }
+    moreWatermarks = exported.nextOffset !== null;
 
-    offset = exported.nextOffset;
-    await pauseBetweenBatches();
+    if (moreWatermarks) {
+      await pauseBetweenBatches();
+    }
   }
 }
 

@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+/** Flat scalar fields returned by the council API or a CSV import. */
+export const rawInfringementRecordSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.number(), z.boolean(), z.null()])
+);
+
+/** Source fields before required infringement fields have been validated. */
+export type RawInfringementRecord = z.infer<typeof rawInfringementRecordSchema>;
+
 const paddedString = z
   .union([z.string(), z.number()])
   .transform((value) => String(value).trim());
@@ -28,6 +37,9 @@ export const rawInfringementSchema = z.object({
   Vehicle_Type: paddedString.optional().default(""),
 });
 
+/**
+ * Parsed source infringement before normalization.
+ */
 export type RawInfringement = z.infer<typeof rawInfringementSchema>;
 
 export const cleanInfringementSchema = z.object({
@@ -52,6 +64,9 @@ export const cleanInfringementSchema = z.object({
   vehicleType: z.string().nullable(),
 });
 
+/**
+ * Normalized infringement ready for storage.
+ */
 export interface CleanInfringement {
   infringementNumber: number;
   occurredAt: string;

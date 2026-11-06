@@ -1,5 +1,10 @@
 import { getParkingStore } from "@/server/store.ts";
 
+/**
+ * Flush derived backfill state while preserving retryable failures.
+ * @param env - Worker runtime bindings.
+ * @returns The resulting `Promise<{ flushed: boolean }>` value.
+ */
 export const flushBackfillDerivedStateSafely = async (
   env: Env
 ): Promise<{ flushed: boolean }> => {

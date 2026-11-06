@@ -33,8 +33,8 @@ const runWithConcurrency = async <T>(
 
 /**
  * Runs asynchronous work with a fixed concurrency limit and preserves result order.
- * @typeParam T - The input item type.
- * @typeParam R - The result type.
+ * Generic T: The input item type.
+ * Generic R: The result type.
  * @param items - The items to process.
  * @param concurrency - The maximum number of concurrent workers.
  * @param fn - The asynchronous operation for each item and its index.

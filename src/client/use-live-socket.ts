@@ -15,6 +15,9 @@ const RECONNECT_DELAY_MS = 3000;
 const PING_INTERVAL_MS = 30_000;
 const SOCKET_IDLE_CLOSE_MS = 2000;
 
+/**
+ * Readiness, connectivity, and cache availability of dashboard transport.
+ */
 export interface LiveTransportState {
   cached: boolean;
   connected: boolean;
@@ -24,9 +27,9 @@ export interface LiveTransportState {
 interface LiveSocketStore extends LiveTransportState {
   refCount: number;
   ws: WebSocket | null;
-  reconnectTimer: number | undefined;
-  pingTimer: number | undefined;
-  idleCloseTimer: number | undefined;
+  reconnectTimer: number | null;
+  pingTimer: number | null;
+  idleCloseTimer: number | null;
   lastSnapshotTime: number;
   lastSnapshotWeight: number;
   queryClient: ReturnQueryClient | null;
@@ -41,13 +44,13 @@ const listeners = new Set<Listener>();
 const store: LiveSocketStore = {
   cached: false,
   connected: false,
-  idleCloseTimer: undefined,
+  idleCloseTimer: null,
   lastSnapshotTime: 0,
   lastSnapshotWeight: 0,
-  pingTimer: undefined,
+  pingTimer: null,
   queryClient: null,
   ready: false,
-  reconnectTimer: undefined,
+  reconnectTimer: null,
   refCount: 0,
   ws: null,
 };
@@ -83,23 +86,23 @@ const liveSocketUrl = (): string => {
 };
 
 const clearReconnectTimer = (): void => {
-  if (store.reconnectTimer !== undefined) {
+  if (store.reconnectTimer !== null) {
     window.clearTimeout(store.reconnectTimer);
-    store.reconnectTimer = undefined;
+    store.reconnectTimer = null;
   }
 };
 
 const clearPingTimer = (): void => {
-  if (store.pingTimer !== undefined) {
+  if (store.pingTimer !== null) {
     window.clearInterval(store.pingTimer);
-    store.pingTimer = undefined;
+    store.pingTimer = null;
   }
 };
 
 const clearIdleCloseTimer = (): void => {
-  if (store.idleCloseTimer !== undefined) {
+  if (store.idleCloseTimer !== null) {
     window.clearTimeout(store.idleCloseTimer);
-    store.idleCloseTimer = undefined;
+    store.idleCloseTimer = null;
   }
 };
 
@@ -214,6 +217,11 @@ const subscribe = (listener: Listener): (() => void) => {
 
 const getSnapshot = (): LiveTransportState => snapshot;
 
+/**
+ * Restore dashboard queries from a cached full snapshot.
+ * @param queryClient - Dashboard query cache.
+ * @param message - Validated dashboard snapshot.
+ */
 export const restoreDashboardFromCache = (
   queryClient: ReturnQueryClient,
   message: FullDashboardMessage
@@ -226,6 +234,10 @@ export const restoreDashboardFromCache = (
   emit();
 };
 
+/**
+ * Maintain the dashboard socket and reconnect lifecycle.
+ * @returns The resulting `LiveTransportState` value.
+ */
 export const useLiveSocket = (): LiveTransportState => {
   const queryClient = useQueryClient();
 

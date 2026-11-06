@@ -5,7 +5,7 @@ import {
   packBackfillQueueMessages,
 } from "@/backfill.ts";
 
-describe("packBackfillQueueMessages", () => {
+describe(packBackfillQueueMessages, () => {
   it("packs windows into fewer queue messages", () => {
     const windows = Array.from({ length: 120 }, (_, index) => ({
       endDate: `2024-01-${String((index % 28) + 1).padStart(2, "0")}`,
@@ -22,14 +22,14 @@ describe("packBackfillQueueMessages", () => {
   });
 });
 
-describe("expandBackfillMessage", () => {
+describe(expandBackfillMessage, () => {
   it("supports legacy single-window queue payloads", () => {
     expect(
       expandBackfillMessage({
         endDate: "2024-01-07",
         startDate: "2024-01-01",
       })
-    ).toEqual([
+    ).toMatchObject([
       {
         endDate: "2024-01-07",
         startDate: "2024-01-01",

@@ -1,11 +1,19 @@
 import { STATS_LIVE_ID } from "./constants.ts";
 import { migrateParkingStoreTimestampsToAuckland } from "./migrate-auckland-times.ts";
 
+/**
+ * Derived-state rebuild operations invoked by storage migrations.
+ */
 export interface ParkingStoreMigrationHooks {
   recomputeStats: () => void;
   refreshDashboardSnapshotCache: () => void;
 }
 
+/**
+ * Apply schema migrations and rebuild affected derived state.
+ * @param sql - Parking storage SQL connection.
+ * @param hooks - Derived-state rebuild operations.
+ */
 export const runParkingStoreMigrations = (
   sql: SqlStorage,
   hooks: ParkingStoreMigrationHooks

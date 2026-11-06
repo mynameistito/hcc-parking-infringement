@@ -1,24 +1,27 @@
 import { describe, expect, it } from "vitest";
 
 import { cleanInfringement, cleanInfringements } from "@/server/clean";
+import { rawInfringementSchema } from "@/server/clean-schema";
 
-describe("cleanInfringement", () => {
+describe(cleanInfringement, () => {
   it("normalizes a raw HCC infringement row", () => {
-    const cleaned = cleanInfringement({
-      Additional_Costs_Amount: 0,
-      Infringement_Amount: 40,
-      Infringement_Date: "2024-06-01",
-      Infringement_Number: 12_345,
-      Infringement_Time: "09:30:00",
-      Is_Towed: false,
-      Occured_At_Street: "Victoria Street",
-      Occured_At_Suburb: "Hamilton Central",
-      Occured_At_Town: "Hamilton",
-      Offence_Code: "P546",
-      Offence_Description: "Failed to correctly activate the",
-      Vehicle_Make: "Toyota",
-      Vehicle_Model: "Corolla",
-    });
+    const cleaned = cleanInfringement(
+      rawInfringementSchema.parse({
+        Additional_Costs_Amount: 0,
+        Infringement_Amount: 40,
+        Infringement_Date: "2024-06-01",
+        Infringement_Number: 12_345,
+        Infringement_Time: "09:30:00",
+        Is_Towed: false,
+        Occured_At_Street: "Victoria Street",
+        Occured_At_Suburb: "Hamilton Central",
+        Occured_At_Town: "Hamilton",
+        Offence_Code: "P546",
+        Offence_Description: "Failed to correctly activate the",
+        Vehicle_Make: "Toyota",
+        Vehicle_Model: "Corolla",
+      })
+    );
 
     expect(cleaned.infringementNumber).toBe(12_345);
     expect(cleaned.amountCents).toBe(4000);
@@ -27,7 +30,7 @@ describe("cleanInfringement", () => {
   });
 });
 
-describe("cleanInfringements", () => {
+describe(cleanInfringements, () => {
   it("skips invalid rows and returns cleaned records", () => {
     const { cleaned, skipped } = cleanInfringements([
       { Infringement_Number: "bad" },

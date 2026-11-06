@@ -10,7 +10,7 @@ import type { LocationMapPoint } from "./locations.ts";
 import type { DailyStatRow, PublicLiveStats } from "./stats.ts";
 
 /** Ranked chart series for offences, locations, vehicles, and towing. */
-export interface ChartBreakdown {
+interface ChartBreakdown {
   offenceCategories: PublicTopItem[];
   offences: PublicTopItem[];
   suburbs: PublicTopItem[];

@@ -21,7 +21,7 @@ import {
 } from "@/server/http/query.ts";
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
-import { importInfringements } from "@/server/import.ts";
+import { importBatchSchema, importInfringements } from "@/server/import.ts";
 import {
   exportStoredInfringements,
   exportStoredWatermarks,
@@ -52,6 +52,10 @@ import {
   startBackfill,
 } from "@/server/sync.ts";
 
+/**
+ * Build authenticated administration routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1AdminRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
@@ -249,7 +253,11 @@ export const createV1AdminRoutes = (): Hono<AppEnv> => {
 
     try {
       const body: unknown = await c.req.json();
-      const result = await importInfringements(c.var.scope, body);
+
+      const result = await importInfringements(
+        c.var.scope,
+        importBatchSchema.parse(body)
+      );
 
       return c.json({ ok: true, ...result });
     } catch (error) {
