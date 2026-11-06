@@ -20,6 +20,7 @@ export const backfillResponseSchema = z.object({
   total: z.number().optional(),
 });
 
+/** Validated response from starting a backfill wave. */
 export type BackfillResponse = z.infer<typeof backfillResponseSchema>;
 
 /** Response body from `GET /api/v1/sync/backfill/progress`. */
@@ -41,6 +42,7 @@ export const progressResponseSchema = z.object({
   totalRecords: z.number(),
 });
 
+/** Validated backfill progress and latest ingested window. */
 export type BackfillProgress = z.infer<typeof progressResponseSchema>;
 
 /** Subset of `GET /api/v1/status` used by the backfill progress fallback. */
@@ -63,9 +65,15 @@ export const backfillHealthSchema = z.object({
     .optional(),
 });
 
+/** Validated status fields used when backfill progress is unavailable. */
 export type BackfillHealth = z.infer<typeof backfillHealthSchema>;
 
-/** Resolve chunk size from `--granularity` / `--chunkDays` query params. */
+/**
+ * Resolves a backfill chunk size from CLI query parameters.
+ * @param granularity - Requested backfill granularity.
+ * @param chunkDays - Optional explicit number of days per chunk.
+ * @returns The parsed chunk size, or seven days when no value is supplied.
+ */
 export const chunkDaysFor = (
   granularity: string,
   chunkDays: string | undefined
