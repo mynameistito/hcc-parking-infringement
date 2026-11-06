@@ -7,11 +7,11 @@ import {
   migrateWallClockInstant,
 } from "@/lib/migrate-instant-to-auckland";
 
-describe("migrateWallClockInstant", () => {
+describe(migrateWallClockInstant, () => {
   it("fixes NZDT rows stored with +12:00 offset", () => {
     const migrated = migrateWallClockInstant("2026-01-15T10:30:00+12:00");
     expect(migrated).toBe("2026-01-15T10:30:00+13:00");
-    expect(isAucklandInstant(migrated)).toBe(true);
+    expect(isAucklandInstant(migrated)).toBeTruthy();
   });
 
   it("converts legacy UTC Z infringement timestamps", () => {
@@ -20,11 +20,11 @@ describe("migrateWallClockInstant", () => {
   });
 });
 
-describe("migrateSyncInstant", () => {
+describe(migrateSyncInstant, () => {
   it("converts legacy UTC Z sync timestamps", () => {
     const migrated = migrateSyncInstant("2026-01-01T00:00:00.000Z");
     expect(migrated).toBe("2026-01-01T13:00:00.000+13:00");
-    expect(isAucklandInstant(migrated)).toBe(true);
+    expect(isAucklandInstant(migrated)).toBeTruthy();
   });
 
   it("expands date-only sync timestamps to start of day", () => {
@@ -32,7 +32,7 @@ describe("migrateSyncInstant", () => {
   });
 });
 
-describe("migrateOptionalClosedAt", () => {
+describe(migrateOptionalClosedAt, () => {
   it("expands date-only closed dates to end of day", () => {
     expect(migrateOptionalClosedAt("2026-01-15")).toBe(
       "2026-01-15T23:59:59.999+13:00"
@@ -40,7 +40,7 @@ describe("migrateOptionalClosedAt", () => {
   });
 });
 
-describe("parseAucklandInstant", () => {
+describe(parseAucklandInstant, () => {
   it("rejects legacy UTC Z strings after migration", () => {
     expect(() => parseAucklandInstant("2026-01-01T00:00:00.000Z")).toThrow(
       TypeError

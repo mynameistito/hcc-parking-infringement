@@ -1,8 +1,6 @@
 import { z } from "zod";
 
 import type {
-  BrowseResponse,
-  BrowseSort,
   DailyStatPoint,
   LocationRankItem,
   TopItem,
@@ -24,13 +22,8 @@ export const publicLiveStatsSchema = z.object({
   towedToday: z.number(),
 });
 
+/** Validated aggregate statistics returned to public clients. */
 export type PublicLiveStats = z.infer<typeof publicLiveStatsSchema>;
-
-/** @deprecated Use `publicLiveStatsSchema`. */
-export const liveStatsSchema = publicLiveStatsSchema;
-
-/** @deprecated Use `PublicLiveStats`. */
-export type LiveStats = PublicLiveStats;
 
 /** Daily time-series point for charts and pace panels. */
 export const dailyStatPointSchema = z.object({
@@ -39,48 +32,49 @@ export const dailyStatPointSchema = z.object({
   totalCents: z.number(),
 });
 
-export type { DailyStatPoint };
+export type { DailyStatPoint } from "@/contracts/store-shapes.ts";
 
-export const dailyStatPointArraySchema = z.array(dailyStatPointSchema);
+const dailyStatPointArraySchema = z.array(dailyStatPointSchema);
 
 /** Ranked label + count (streets, offences). */
-export const topItemSchema = z.object({
+const topItemSchema = z.object({
   count: z.number(),
   label: z.string(),
 });
 
-export type { TopItem };
+export type { TopItem } from "@/contracts/store-shapes.ts";
 
-export const topStatsResponseSchema = z.object({
+const topStatsResponseSchema = z.object({
   groupBy: z.enum(["street", "offence"]),
   items: z.array(topItemSchema),
 });
 
+/** Ranked street or offence counts grouped by the requested dimension. */
 export type TopStatsResponse = z.infer<typeof topStatsResponseSchema>;
 
 /** Ranked location (street or suburb). */
-export const locationRankItemSchema = z.object({
+const locationRankItemSchema = z.object({
   count: z.number(),
   label: z.string(),
   street: z.string().optional(),
   suburb: z.string().optional(),
 });
 
-export type { LocationRankItem };
+export type { LocationRankItem } from "@/contracts/store-shapes.ts";
 
-export const locationRankItemArraySchema = z.array(locationRankItemSchema);
+const locationRankItemArraySchema = z.array(locationRankItemSchema);
 
 /** Ranked vehicle make/model. */
-export const vehicleRankItemSchema = z.object({
+const vehicleRankItemSchema = z.object({
   count: z.number(),
   label: z.string(),
   make: z.string(),
   model: z.string(),
 });
 
-export type { VehicleRankItem };
+export type { VehicleRankItem } from "@/contracts/store-shapes.ts";
 
-export const vehicleRankItemArraySchema = z.array(vehicleRankItemSchema);
+const vehicleRankItemArraySchema = z.array(vehicleRankItemSchema);
 
 /** Public infringement row (no internal sync metadata). */
 export const publicInfringementSchema = z.object({
@@ -98,6 +92,7 @@ export const publicInfringementSchema = z.object({
   vehicleType: z.string().nullable(),
 });
 
+/** Infringement fields exposed by the public API. */
 export type PublicInfringement = z.infer<typeof publicInfringementSchema>;
 
 export const infringementListResponseSchema = z.object({
@@ -107,51 +102,13 @@ export const infringementListResponseSchema = z.object({
   total: z.number(),
 });
 
+/** Paginated public infringement rows and their total count. */
 export type InfringementListResponse = z.infer<
   typeof infringementListResponseSchema
 >;
 
-export const browseSortSchema = z.enum(["count", "name"]);
-
-export type { BrowseSort };
-
-export interface BrowseParams {
-  q?: string;
-  page?: number;
-  limit?: number;
-  sort?: BrowseSort;
-  suburb?: string;
-}
-
-export interface ExploreInfringementsParams {
-  street?: string;
-  suburb?: string;
-  vehicleMake?: string;
-  vehicleModel?: string;
-  page?: number;
-  limit?: number;
-}
-
-export const browseResponseSchema = <T extends z.ZodType>(itemSchema: T) =>
-  z.object({
-    items: z.array(itemSchema),
-    limit: z.number(),
-    page: z.number(),
-    total: z.number(),
-  });
-
-export type { BrowseResponse };
-
-export const locationBrowseResponseSchema = browseResponseSchema(
-  locationRankItemSchema
-);
-
-export const vehicleBrowseResponseSchema = browseResponseSchema(
-  vehicleRankItemSchema
-);
-
 /** Map route geometry for dashboard pins. */
-export interface MapRouteItem {
+interface MapRouteItem {
   readonly count: number;
   readonly geometry: number[][][];
   readonly id: string;
@@ -160,7 +117,7 @@ export interface MapRouteItem {
   readonly town: string;
 }
 
-export const mapRouteItemSchema = z.object({
+const mapRouteItemSchema = z.object({
   count: z.number(),
   geometry: z.array(z.array(z.array(z.number()))),
   id: z.string(),
@@ -169,12 +126,13 @@ export const mapRouteItemSchema = z.object({
   town: z.string(),
 });
 
-export const mapResponseSchema = z.object({
+const mapResponseSchema = z.object({
   pendingGeocode: z.number(),
   routes: z.array(mapRouteItemSchema),
 });
 
-export interface MapResponse {
+/** Map routes and the number of locations awaiting geocoding. */
+interface MapResponse {
   readonly pendingGeocode: number;
   readonly routes: MapRouteItem[];
 }
@@ -186,15 +144,16 @@ const trendResultSchema = z.object({
   previous: z.number(),
 });
 
-export const paceTrendsSchema = z.object({
+const paceTrendsSchema = z.object({
   last30d: trendResultSchema,
   last365d: trendResultSchema,
   last7d: trendResultSchema,
 });
 
-export type PaceTrends = z.infer<typeof paceTrendsSchema>;
+/** Comparison of recent infringement counts with preceding periods. */
+type PaceTrends = z.infer<typeof paceTrendsSchema>;
 
-export const chartBreakdownsSchema = z.object({
+const chartBreakdownsSchema = z.object({
   offenceCategories: z.array(topItemSchema),
   offences: z.array(topItemSchema),
   suburbs: z.array(topItemSchema),
@@ -203,6 +162,7 @@ export const chartBreakdownsSchema = z.object({
   vehicleTypes: z.array(topItemSchema),
 });
 
+/** Ranked category counts used by dashboard charts. */
 export type ChartBreakdowns = z.infer<typeof chartBreakdownsSchema>;
 
 export const EMPTY_CHART_BREAKDOWNS: ChartBreakdowns = {
@@ -231,6 +191,7 @@ export const fullDashboardMessageSchema = z.object({
   vehicles: vehicleRankItemArraySchema,
 });
 
+/** Full dashboard state delivered in a WebSocket message. */
 export interface FullDashboardMessage {
   readonly at: string;
   readonly chartBreakdowns?: ChartBreakdowns;
@@ -246,11 +207,3 @@ export interface FullDashboardMessage {
   readonly type: "full";
   readonly vehicles: VehicleRankItem[];
 }
-
-/** Read the `data` field from a stored API JSON envelope. */
-export const readStoredEnvelopeData = (json: unknown): unknown => {
-  if (typeof json !== "object" || json === null || !("data" in json)) {
-    throw new Error("Invalid response payload");
-  }
-  return Reflect.get(json, "data");
-};

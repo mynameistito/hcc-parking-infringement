@@ -6,8 +6,10 @@ import {
 } from "./infringement-count.ts";
 import { upsertInfringements } from "./sync.ts";
 
+/** How an infringement export resolves a missing cached total. */
 export type ExportTotalMode = "cached" | "scan";
 
+/** A cursor-based infringement export page and its reported total. */
 export interface ExportInfringementsResult {
   nextCursor: number | null;
   records: CleanInfringement[];
@@ -58,6 +60,14 @@ const mapStoredRow = (row: StoredInfringementRow): CleanInfringement => ({
   vehicleType: row.vehicle_type,
 });
 
+/**
+ * Exports stored infringements in ascending number order after a cursor.
+ * @param sql - The Durable Object SQL storage.
+ * @param after - The last infringement number already exported.
+ * @param limit - Maximum number of records to return.
+ * @param totalMode - Whether a missing cached total may be scanned.
+ * @returns Cleaned records, the next cursor, and the resolved total.
+ */
 export const exportInfringements = (
   sql: SqlStorage,
   after: number,
@@ -94,15 +104,23 @@ export const exportInfringements = (
   };
 };
 
+/**
+ * Upserts cleaned infringement records and increments the cached count.
+ * @param sql - The Durable Object SQL storage.
+ * @param records - The records to process.
+ * @returns The number of records processed, including updates.
+ */
 export const importStoredInfringements = (
   sql: SqlStorage,
   records: CleanInfringement[]
 ): number => {
   const upserted = upsertInfringements(sql, records);
   bumpCachedInfringementCount(sql, upserted);
+
   return upserted;
 };
 
+/** A stored ingestion window and the count and time recorded for it. */
 export interface IngestWatermarkExport {
   end: string;
   ingestedAt: string;
@@ -110,12 +128,20 @@ export interface IngestWatermarkExport {
   start: string;
 }
 
+/** An offset-based watermark export page and its reported total. */
 export interface ExportWatermarksResult {
   nextOffset: number | null;
   total: number;
   watermarks: IngestWatermarkExport[];
 }
 
+/**
+ * Exports a page of stored ingestion watermarks.
+ * @param sql - The Durable Object SQL storage.
+ * @param offset - The number of watermarks to skip.
+ * @param limit - Maximum number of watermarks to return.
+ * @returns The watermark page, total, and next offset.
+ */
 export const exportWatermarks = (
   sql: SqlStorage,
   offset: number,
@@ -156,6 +182,12 @@ export const exportWatermarks = (
   };
 };
 
+/**
+ * Upserts ingestion watermarks by their window bounds.
+ * @param sql - The Durable Object SQL storage.
+ * @param watermarks - The watermarks to process.
+ * @returns The number of supplied watermarks.
+ */
 export const importWatermarks = (
   sql: SqlStorage,
   watermarks: readonly IngestWatermarkExport[]
@@ -177,6 +209,10 @@ export const importWatermarks = (
   return watermarks.length;
 };
 
+/**
+ * Runs the caller's finalization step after a stored import.
+ * @param onFinalize - The finalization action to execute.
+ */
 export const finalizeStoredImport = (onFinalize: () => void): void => {
   onFinalize();
 };

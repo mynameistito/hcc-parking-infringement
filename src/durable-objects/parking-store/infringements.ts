@@ -9,9 +9,14 @@ import {
   startOfDayInAucklandIso,
 } from "@/lib/auckland-time.ts";
 
+interface InfringementSqlFilter {
+  clause: string;
+  params: (string | number)[];
+}
+
 const buildInfringementWhere = (
   query: InfringementQuery
-): { clause: string; params: (string | number)[] } => {
+): InfringementSqlFilter => {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
@@ -19,14 +24,17 @@ const buildInfringementWhere = (
     conditions.push("occurred_at >= ?");
     params.push(startOfDayInAucklandIso(query.from));
   }
+
   if (query.to !== undefined && query.to !== "") {
     conditions.push("occurred_at <= ?");
     params.push(endOfDayInAucklandIso(query.to));
   }
+
   if (query.street !== undefined && query.street !== "") {
     conditions.push("street = ?");
     params.push(query.street);
   }
+
   if (query.suburb !== undefined && query.suburb !== "") {
     if (query.suburb === "Unknown") {
       conditions.push("(suburb IS NULL OR suburb = '')");
@@ -35,10 +43,12 @@ const buildInfringementWhere = (
       params.push(query.suburb);
     }
   }
+
   if (query.vehicleMake !== undefined && query.vehicleMake !== "") {
     conditions.push("coalesce(nullif(trim(vehicle_make), ''), 'Unknown') = ?");
     params.push(query.vehicleMake);
   }
+
   if (query.vehicleModel !== undefined) {
     conditions.push("coalesce(nullif(trim(vehicle_model), ''), '') = ?");
     params.push(query.vehicleModel);
@@ -88,6 +98,12 @@ const mapInfringementRow = (row: {
   vehicleType: row.vehicle_type,
 });
 
+/**
+ * Read a filtered page of stored infringements.
+ * @param sql - Parking storage SQL connection.
+ * @param query - Search, sorting, and pagination options.
+ * @returns The resulting `InfringementListResult` value.
+ */
 export const listInfringements = (
   sql: SqlStorage,
   query: InfringementQuery
@@ -139,6 +155,13 @@ export const listInfringements = (
   };
 };
 
+/**
+ * Read daily totals for an inclusive date range.
+ * @param sql - Parking storage SQL connection.
+ * @param from - Inclusive starting date.
+ * @param to - Inclusive ending date.
+ * @returns The resulting `DailyStatRow[]` value.
+ */
 export const getDailyStats = (
   sql: SqlStorage,
   from: string,
@@ -159,12 +182,4 @@ export const getDailyStats = (
     date: row.date,
     totalCents: row.amount_cents,
   }));
-};
-
-export const countInfringements = (sql: SqlStorage): number => {
-  const totalRow = sql
-    .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
-    .one();
-
-  return totalRow?.total ?? 0;
 };

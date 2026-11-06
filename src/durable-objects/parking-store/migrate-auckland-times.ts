@@ -8,6 +8,10 @@ import {
   shouldMigrateSyncMetaValue,
 } from "@/lib/migrate-instant-to-auckland.ts";
 
+/**
+ * Normalize persisted timestamps to Auckland offsets.
+ * @param sql - Parking storage SQL connection.
+ */
 export const migrateParkingStoreTimestampsToAuckland = (
   sql: SqlStorage
 ): void => {
@@ -102,6 +106,7 @@ export const migrateParkingStoreTimestampsToAuckland = (
     if (!shouldMigrateSyncMetaValue(row.key, row.value)) {
       continue;
     }
+
     sql.exec(
       "UPDATE sync_meta SET value = ? WHERE key = ?",
       migrateSyncInstant(row.value),

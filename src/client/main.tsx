@@ -9,7 +9,11 @@ import { restoreDashboardFromCache } from "@/client/use-live-socket";
 import { MotionProvider } from "@/components/motion-provider";
 
 if (import.meta.env.DEV) {
-  void import("react-grab");
+  try {
+    await import("react-grab");
+  } catch (error) {
+    console.warn("React Grab could not initialize", error);
+  }
 }
 
 const queryClient = new QueryClient({
@@ -22,11 +26,13 @@ const queryClient = new QueryClient({
 });
 
 const cachedSnapshot = readPersistedDashboardSnapshotSync();
+
 if (cachedSnapshot !== null) {
   restoreDashboardFromCache(queryClient, cachedSnapshot);
 }
 
 const root = document.querySelector("#root");
+
 if (!root) {
   throw new Error("Root element #root not found");
 }

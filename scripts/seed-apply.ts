@@ -15,7 +15,7 @@ loadDevVars();
 
 const args = scriptArgv();
 const prefix = readArg(args, "prefix");
-const pauseMs = Number.parseInt(readArg(args, "pause-ms") ?? "1000", 10);
+const pauseMs = Math.trunc(Number(readArg(args, "pause-ms") ?? "1000"));
 const startAfterChunk = readArg(args, "start-after-chunk");
 
 const toUrl = resolveImportJsonTargetUrl(args);

@@ -19,6 +19,9 @@ import {
   SEED_MANIFEST_VERSION,
 } from "@/server/seed-manifest.ts";
 
+/**
+ * Export source, chunk limits, and progress reporting settings.
+ */
 export interface ExportSeedChunksOptions {
   chunkRecords: number;
   label: string;
@@ -28,6 +31,9 @@ export interface ExportSeedChunksOptions {
   source: WorkerScriptContext;
 }
 
+/**
+ * Published chunk paths and their seed manifest.
+ */
 export interface ExportSeedChunksResult {
   files: string[];
   manifest: SeedManifest;
@@ -60,6 +66,7 @@ const writeDashboardSnapshot = async (options: {
     options.onProgress?.(
       `[${options.label}] exported dashboard snapshot for R2 read mode`
     );
+
     return dashboardSnapshotKey;
   } catch (error) {
     options.onProgress?.(
@@ -67,6 +74,7 @@ const writeDashboardSnapshot = async (options: {
         error instanceof Error ? error.message : String(error)
       }`
     );
+
     return undefined;
   }
 };
@@ -79,9 +87,9 @@ const exportWatermarksToSeed = async (options: {
   source: WorkerScriptContext;
 }): Promise<string | undefined> => {
   const watermarks: IngestWatermarkExport[] = [];
-  let offset = 0;
+  let offset: number | null = 0;
 
-  while (true) {
+  while (offset !== null) {
     const page = await fetchExportWatermarks(
       options.source,
       offset,
@@ -93,17 +101,11 @@ const exportWatermarksToSeed = async (options: {
     }
 
     watermarks.push(...page.watermarks);
-    offset = page.nextOffset ?? offset;
+    offset = page.nextOffset;
 
     options.onProgress?.(
       `[${options.label}] watermarks ${formatNumber(watermarks.length)}/${formatNumber(page.total)}`
     );
-
-    if (page.nextOffset === null) {
-      break;
-    }
-
-    offset = page.nextOffset;
   }
 
   if (watermarks.length === 0) {
@@ -119,13 +121,18 @@ const exportWatermarksToSeed = async (options: {
   return watermarksKey;
 };
 
+/**
+ * Export worker records into bounded seed chunks and a manifest.
+ * @param options - Operation settings and progress callbacks.
+ * @returns The resulting `Promise<ExportSeedChunksResult>` value.
+ */
 export const exportSeedChunksFromWorker = async (
   options: ExportSeedChunksOptions
 ): Promise<ExportSeedChunksResult> => {
   await mkdir(options.outDir, { recursive: true });
 
   const infringementChunks: string[] = [];
-  let cursor = 0;
+  let cursor: number | null = 0;
   let exported = 0;
   let total = 0;
   let chunkIndex = 1;
@@ -161,13 +168,14 @@ export const exportSeedChunksFromWorker = async (
     await appendRecords(records, index + 1);
   };
 
-  while (true) {
+  while (cursor !== null) {
     const page = await fetchExportInfringements(
       options.source,
       cursor,
       options.chunkRecords,
       total === 0 ? "scan" : "cached"
     );
+
     ({ total } = page);
 
     if (page.records.length === 0) {
@@ -177,17 +185,11 @@ export const exportSeedChunksFromWorker = async (
     await appendRecords(page.records);
 
     exported += page.records.length;
-    cursor = page.nextCursor ?? cursor;
+    cursor = page.nextCursor;
 
     options.onProgress?.(
       `[${options.label}] pulled ${formatNumber(exported)}/${formatNumber(total)} from local DO`
     );
-
-    if (page.nextCursor === null) {
-      break;
-    }
-
-    cursor = page.nextCursor;
   }
 
   await flushChunk();

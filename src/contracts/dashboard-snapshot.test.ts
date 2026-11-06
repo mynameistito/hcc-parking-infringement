@@ -47,11 +47,12 @@ const minimalFullMessage = {
   vehicles: [],
 };
 
-describe("parseFullDashboardMessageJson", () => {
+describe(parseFullDashboardMessageJson, () => {
   it("parses valid snapshot JSON", () => {
     const message = parseFullDashboardMessageJson(
       JSON.stringify(minimalFullMessage)
     );
+
     expect(message?.type).toBe("full");
     expect(message?.dailyTrend).toHaveLength(1);
   });
@@ -90,12 +91,13 @@ describe("dashboard snapshot helpers", () => {
     );
 
     expect(message).not.toBeNull();
+
     if (message === null) {
       return;
     }
 
     expect(getDashboardSnapshotPayloadWeight(message)).toBe(5);
-    expect(dashboardSnapshotIsComplete(message)).toBe(true);
+    expect(dashboardSnapshotIsComplete(message)).toBeTruthy();
   });
 
   it("treats partial chart breakdowns as incomplete when data exists", () => {
@@ -114,11 +116,33 @@ describe("dashboard snapshot helpers", () => {
     );
 
     expect(message).not.toBeNull();
+
     if (message === null) {
       return;
     }
 
-    expect(dashboardSnapshotIsComplete(message)).toBe(false);
+    expect(dashboardSnapshotIsComplete(message)).toBeFalsy();
+  });
+
+  it("requires daily trend and pace data for a complete snapshot", () => {
+    const noTrend = parseRawFullDashboardMessageJson(
+      JSON.stringify({ ...minimalFullMessage, dailyTrend: [] })
+    );
+
+    const withoutPace = Object.fromEntries(
+      Object.entries(minimalFullMessage).filter(([key]) => key !== "paceTrends")
+    );
+
+    const noPace = parseRawFullDashboardMessageJson(
+      JSON.stringify(withoutPace)
+    );
+
+    if (noTrend === null || noPace === null) {
+      throw new Error("Expected both partial snapshots to parse");
+    }
+
+    expect(dashboardSnapshotIsComplete(noTrend)).toBeFalsy();
+    expect(dashboardSnapshotIsComplete(noPace)).toBeFalsy();
   });
 
   it("maps to internal snapshot shape with normalized geometry", () => {

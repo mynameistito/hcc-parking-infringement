@@ -21,6 +21,10 @@ import { handleSeedDashboardWebSocket } from "@/server/seed-websocket.ts";
 import { getDailyStats, getLiveStats, getTopStats } from "@/server/stats.ts";
 import { getParkingStore } from "@/server/store.ts";
 
+/**
+ * Build public statistics routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1StatsRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
@@ -29,17 +33,20 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
 
     if (verifyApiKey(c.req.raw, c.env)) {
       const stats = await getLiveStats(scope);
+
       return storedJson(c, { meta: { source: "stored" }, ...stats });
     }
 
     try {
       const data = await getPublicLiveStats(scope);
+
       return storedJson(c, {
         data,
         meta: { source: "stored" },
       });
     } catch (error) {
       console.error("live stats error", error);
+
       return jsonError(500, "Failed to load live stats");
     }
   });
@@ -57,6 +64,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
       }
 
       const stats = await getDailyStats(scope, from, to);
+
       return storedJson(c, {
         data: stats,
         from,
@@ -72,12 +80,14 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
 
     try {
       const data = await getPublicDailyTrend(scope, days);
+
       return storedJson(c, {
         data,
         meta: { days, source: "stored" },
       });
     } catch (error) {
       console.error("daily stats error", error);
+
       return jsonError(500, "Failed to load daily stats");
     }
   });
@@ -90,6 +100,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
     }
 
     const stub = getParkingStore(c.env);
+
     return await stub.fetch(c.req.raw);
   });
 
@@ -97,6 +108,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
     const { scope } = c.var;
     const groupByParam = c.req.query("groupBy") ?? "street";
     const windowParam = c.req.query("window");
+
     const limit = Math.min(
       parsePositiveInt(
         c.req.query("limit"),
@@ -111,11 +123,13 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
       if (!isTopGroupBy(groupByParam)) {
         return jsonError(400, "groupBy must be street or offence");
       }
+
       if (!isTopWindow(windowParam)) {
         return jsonError(400, "window must be all, 7d, or 30d");
       }
 
       const data = await getTopStats(scope, groupByParam, windowParam, limit);
+
       return storedJson(c, {
         data,
         groupBy: groupByParam,
@@ -141,6 +155,7 @@ export const createV1StatsRoutes = (): Hono<AppEnv> => {
       });
     } catch (error) {
       console.error("top stats error", error);
+
       return jsonError(500, "Failed to load top stats");
     }
   });

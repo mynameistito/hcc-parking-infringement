@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 /**
  * Import a Hamilton parking infringement CSV into ParkingStore.
  *
@@ -5,8 +6,6 @@
  * bun run import:csv
  * bun run import:csv -- --file=data/Infringement.csv --batch-size=500
  */
-
-import { readFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { loadDevVars } from "@scripts/dev-env.ts";
@@ -15,6 +14,7 @@ import { parseCsvLine, toRawInfringementRecord } from "@scripts/lib/csv.ts";
 import { createWorkerContext } from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
+import type { RawInfringementRecord } from "@/server/clean-schema.ts";
 import { parseNonNegativeInt, parsePositiveInt } from "@/server/http/query.ts";
 
 loadDevVars();
@@ -22,10 +22,12 @@ loadDevVars();
 const args = scriptArgv();
 const { apiKey, workerUrl } = createWorkerContext();
 const csvPath = readArg(args, "file") ?? "data\\Infringement.csv";
+
 const batchSize = Math.min(
   parsePositiveInt(readArg(args, "batch-size"), 1000),
   5000
 );
+
 const skipRows = parseNonNegativeInt(readArg(args, "skip-rows"), 0);
 
 const importResponseSchema = z.object({
@@ -39,7 +41,7 @@ const importResponseSchema = z.object({
 });
 
 const postBatchOnce = async (
-  records: Record<string, unknown>[],
+  records: RawInfringementRecord[],
   final: boolean,
   retry: () => Promise<z.infer<typeof importResponseSchema> | null>
 ) => {
@@ -59,10 +61,12 @@ const postBatchOnce = async (
   if (!response.ok || !parsedBody.success) {
     if (response.status === 429 || response.status >= 500) {
       const retried = await retry();
+
       if (retried !== null) {
         return retried;
       }
     }
+
     console.error(`Import failed (${response.status}):`, rawBody);
     process.exit(1);
   }
@@ -71,7 +75,7 @@ const postBatchOnce = async (
 };
 
 const postBatch = async (
-  records: Record<string, unknown>[],
+  records: RawInfringementRecord[],
   final: boolean,
   attempt = 1
 ) => {
@@ -82,7 +86,9 @@ const postBatch = async (
     if (attempt >= maxAttempts) {
       return null;
     }
+
     await delay(retryDelayMs);
+
     return await postBatch(records, final, attempt + 1);
   };
 
@@ -99,7 +105,7 @@ if (headerLine === undefined) {
 }
 
 const headers = parseCsvLine(headerLine);
-const batch: Record<string, unknown>[] = [];
+const batch: RawInfringementRecord[] = [];
 let importedRows = 0;
 let upsertedRows = 0;
 let skippedRows = 0;
@@ -110,6 +116,7 @@ const dataLines = lines.slice(1).filter((line) => line.length > 0);
 
 const uploadFullBatch = async (final: boolean) => {
   const records = batch.splice(0);
+
   return await postBatch(records, final);
 };
 
@@ -133,8 +140,11 @@ for (const line of dataLines) {
 }
 
 const finalResult = await uploadFullBatch(true);
+
 importedRows += finalResult.recordsReceived;
+
 upsertedRows += finalResult.recordsUpserted;
+
 skippedRows += finalResult.skipped;
 
 console.log("CSV import complete:", {

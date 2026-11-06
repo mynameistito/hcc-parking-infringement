@@ -3,7 +3,7 @@ import type { SeedRefreshCoordinator } from "@/durable-objects/seed-refresh-coor
 const SEED_REFRESH_COORDINATOR_NAME = "parking-seed-refresh";
 
 /** Persisted lifecycle state exposed by the seed refresh coordinator. */
-export type SeedRefreshStatus =
+type SeedRefreshStatus =
   | "idle"
   | "planning"
   | "running"
@@ -29,7 +29,11 @@ export interface StartSeedRefreshInput {
   readonly scheduledTime?: number;
 }
 
-/** Resolve the single coordination atom for the published parking seed. */
+/**
+ * Resolve the single coordination atom for the published parking seed.
+ * @param env - Worker bindings containing the coordinator namespace.
+ * @returns The named coordinator's RPC stub.
+ */
 export const getSeedRefreshCoordinator = (
   env: Env
 ): DurableObjectStub<SeedRefreshCoordinator> =>

@@ -12,24 +12,36 @@ const formatWindowLabel = (
   if (start === undefined || end === undefined) {
     return "waiting…";
   }
+
   if (start === end) {
     return start;
   }
+
   return `${start} → ${end}`;
 };
 
 const renderBar = (percent: number, width = 28): string => {
   const filled = Math.round((percent / 100) * width);
+
   return `[${"█".repeat(filled)}${"░".repeat(width - filled)}]`;
 };
 
-/** Format integers with NZ locale grouping. */
+/**
+ *  Format integers with NZ locale grouping.
+ * @param value - Value to inspect or format.
+ * @returns The formatted or resolved string value.
+ */
 export const formatNumber = (value: number): string =>
   value.toLocaleString("en-NZ");
 
-/** Single-line progress summary when `/sync/backfill/progress` is available. */
+/**
+ *  Single-line progress summary when `/sync/backfill/progress` is available.
+ * @param progress - Reported backfill progress.
+ * @returns The formatted or resolved string value.
+ */
 export const renderProgressLine = (progress: BackfillProgress): string => {
   const bar = renderBar(progress.percent);
+
   const windowLabel =
     progress.latestWindow === null
       ? "waiting…"
@@ -47,7 +59,11 @@ export const renderProgressLine = (progress: BackfillProgress): string => {
   ].join("  ");
 };
 
-/** Single-line fallback summary when polling `/api/v1/status` instead. */
+/**
+ *  Single-line fallback summary when polling `/api/v1/status` instead.
+ * @param options - Operation settings and progress callbacks.
+ * @returns The formatted or resolved string value.
+ */
 export const renderFallbackLine = (options: {
   baselineRecords: number;
   baselineWindows: number;

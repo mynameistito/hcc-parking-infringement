@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { infringementListResponseSchema } from "@/contracts/public-api";
 import type { InfringementListResponse } from "@/contracts/public-api";
 import {
@@ -5,31 +7,47 @@ import {
   INFRINGEMENTS_MAX_PAGE_SIZE,
 } from "@/lib/dashboard-constants";
 
-const getErrorMessage = (body: unknown, status: number): string => {
-  if (
-    typeof body === "object" &&
-    body !== null &&
-    "error" in body &&
-    typeof body.error === "string" &&
-    body.error.length > 0
-  ) {
-    return body.error;
+const apiErrorSchema = z.object({ error: z.string().min(1) });
+
+const getErrorMessage = (
+  message: string | undefined,
+  status: number
+): string => {
+  if (message !== undefined) {
+    return message;
   }
+
   if (status === 404) {
     return "Data feed unavailable. Start the API server to load live dashboard data.";
   }
+
   return `Data feed unavailable. Request returned ${status}.`;
 };
 
-const fetchJson = async (url: string): Promise<unknown> => {
+const fetchRecentPage = async (
+  url: string
+): Promise<InfringementListResponse> => {
   const response = await fetch(url);
+
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null);
-    throw new Error(getErrorMessage(body, response.status));
+    const parsed = apiErrorSchema.safeParse(body);
+    throw new Error(
+      getErrorMessage(
+        parsed.success ? parsed.data.error : undefined,
+        response.status
+      )
+    );
   }
-  return await response.json();
+
+  return infringementListResponseSchema.parse(await response.json());
 };
 
+/**
+ * Fetch a page of public recent infringements.
+ * @param params - Page size and page number.
+ * @returns The resulting `Promise<InfringementListResponse>` value.
+ */
 export const fetchRecentInfringements = async (
   params: { limit?: number; page?: number } = {}
 ): Promise<InfringementListResponse> => {
@@ -44,7 +62,6 @@ export const fetchRecentInfringements = async (
       )
     )
   );
-  return infringementListResponseSchema.parse(
-    await fetchJson(`/api/v1/infringements/recent?${search}`)
-  );
+
+  return await fetchRecentPage(`/api/v1/infringements/recent?${search}`);
 };

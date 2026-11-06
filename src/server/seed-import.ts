@@ -14,7 +14,8 @@ const INFRINGEMENT_UPSERT_BATCH = 500;
 
 const readConfiguredSeedPrefix = (env: Env): string | undefined => {
   const value = env.PARKING_STORE_SEED_PREFIX;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+
+  return value !== undefined && value.length > 0 ? value : undefined;
 };
 
 const resolveSeedPrefix = (env: Env, override?: string): string => {
@@ -30,13 +31,21 @@ const resolveSeedPrefix = (env: Env, override?: string): string => {
   return normalized;
 };
 
+/** Validated seed manifest together with its resolved object prefix. */
 export type SeedManifestContext = Awaited<ReturnType<typeof readSeedManifest>>;
 
+/**
+ * Reads and validates the seed manifest from object storage.
+ * @param env - Worker environment and seed storage bindings.
+ * @param prefixOverride - Optional object key prefix overriding configuration.
+ * @returns The manifest and normalized prefix.
+ */
 export const readSeedManifest = async (
   env: Env,
   prefixOverride?: string
 ): Promise<{ manifest: SeedManifest; prefix: string }> => {
   const prefix = resolveSeedPrefix(env, prefixOverride);
+
   const raw = await readSeedObjectText(
     env,
     seedObjectKey(prefix, MANIFEST_FILE)
@@ -69,6 +78,7 @@ const upsertLinesInBatches = async (
     .map((line) => parseSeedInfringementLine(line));
 
   const upserted = await getParkingStore(env).importStoredInfringements(batch);
+
   return await upsertLinesInBatches(
     env,
     lines,
@@ -77,6 +87,12 @@ const upsertLinesInBatches = async (
   );
 };
 
+/**
+ * Imports a manifest-listed NDJSON infringement chunk in batches.
+ * @param env - Worker environment and storage bindings.
+ * @param options - Chunk name and optional prefix override.
+ * @returns The chunk name and upserted record count.
+ */
 export const importSeedInfringementChunk = async (
   env: Env,
   options: { chunk: string; prefixOverride?: string }
@@ -97,6 +113,7 @@ export const importSeedInfringementChunk = async (
     env,
     seedObjectKey(prefix, options.chunk)
   );
+
   if (raw === null) {
     throw new Error(`Seed chunk not found: ${options.chunk}`);
   }
@@ -110,6 +127,12 @@ export const importSeedInfringementChunk = async (
   };
 };
 
+/**
+ * Imports the watermark object referenced by a seed manifest.
+ * @param env - Worker environment and storage bindings.
+ * @param prefixOverride - Optional object key prefix overriding configuration.
+ * @returns The number of imported watermarks.
+ */
 export const importSeedWatermarks = async (
   env: Env,
   prefixOverride?: string
@@ -135,12 +158,19 @@ export const importSeedWatermarks = async (
     .map((line) => parseSeedWatermarkLine(line));
 
   const imported = await getParkingStore(env).importWatermarks(watermarks);
+
   return { imported };
 };
 
+/**
+ * Finalizes an import and recomputes derived store data.
+ * @param env - Worker environment and parking store binding.
+ * @returns Whether recomputation was performed.
+ */
 export const finalizeSeedImport = async (
   env: Env
 ): Promise<{ recomputed: boolean }> => {
   await getParkingStore(env).finalizeStoredImport();
+
   return { recomputed: true };
 };

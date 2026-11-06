@@ -28,7 +28,14 @@ import { EMPTY_CHART_BREAKDOWNS } from "@/contracts/public-api";
 import { parseAucklandInstant } from "@/lib/auckland-time";
 import type { PaceTrends } from "@/lib/trend-window";
 
+/**
+ * Live transport availability and cached fallback state.
+ */
 export type DashboardConnectionStatus = "live" | "cached" | "connecting";
+
+/**
+ * Dashboard data readiness and refresh state.
+ */
 export type DashboardDataStatus = "loading" | "ready" | "updating";
 
 interface DashboardProps {
@@ -57,6 +64,7 @@ const LastUpdated = ({
     const id = window.setInterval(() => {
       tick((n) => n + 1);
     }, 30_000);
+
     return () => {
       window.clearInterval(id);
     };
@@ -70,25 +78,26 @@ const LastUpdated = ({
 
   if (lastSyncedAt === null || lastSyncedAt.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">Waiting for first sync...</p>
+      <p className="text-muted-foreground text-sm">Waiting for first sync...</p>
     );
   }
 
   let syncedAt: Date;
+
   try {
     syncedAt = parseAucklandInstant(lastSyncedAt);
   } catch {
     return (
-      <p className="text-sm text-muted-foreground">Waiting for first sync...</p>
+      <p className="text-muted-foreground text-sm">Waiting for first sync...</p>
     );
   }
 
   const ago = formatDistanceToNow(syncedAt, { addSuffix: true });
 
   return (
-    <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-      <Clock3 className="size-4 text-muted-foreground" aria-hidden="true" />
-      Last updated <span className="font-medium text-primary">{ago}</span>
+    <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+      <Clock3 className="text-muted-foreground size-4" aria-hidden="true" />
+      Last updated <span className="text-primary font-medium">{ago}</span>
     </p>
   );
 };
@@ -99,6 +108,7 @@ const getInitialTheme = (): ThemeMode => {
   if (typeof window === "undefined") {
     return "dark";
   }
+
   return window.localStorage.getItem("hcc-theme") === "light"
     ? "light"
     : "dark";
@@ -151,7 +161,7 @@ const LiveStatusBadge = ({
 
   if (connectionStatus === "cached") {
     return (
-      <Badge variant="outline" className="gap-1.5 bg-background">
+      <Badge variant="status">
         <Database className="size-3" aria-hidden="true" />
         Cached
       </Badge>
@@ -159,13 +169,17 @@ const LiveStatusBadge = ({
   }
 
   return (
-    <Badge variant="outline" className="gap-1.5 bg-background">
+    <Badge variant="status">
       <Database className="size-3" aria-hidden="true" />
       Connecting
     </Badge>
   );
 };
 
+/**
+ * Display live infringement totals, trends, distributions, and recent activity.
+ * @returns The rendered interface for the supplied data.
+ */
 export const Dashboard = ({
   live,
   dailyTrend,
@@ -179,19 +193,20 @@ export const Dashboard = ({
   error,
 }: DashboardProps) => {
   const [recentOpen, setRecentOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="bg-background text-foreground min-h-screen">
       <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 md:px-8 lg:py-10">
-        <header className="mb-6 border-b border-border pb-6">
+        <header className="border-border mb-6 border-b pb-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-              <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+              <p className="text-muted-foreground mb-2 text-xs font-semibold uppercase">
                 Hamilton City Council Open Data
               </p>
-              <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary sm:text-5xl">
+              <h1 className="text-primary text-3xl font-semibold tracking-tighter sm:text-5xl">
                 Hamilton parking infringements
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+              <p className="text-muted-foreground mt-3 max-w-3xl text-sm leading-6 sm:text-base">
                 Live infringement totals, hotspot streets, vehicle trends, and
                 ticket activity for Hamilton, New Zealand.
               </p>
@@ -201,9 +216,7 @@ export const Dashboard = ({
               <div className="flex flex-wrap items-center gap-2">
                 <LiveStatusBadge connectionStatus={connectionStatus} />
                 {dataStatus === "updating" ? (
-                  <Badge variant="outline" className="bg-background">
-                    Updating...
-                  </Badge>
+                  <Badge variant="status">Updating...</Badge>
                 ) : null}
                 <ThemeToggle />
               </div>
@@ -216,7 +229,7 @@ export const Dashboard = ({
         </header>
 
         {error !== null && error !== undefined && error.length > 0 ? (
-          <Alert variant="destructive" className="mb-6 bg-background">
+          <Alert variant="destructiveNotice" className="mb-6">
             <AlertCircle className="size-4" aria-hidden="true" />
             <AlertTitle>Dashboard update failed</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
@@ -234,8 +247,8 @@ export const Dashboard = ({
             dailyTrend={dailyTrend}
             isLoading={dataStatus === "loading"}
           />
-          <details className="rounded-lg border border-border bg-card p-5 sm:p-6">
-            <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
+          <details className="border-border bg-card rounded-lg border p-5 sm:p-6">
+            <summary className="focus-visible:outline-ring cursor-pointer font-medium focus-visible:outline-2">
               Street and vehicle breakdowns
             </summary>
             <div className="mt-6">
@@ -247,12 +260,12 @@ export const Dashboard = ({
             </div>
           </details>
           <details
-            className="rounded-lg border border-border bg-card p-5 sm:p-6"
+            className="border-border bg-card rounded-lg border p-5 sm:p-6"
             onToggle={(event) => {
               setRecentOpen(event.currentTarget.open);
             }}
           >
-            <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
+            <summary className="focus-visible:outline-ring cursor-pointer font-medium focus-visible:outline-2">
               Recent parking tickets
             </summary>
             <div className="mt-6">
@@ -267,11 +280,11 @@ export const Dashboard = ({
           </details>
         </main>
 
-        <footer className="mt-8 border-t border-border pt-5 text-xs text-muted-foreground">
+        <footer className="border-border text-muted-foreground mt-8 border-t pt-5 text-xs">
           <p>
             Parking infringement data from{" "}
             <a
-              className="underline underline-offset-2 hover:text-foreground"
+              className="hover:text-foreground underline underline-offset-2"
               href="https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about"
               rel="noopener noreferrer"
               target="_blank"
@@ -280,7 +293,7 @@ export const Dashboard = ({
             </a>
             , licensed under{" "}
             <a
-              className="underline underline-offset-2 hover:text-foreground"
+              className="hover:text-foreground underline underline-offset-2"
               href="https://creativecommons.org/licenses/by/4.0/"
               rel="noopener noreferrer"
               target="_blank"

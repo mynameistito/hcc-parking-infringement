@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { PublicInfringement } from "@/contracts/public-api";
 
@@ -32,13 +32,13 @@ const rows = [
   ticket(3, "2025-02-01T00:00:00+13:00", 3000),
 ];
 
-const mount = async () => {
+const mount = () => {
   const container = document.createElement("div");
   const root = createRoot(container);
 
-  await act(() =>
-    root.render(createElement(LatestInstances, { recentInfringements: rows }))
-  );
+  act(() => {
+    root.render(createElement(LatestInstances, { recentInfringements: rows }));
+  });
 
   return { container, root };
 };
@@ -46,7 +46,7 @@ const mount = async () => {
 const renderedTickets = (container: HTMLElement) =>
   [...container.querySelectorAll("tbody tr")].map((row) => row.textContent);
 
-const clickHeader = async (container: HTMLElement, label: string) => {
+const clickHeader = (container: HTMLElement, label: string) => {
   const button = [...container.querySelectorAll("button")].find((element) =>
     element.textContent?.includes(label)
   );
@@ -55,12 +55,14 @@ const clickHeader = async (container: HTMLElement, label: string) => {
     throw new Error(`Missing ${label} sort button`);
   }
 
-  await act(() => button.click());
+  act(() => {
+    button.click();
+  });
 };
 
-describe("LatestInstances", () => {
-  test("renders all columns and sorts dates in both directions", async () => {
-    const { container, root } = await mount();
+describe(LatestInstances, () => {
+  it("renders all columns and sorts dates in both directions", () => {
+    const { container, root } = mount();
 
     try {
       expect(renderedTickets(container)).toStrictEqual([
@@ -72,41 +74,45 @@ describe("LatestInstances", () => {
       expect(
         container.querySelectorAll("tbody tr:first-child td")
       ).toHaveLength(5);
-      await clickHeader(container, "Date");
+      clickHeader(container, "Date");
       expect(renderedTickets(container)).toStrictEqual([
         expect.stringContaining("Ticket 1"),
         expect.stringContaining("Ticket 3"),
         expect.stringContaining("Ticket 2"),
       ]);
-      await clickHeader(container, "Date");
+      clickHeader(container, "Date");
       expect(renderedTickets(container)).toStrictEqual([
         expect.stringContaining("Ticket 2"),
         expect.stringContaining("Ticket 3"),
         expect.stringContaining("Ticket 1"),
       ]);
     } finally {
-      await act(() => root.unmount());
+      act(() => {
+        root.unmount();
+      });
     }
   });
 
-  test("sorts fine amounts numerically in both directions", async () => {
-    const { container, root } = await mount();
+  it("sorts fine amounts numerically in both directions", () => {
+    const { container, root } = mount();
 
     try {
-      await clickHeader(container, "Fine");
+      clickHeader(container, "Fine");
       expect(renderedTickets(container)).toStrictEqual([
         expect.stringContaining("Ticket 3"),
         expect.stringContaining("Ticket 1"),
         expect.stringContaining("Ticket 2"),
       ]);
-      await clickHeader(container, "Fine");
+      clickHeader(container, "Fine");
       expect(renderedTickets(container)).toStrictEqual([
         expect.stringContaining("Ticket 2"),
         expect.stringContaining("Ticket 1"),
         expect.stringContaining("Ticket 3"),
       ]);
     } finally {
-      await act(() => root.unmount());
+      act(() => {
+        root.unmount();
+      });
     }
   });
 });

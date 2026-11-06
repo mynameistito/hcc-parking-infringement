@@ -32,6 +32,7 @@ const runAllGeocodeBatches = async (): Promise<{
     batch += 1;
 
     let result;
+
     try {
       result = await runGeocodeBatch(workerUrl, apiKey, limit);
     } catch (error) {
@@ -50,16 +51,11 @@ const runAllGeocodeBatches = async (): Promise<{
       `Batch ${batch}: +${geocoded} geocoded, ${failed} failed · ${pending} pending`
     );
 
-    if (runOnce) {
-      break;
-    }
-
     if (geocoded === 0 && failed === 0) {
       console.log("No progress this batch — stopping.");
-      break;
     }
 
-    if (pending <= 0) {
+    if (runOnce || (geocoded === 0 && failed === 0) || pending <= 0) {
       break;
     }
   }

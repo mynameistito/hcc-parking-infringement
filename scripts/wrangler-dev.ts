@@ -34,6 +34,7 @@ const run = async (
 
   if (options?.background === true) {
     child.unref();
+
     return 0;
   }
 
@@ -43,6 +44,7 @@ const run = async (
 if (!existsSync(clientIndex) || forceBuild) {
   console.log("Building dashboard assets for wrangler dev…\n");
   const buildCode = await run("bun", ["run", "build"]);
+
   if (buildCode !== 0) {
     process.exit(buildCode);
   }
@@ -56,7 +58,9 @@ if (watch) {
 }
 
 console.log(`Starting wrangler dev on http://localhost:${port}`);
+
 console.log("Backfill against this worker:");
+
 console.log(`  bun run backfill -- --port=${port}\n`);
 
 const wranglerCode = await run("bunx", [

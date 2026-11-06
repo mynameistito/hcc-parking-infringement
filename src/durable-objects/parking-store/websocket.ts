@@ -1,16 +1,29 @@
 import { isoNow } from "./constants.ts";
 
+/**
+ * Replies to a ping message on an accepted socket.
+ * @param ws - The socket that sent the message.
+ * @param message - The text or binary WebSocket message.
+ */
 export const handleWebSocketMessage = (
   ws: WebSocket,
   message: string | ArrayBuffer
 ): void => {
   const text =
-    typeof message === "string" ? message : new TextDecoder().decode(message);
+    message instanceof ArrayBuffer
+      ? new TextDecoder().decode(message)
+      : message;
+
   if (text === "ping") {
     ws.send(JSON.stringify({ at: isoNow(), type: "pong" }));
   }
 };
 
+/**
+ * Sends a serialized payload to each socket that remains open.
+ * @param sockets - The sockets to notify.
+ * @param payload - The serialized message to send.
+ */
 export const broadcastToWebSockets = (
   sockets: WebSocket[],
   payload: string
@@ -24,7 +37,12 @@ export const broadcastToWebSockets = (
   }
 };
 
-export const pushToWebSocket = (ws: WebSocket, payload: string): void => {
+/**
+ * Sends a serialized payload to a socket if it remains open.
+ * @param ws - The socket to notify.
+ * @param payload - The serialized message to send.
+ */
+const pushToWebSocket = (ws: WebSocket, payload: string): void => {
   try {
     ws.send(payload);
   } catch {
@@ -32,6 +50,13 @@ export const pushToWebSocket = (ws: WebSocket, payload: string): void => {
   }
 };
 
+/**
+ * Accepts a WebSocket upgrade and schedules the initial snapshot.
+ * @param request - The incoming upgrade request.
+ * @param acceptWebSocket - Registers the server side of the socket pair.
+ * @param resolvePayload - Produces the initial serialized snapshot.
+ * @returns An upgrade response, or a 426 response for a non-upgrade request.
+ */
 export const handleWebSocketUpgrade = (
   request: Request,
   acceptWebSocket: (ws: WebSocket) => void,

@@ -4,17 +4,20 @@ import { bearerHeaders } from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 /** Response from `POST /api/v1/geocode/run`. */
-export const geocodeRunResultSchema = z.object({
+const geocodeRunResultSchema = z.object({
   failed: z.number().optional(),
   geocoded: z.number().optional(),
   ok: z.boolean().optional(),
   pending: z.number().optional(),
 });
 
+/**
+ * Validated completion counts for a geocoding batch.
+ */
 export type GeocodeRunResult = z.infer<typeof geocodeRunResultSchema>;
 
 /** Response from `GET /api/v1/locations/map`. */
-export const mapResponseSchema = z.object({
+const mapResponseSchema = z.object({
   data: z
     .object({
       pendingGeocode: z.number().optional(),
@@ -23,9 +26,18 @@ export const mapResponseSchema = z.object({
     .optional(),
 });
 
+/**
+ * Validated location coordinates returned by the worker.
+ */
 export type MapSnapshot = z.infer<typeof mapResponseSchema>["data"];
 
-/** Run one geocode batch on the worker. */
+/**
+ *  Run one geocode batch on the worker.
+ * @param workerUrl - Worker origin.
+ * @param apiKey - Worker administration credential.
+ * @param limit - Maximum number of locations to process.
+ * @returns The resulting `Promise<GeocodeRunResult>` value.
+ */
 export const runGeocodeBatch = async (
   workerUrl: string,
   apiKey: string,
@@ -51,12 +63,17 @@ export const runGeocodeBatch = async (
   return parsedBody.success ? parsedBody.data : {};
 };
 
-/** Read map route count and pending geocode total from the public map endpoint. */
+/**
+ *  Read map route count and pending geocode total from the public map endpoint.
+ * @param workerUrl - Worker origin.
+ * @returns The resulting `Promise<MapSnapshot | undefined>` value.
+ */
 export const fetchMapSnapshot = async (
   workerUrl: string
 ): Promise<MapSnapshot | undefined> => {
   const response = await fetch(`${workerUrl}/api/v1/locations/map`);
   const rawBody: unknown = await response.json();
   const parsed = mapResponseSchema.safeParse(rawBody);
+
   return parsed.success ? parsed.data.data : undefined;
 };

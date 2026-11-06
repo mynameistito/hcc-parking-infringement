@@ -11,7 +11,7 @@ import {
 import { HccClient, hccClientLayer } from "@/server/hcc-pagination";
 import { HccTransport } from "@/server/hcc-transport";
 
-describe("formatHccFetchError", () => {
+describe(formatHccFetchError, () => {
   it("formats HTTP failures", () => {
     expect(
       formatHccFetchError({ body: "rate limited", status: 429, tag: "http" })
@@ -27,34 +27,40 @@ describe("formatHccFetchError", () => {
 
 const env = { HCC_API_BASE: "https://api.hcc.govt.nz/OpenData" } as const;
 const request = { endDate: "2026-01-02", page: 1, startDate: "2026-01-01" };
+
 const failed: typeof fetch = async () =>
   await Promise.reject(new TypeError("offline"));
+
 const malformed: typeof fetch = async () =>
   await Promise.resolve(new Response("{"));
 
 describe("HCC request boundary", () => {
   it("returns typed transport and malformed JSON failures", async () => {
-    expect(
-      await fetchInfringements(env, { ...request, fetch: failed })
-    ).toEqual({ error: { tag: "transport" }, ok: false });
-    expect(
-      await fetchInfringements(env, { ...request, fetch: malformed })
-    ).toEqual({ error: { tag: "malformed_json" }, ok: false });
+    await expect(
+      fetchInfringements(env, { ...request, fetch: failed })
+    ).resolves.toStrictEqual({ error: { tag: "transport" }, ok: false });
+    await expect(
+      fetchInfringements(env, { ...request, fetch: malformed })
+    ).resolves.toStrictEqual({ error: { tag: "malformed_json" }, ok: false });
   });
 
   it("propagates cancellation through pagination", async () => {
     const controller = new AbortController();
     const observed: (AbortSignal | null | undefined)[] = [];
+
     const fetchPage: typeof fetch = async (input, init) => {
       observed.push(init?.signal);
       const url = input instanceof Request ? input.url : input;
       const page = new URL(url).searchParams.get("Page");
+
       if (page !== "1") {
         controller.abort();
       }
+
       if (controller.signal.aborted) {
         return await Promise.reject(new Error("aborted"));
       }
+
       return await Promise.resolve(
         Response.json({
           Data: [],
@@ -62,13 +68,18 @@ describe("HCC request boundary", () => {
         })
       );
     };
-    expect(
-      await fetchAllInWindow(env, request.startDate, request.endDate, {
+
+    await expect(
+      fetchAllInWindow(env, request.startDate, request.endDate, {
         fetch: fetchPage,
         signal: controller.signal,
       })
-    ).toEqual({ error: { tag: "cancelled" }, ok: false });
-    expect(observed.map((signal) => signal?.aborted)).toEqual([true, true]);
+    ).resolves.toStrictEqual({ error: { tag: "cancelled" }, ok: false });
+    expect(observed.map((signal) => signal?.aborted)).toStrictEqual([
+      true,
+      true,
+    ]);
+
     for (const signal of observed) {
       expect(signal?.reason).toBe(controller.signal.reason);
     }
@@ -76,6 +87,7 @@ describe("HCC request boundary", () => {
 
   it("removes a cancelled waiter and lets the next request acquire the slot", async () => {
     const releases: (() => void)[] = [];
+
     const blocked: typeof fetch = async () => {
       const { promise, resolve } = Promise.withResolvers<Response>();
       releases.push(() => {
@@ -85,31 +97,41 @@ describe("HCC request boundary", () => {
           })
         );
       });
+
       return await promise;
     };
+
     const active = Array.from(
       { length: BACKFILL_HCC_CONCURRENCY },
       async () => await fetchInfringements(env, { ...request, fetch: blocked })
     );
+
     await Promise.resolve();
     const controller = new AbortController();
+
     const cancelled = fetchInfringements(env, {
       ...request,
       fetch: blocked,
       signal: controller.signal,
     });
+
     const next = fetchInfringements(env, { ...request, fetch: blocked });
     controller.abort();
-    expect(await cancelled).toEqual({ error: { tag: "cancelled" }, ok: false });
+    await expect(cancelled).resolves.toStrictEqual({
+      error: { tag: "cancelled" },
+      ok: false,
+    });
     releases[0]?.();
     await active[0];
     await Promise.resolve();
     expect(releases).toHaveLength(BACKFILL_HCC_CONCURRENCY + 1);
+
     for (const release of releases.slice(1)) {
       release();
     }
+
     const nextResult = await next;
-    expect(nextResult.ok).toBe(true);
+    expect(nextResult.ok).toBeTruthy();
     await Promise.all(active);
   });
 });
@@ -120,33 +142,42 @@ describe("HCC pagination", () => {
     const pageThree = Promise.withResolvers<Response>();
     const bothStarted = Promise.withResolvers<null>();
     let started = 0;
+
     const fetchPage: typeof fetch = async (input) => {
       const url = input instanceof Request ? input.url : input;
       const page = Number(new URL(url).searchParams.get("Page"));
+
       if (page === 1) {
         return Response.json({
           Paging: [{ Current_Page: 1, Page_Count: 3, Page_Size: 1 }],
         });
       }
+
       started += 1;
+
       if (started === 2) {
         bothStarted.resolve(null);
       }
+
       return await (page === 2 ? pageTwo.promise : pageThree.promise);
     };
+
     let settled = false;
+
     const result = fetchAllInWindow(env, request.startDate, request.endDate, {
       fetch: fetchPage,
     }).then((value) => {
       settled = true;
+
       return value;
     });
+
     await bothStarted.promise;
     pageThree.resolve(new Response("page 3", { status: 503 }));
     await Promise.resolve();
-    expect(settled).toBe(false);
+    expect(settled).toBeFalsy();
     pageTwo.resolve(new Response("page 2", { status: 429 }));
-    expect(await result).toEqual({
+    await expect(result).resolves.toStrictEqual({
       error: { body: "page 2", status: 429, tag: "http" },
       ok: false,
     });
@@ -157,11 +188,14 @@ describe("HccClient service", () => {
   it("aborts HTTP work when interrupted without aborting the caller signal", async () => {
     const caller = new AbortController();
     const started = Promise.withResolvers<AbortSignal>();
+
     const fetchPage: typeof fetch = async (_input, init) => {
       const signal = init?.signal;
+
       if (signal === undefined || signal === null) {
         throw new Error("Expected a request cancellation signal");
       }
+
       started.resolve(signal);
       const response = Promise.withResolvers<Response>();
       signal.addEventListener(
@@ -173,11 +207,14 @@ describe("HccClient service", () => {
           once: true,
         }
       );
+
       return await response.promise;
     };
+
     const fiber = Effect.runFork(
       Effect.gen(function* runFetch() {
         const client = yield* HccClient;
+
         return yield* client.fetchAll(request.startDate, request.endDate);
       }).pipe(
         Effect.provide(
@@ -192,11 +229,12 @@ describe("HccClient service", () => {
         )
       )
     );
+
     try {
       const signal = await started.promise;
       await Effect.runPromise(Fiber.interrupt(fiber));
-      expect(signal.aborted).toBe(true);
-      expect(caller.signal.aborted).toBe(false);
+      expect(signal.aborted).toBeTruthy();
+      expect(caller.signal.aborted).toBeFalsy();
     } finally {
       caller.abort();
       await Effect.runPromise(Fiber.interrupt(fiber));
@@ -214,13 +252,16 @@ describe("HccClient service", () => {
           }),
       })
     );
+
     const result = await Effect.runPromise(
       Effect.gen(function* runFetch() {
         const client = yield* HccClient;
+
         return yield* client.fetchAll(request.startDate, request.endDate);
       }).pipe(Effect.provide(hccClientLayer.pipe(Layer.provide(transport))))
     );
-    expect(result.records).toEqual([{ page: 1 }, { page: 2 }]);
-    expect(result.possiblyTruncated).toBe(true);
+
+    expect(result.records).toStrictEqual([{ page: 1 }, { page: 2 }]);
+    expect(result.possiblyTruncated).toBeTruthy();
   });
 });

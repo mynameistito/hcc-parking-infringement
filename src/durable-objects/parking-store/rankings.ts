@@ -122,16 +122,26 @@ const readTopOffencesGrouped = (
     .toArray();
 };
 
+/**
+ * Queries ranked street or offence totals for a time window.
+ * @param sql - The Durable Object SQL storage.
+ * @param groupBy - The dimension to rank.
+ * @param window - The time window to query.
+ * @param limit - Maximum number of rows to return.
+ * @returns Ranked counts and amounts.
+ */
 export const getTopStats = (
   sql: SqlStorage,
   groupBy: TopGroupBy,
   window: TopWindow,
   limit: number
 ): TopStatRow[] => {
+  const windowDays = window === "7d" ? 7 : 30;
+
   const startDate =
     window === "all"
       ? null
-      : formatDateInAuckland(subDays(new Date(), window === "7d" ? 7 : 30));
+      : formatDateInAuckland(subDays(new Date(), windowDays));
 
   if (groupBy === "street") {
     const rows =
@@ -203,6 +213,12 @@ export const getTopStats = (
   return [];
 };
 
+/**
+ * Queries suburbs ranked by infringement count.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum number of suburbs to return.
+ * @returns Ranked suburb records.
+ */
 export const getTopSuburbs = (
   sql: SqlStorage,
   limit: number
@@ -226,6 +242,12 @@ export const getTopSuburbs = (
   }));
 };
 
+/**
+ * Queries vehicle makes and models ranked by infringement count.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum number of vehicles to return.
+ * @returns Ranked vehicle records.
+ */
 export const getTopVehicles = (
   sql: SqlStorage,
   limit: number
@@ -253,6 +275,13 @@ export const getTopVehicles = (
   }));
 };
 
+/**
+ * Queries public rankings for streets or offences across all stored data.
+ * @param sql - The Durable Object SQL storage.
+ * @param groupBy - The dimension to rank.
+ * @param limit - Maximum number of rows to return.
+ * @returns Public ranking rows.
+ */
 export const getPublicTop = (
   sql: SqlStorage,
   groupBy: "street" | "offence",
@@ -268,12 +297,25 @@ export const getPublicTop = (
   }));
 };
 
+/**
+ * Queries streets ranked by infringement count.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum number of streets to return.
+ * @returns Ranked street records.
+ */
 export const getTopStreets = (
   sql: SqlStorage,
   limit: number
 ): LocationRankItem[] =>
   readTopStreetsGrouped(sql, limit).map(toStreetLocationRankItem);
 
+/**
+ * Queries ranked streets within a suburb.
+ * @param sql - The Durable Object SQL storage.
+ * @param suburb - The suburb to query.
+ * @param limit - Maximum number of streets to return.
+ * @returns Ranked street records.
+ */
 export const getStreetsInSuburb = (
   sql: SqlStorage,
   suburb: string,
@@ -286,6 +328,13 @@ export const getStreetsInSuburb = (
     suburb,
   }).items;
 
+/**
+ * Reads all-time grouped counts for streets or offences.
+ * @param sql - The Durable Object SQL storage.
+ * @param groupBy - The dimension to rank.
+ * @param limit - Maximum number of rows to return.
+ * @returns Public labels and counts.
+ */
 export const readTopGrouped = (
   sql: SqlStorage,
   groupBy: "street" | "offence",
@@ -298,17 +347,35 @@ export const readTopGrouped = (
   return readTopOffencesGrouped(sql, limit).map(toOffenceTopItem);
 };
 
+/**
+ * Reads streets ranked by infringement count for a snapshot.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum number of streets to return.
+ * @returns Ranked street records.
+ */
 export const readTopStreetsRanked = (
   sql: SqlStorage,
   limit: number
 ): LocationRankItem[] =>
   readTopStreetsGrouped(sql, limit).map(toStreetLocationRankItem);
 
+/**
+ * Reads suburbs ranked by infringement count for a snapshot.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum number of suburbs to return.
+ * @returns Ranked suburb records.
+ */
 export const readTopSuburbsRanked = (
   sql: SqlStorage,
   limit: number
 ): LocationRankItem[] => getTopSuburbs(sql, limit);
 
+/**
+ * Reads vehicles ranked by infringement count for a snapshot.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum number of vehicles to return.
+ * @returns Ranked vehicle records.
+ */
 export const readTopVehicles = (
   sql: SqlStorage,
   limit: number
@@ -326,6 +393,7 @@ const readGroupedLabelCounts = (
       label: row.label,
     }));
 
+/** Ranked chart series aggregated from stored infringement records. */
 export interface ChartBreakdown {
   offenceCategories: PublicTopItem[];
   offences: PublicTopItem[];
@@ -335,6 +403,11 @@ export interface ChartBreakdown {
   vehicleTypes: PublicTopItem[];
 }
 
+/**
+ * Aggregates stored infringement records into dashboard chart series.
+ * @param sql - The Durable Object SQL storage.
+ * @returns Counts grouped by offence, location, towing, and vehicle fields.
+ */
 export const readChartBreakdown = (sql: SqlStorage): ChartBreakdown => ({
   offenceCategories: readGroupedLabelCounts(
     sql,

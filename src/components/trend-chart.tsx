@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TrendChartInner = lazy(async () => {
   const module = await import("@/components/trend-chart-inner");
+
   return { default: module.TrendChartInner };
 });
 
@@ -24,9 +25,11 @@ const useChartDomain = (values: number[]) =>
   useMemo(() => {
     const maxValue = Math.max(...values, 0);
     const minValue = Math.min(...values, 0);
+
     const yTicks = buildYTicks(
       maxValue === minValue && maxValue > 0 ? maxValue * 1.25 : maxValue
     );
+
     return yTicks.at(-1) ?? 10;
   }, [values]);
 
@@ -39,13 +42,17 @@ const ChartFallback = ({
 }) => (
   <div
     className={cn(
-      "rounded-[4px] bg-muted/30",
-      compact ? "h-[40px]" : "min-h-0 h-full",
+      "bg-muted/30 rounded-md",
+      compact ? "h-[40px]" : "h-full min-h-0",
       className
     )}
   />
 );
 
+/**
+ * Displays a lazy-loaded trend chart or an empty-state placeholder.
+ * @returns The trend visualization for the supplied values.
+ */
 export const TrendChart = ({
   values,
   xLabels,
@@ -83,8 +90,8 @@ export const TrendChart = ({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-[4px] bg-muted/30 text-[10px] text-muted-foreground",
-          compact ? "h-[40px]" : "min-h-[200px] h-full",
+          "bg-muted/30 text-muted-foreground flex items-center justify-center rounded-md text-xs",
+          compact ? "h-[40px]" : "h-full min-h-[200px]",
           className
         )}
       >
@@ -94,6 +101,7 @@ export const TrendChart = ({
   }
 
   const height = compact ? 40 : 200;
+
   const margin = compact
     ? { bottom: 2, left: 2, right: 2, top: 2 }
     : { bottom: 4, left: 0, right: 0, top: 4 };
@@ -105,7 +113,7 @@ export const TrendChart = ({
         "w-full",
         compact
           ? "h-[40px] overflow-hidden"
-          : "min-h-0 h-full overflow-visible",
+          : "h-full min-h-0 overflow-visible",
         className
       )}
     >

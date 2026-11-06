@@ -1,5 +1,4 @@
-import type { ComponentProps } from "react";
-import { Pie, PieChart, Sector } from "recharts";
+import { z } from "zod";
 
 import {
   ChartContainer,
@@ -11,16 +10,7 @@ import { isChartEntry } from "@/lib/chart-entry";
 import type { ChartEntry } from "@/lib/chart-entry";
 import { numberFmt } from "@/lib/format";
 
-type SectorShapeProps = ComponentProps<typeof Sector> & {
-  payload?: ChartEntry;
-};
-
-const donutSectorShape = (props: SectorShapeProps) => {
-  const fill = isChartEntry(props.payload)
-    ? props.payload.fill
-    : "var(--chart-1)";
-  return <Sector {...props} fill={fill} stroke="var(--background)" />;
-};
+const { Cell, Pie, PieChart } = await import("recharts");
 
 const donutChartConfig = {
   value: {
@@ -33,6 +23,7 @@ const chartEntryLabel = (
   payload: readonly { payload?: unknown }[] | undefined
 ): string => {
   const raw: unknown = payload?.[0]?.payload;
+
   return isChartEntry(raw) ? raw.label : "";
 };
 
@@ -42,6 +33,10 @@ interface DonutChartInnerProps {
   data: ChartEntry[];
 }
 
+/**
+ * Render the loaded Recharts donut visualization.
+ * @returns The rendered interface for the supplied data.
+ */
 export const DonutChartInner = ({
   centerLabel,
   centerValue,
@@ -67,17 +62,23 @@ export const DonutChartInner = ({
             nameKey="label"
             outerRadius="88%"
             paddingAngle={2}
-            shape={donutSectorShape}
+            stroke="var(--background)"
             strokeWidth={2}
-          />
+          >
+            {data.map((entry) => (
+              <Cell key={entry.label} fill={entry.fill} />
+            ))}
+          </Pie>
           <ChartTooltip
             content={
               <ChartTooltipContent
-                formatter={(value) =>
-                  typeof value === "number"
-                    ? numberFmt.format(value)
-                    : String(value)
-                }
+                formatter={(value) => {
+                  const parsed = z.number().safeParse(value);
+
+                  return parsed.success
+                    ? numberFmt.format(parsed.data)
+                    : String(value);
+                }}
                 hideIndicator
                 labelFormatter={(_, payload) => chartEntryLabel(payload)}
               />
@@ -88,12 +89,12 @@ export const DonutChartInner = ({
       {showCenter ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           {centerValue === undefined ? null : (
-            <span className="font-mono text-lg font-semibold tracking-[-0.03em] text-foreground tabular-nums">
+            <span className="text-foreground font-mono text-lg font-semibold tracking-tight tabular-nums">
               {centerValue}
             </span>
           )}
           {centerLabel === undefined ? null : (
-            <span className="mt-0.5 text-[10px] text-muted-foreground uppercase">
+            <span className="text-muted-foreground mt-0.5 text-xs uppercase">
               {centerLabel}
             </span>
           )}

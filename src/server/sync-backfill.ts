@@ -20,17 +20,14 @@ import { flushBackfillDerivedStateSafely } from "@/server/backfill-flush.ts";
 import { fetchAllInWindow, formatHccFetchError } from "@/server/hcc-client.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
-import {
-  DEFAULT_BACKFILL_CHUNK_DAYS,
-  splitDateRange,
-  syncWindow,
-} from "@/server/sync-window.ts";
+import { splitDateRange, syncWindow } from "@/server/sync-window.ts";
 import type { SyncWindowResult } from "@/server/sync-window.ts";
 
-export { BACKFILL_EARLIEST, PAGE_SIZE_LIMIT };
+export { BACKFILL_EARLIEST } from "@/lib/backfill-constants.ts";
 
 const QUEUE_SEND_BATCH_SIZE = 100;
 
+/** Date range, delivery mode, and chunk settings for a backfill wave. */
 export interface StartBackfillOptions {
   chunkDays?: number;
   delivery?: BackfillDelivery;
@@ -50,6 +47,7 @@ const sendBackfillMessages = async (
   messages: BackfillMessage[]
 ): Promise<void> => {
   const batches: BackfillMessage[][] = [];
+
   for (let index = 0; index < messages.length; index += QUEUE_SEND_BATCH_SIZE) {
     batches.push(messages.slice(index, index + QUEUE_SEND_BATCH_SIZE));
   }
@@ -66,6 +64,7 @@ const sendBackfillMessages = async (
 
 const maxWindowsPerWave = (env: Env, delivery: BackfillDelivery): number => {
   const tuning = resolveBackfillTuning(env);
+
   return delivery === "direct"
     ? tuning.maxDirectPerWave
     : tuning.maxEnqueuePerWave;
@@ -93,9 +92,10 @@ const enqueueDailyWindows = async (
   scope: AppScope,
   startDate: string,
   endDate: string,
-  force?: boolean
+  force = false
 ): Promise<void> => {
   const tuning = resolveBackfillTuning(scope.env);
+
   const messages = packBackfillQueueMessages(
     listDailyWindows(startDate, endDate),
     {
@@ -104,6 +104,7 @@ const enqueueDailyWindows = async (
       windowsPerMessage: tuning.queueWindowsPerMessage,
     }
   );
+
   await sendBackfillMessages(scope, messages);
 };
 
@@ -126,6 +127,12 @@ const processDailyWindowsDirect = async (
   );
 };
 
+/**
+ * Processes a backfill window, splitting or recording failures as needed.
+ * @param scope - Application scope and storage bindings.
+ * @param message - Window job and delivery settings.
+ * @returns The sync result or skip, split, and failure status.
+ */
 export const processBackfillMessage = async (
   scope: AppScope,
   message: BackfillWindowJob
@@ -157,6 +164,7 @@ export const processBackfillMessage = async (
         message.startDate,
         message.endDate
       );
+
       if (alreadyIngested) {
         return { skipped: true, split: false };
       }
@@ -167,9 +175,11 @@ export const processBackfillMessage = async (
       message.startDate,
       message.endDate
     );
+
     if (!fetchedResult.ok) {
       const errorMessage = formatHccFetchError(fetchedResult.error);
       await recordFailure(errorMessage);
+
       return { error: errorMessage, failed: true, split: false };
     }
 
@@ -202,13 +212,16 @@ export const processBackfillMessage = async (
               message.endDate,
               message.force
             ));
+
         return { split: true };
       }
 
       const error =
         `HCC day ${message.startDate} exceeds page limit ` +
         `(${fetched.records.length} records) — skipping`;
+
       await recordFailure(error);
+
       return { error, failed: true, split: false };
     }
 
@@ -227,14 +240,21 @@ export const processBackfillMessage = async (
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     await recordFailure(errorMessage);
+
     return { error: errorMessage, failed: true, split: false };
   }
 };
 
-export const runBackfillWaveDirect = async (
+/**
+ * Processes a wave of backfill windows directly with configured concurrency.
+ * @param scope - Application scope and storage bindings.
+ * @param windows - Windows to process.
+ * @param force - Whether to process already ingested windows.
+ */
+const runBackfillWaveDirect = async (
   scope: AppScope,
   windows: readonly BackfillWindow[],
-  force?: boolean
+  force = false
 ): Promise<void> => {
   if (windows.length === 0) {
     return;
@@ -252,6 +272,12 @@ export const runBackfillWaveDirect = async (
   await flushBackfillDerivedStateSafely(scope.env);
 };
 
+/**
+ * Plans and dispatches a bounded wave of backfill windows.
+ * @param scope - Application scope and storage bindings.
+ * @param options - Optional range, delivery, and chunk settings.
+ * @returns The wave counts, selected range, and continuation information.
+ */
 export const startBackfill = async (
   scope: AppScope,
   options?: StartBackfillOptions
@@ -279,6 +305,7 @@ export const startBackfill = async (
 
   const pending =
     options?.force === true ? chunks : await store.filterPendingChunks(chunks);
+
   const wave = pending.slice(0, maxWindowsPerWave(scope.env, delivery));
   const lastProcessed = wave.at(-1);
   const backfillWindows = toBackfillWindows(wave);
@@ -292,6 +319,7 @@ export const startBackfill = async (
       force: options?.force,
       windowsPerMessage: tuning.queueWindowsPerMessage,
     });
+
     queueMessages = packedMessages.length;
     await sendBackfillMessages(scope, packedMessages);
   }
@@ -312,5 +340,3 @@ export const startBackfill = async (
     total: chunks.length,
   };
 };
-
-export { DEFAULT_BACKFILL_CHUNK_DAYS };

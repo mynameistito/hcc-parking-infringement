@@ -1,0 +1,4 @@
+{
+  // `cloudflare:workers` is provided by the Workers runtime, not npm.
+  "ignoreDependencies": ["cloudflare"],
+}

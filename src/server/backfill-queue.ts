@@ -10,7 +10,10 @@ import { processBackfillMessage } from "@/server/sync-backfill.ts";
 
 const BACKFILL_RETRY_DELAY_SECONDS = 30;
 
-export type BackfillMessageOutcome =
+/**
+ * Accepted or failed outcome of one queued backfill window.
+ */
+type BackfillMessageOutcome =
   | {
       endDate: string;
       error: string;
@@ -52,6 +55,7 @@ const settleBackfillMessage = (
   try {
     if (action === "retry") {
       message.retry({ delaySeconds: BACKFILL_RETRY_DELAY_SECONDS });
+
       return;
     }
 
@@ -125,11 +129,13 @@ const handleBackfillQueueMessage = async (
           force: window.force,
           startDate: window.startDate,
         });
+
         return mapProcessOutcome(window.startDate, window.endDate, outcome);
       }
     );
 
     settleBackfillMessage(message, "ack");
+
     return outcomes;
   } catch (error) {
     const [firstWindow] = windows;
@@ -142,10 +148,12 @@ const handleBackfillQueueMessage = async (
       console.warn(
         `[backfill] retrying ${windows.length} windows from ${formatWindow(startDate, endDate)}: ${errorMessage}`
       );
+
       return [{ endDate, kind: "retrying", startDate }];
     }
 
     settleBackfillMessage(message, "ack");
+
     return [
       {
         endDate,
@@ -171,6 +179,7 @@ const logBackfillBatchSummary = (
   const retried = outcomes.filter((outcome) => outcome.kind === "retrying");
   const skipped = outcomes.filter((outcome) => outcome.kind === "skipped");
   let records = 0;
+
   for (const outcome of ingested) {
     records += outcome.recordsFetched;
   }
@@ -183,15 +192,19 @@ const logBackfillBatchSummary = (
   if (splits.length > 0) {
     parts.push(`${splits.length} split`);
   }
+
   if (retried.length > 0) {
     parts.push(`${retried.length} retrying`);
   }
+
   if (failed.length > 0) {
     parts.push(`${failed.length} failed`);
   }
+
   if (skipped.length > 0) {
     parts.push(`${skipped.length} skipped`);
   }
+
   if (statsFlushed) {
     parts.push("stats flushed");
   }
@@ -199,6 +212,7 @@ const logBackfillBatchSummary = (
   const ingestedWindows = ingested.map((outcome) =>
     formatWindow(outcome.startDate, outcome.endDate)
   );
+
   const range =
     ingestedWindows.length > 0
       ? ` (${ingestedWindows.at(0)}…${ingestedWindows.at(-1)})`
@@ -219,6 +233,11 @@ const logBackfillBatchSummary = (
   }
 };
 
+/**
+ * Process and acknowledge a batch of backfill queue messages.
+ * @param messages - Messages supplied to this operation.
+ * @param env - Worker runtime bindings.
+ */
 export const processBackfillQueueBatch = async (
   messages: readonly Message<BackfillMessage | LegacyBackfillMessage>[],
   env: Env
@@ -235,6 +254,7 @@ export const processBackfillQueueBatch = async (
     tuning.queueConcurrency,
     async (message) => await handleBackfillQueueMessage(message, scope)
   );
+
   const outcomes = nestedOutcomes.flat();
   const { flushed } = await flushBackfillDerivedStateSafely(scope.env);
   logBackfillBatchSummary(outcomes, flushed);

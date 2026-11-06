@@ -40,20 +40,24 @@ loadDevVars();
 const args = scriptArgv();
 const skipWatermarks = readFlag(args, "skip-watermarks");
 const fresh = readFlag(args, "fresh");
+
 const batchSize = Math.min(
   parsePositiveInt(readArg(args, "batch-size"), 1000),
   5000
 );
+
 const pauseMs = parseNonNegativeInt(readArg(args, "pause-ms"), 500);
 const explicitStartAfter = readArg(args, "start-after");
 
 const resolveFromUrl = (): string => {
   const explicit = readArg(args, "from");
+
   if (explicit !== undefined) {
     return explicit.replace(/\/$/u, "");
   }
 
   const fromPort = readArg(args, "from-port");
+
   if (fromPort !== undefined) {
     return `http://127.0.0.1:${fromPort}`;
   }
@@ -63,11 +67,13 @@ const resolveFromUrl = (): string => {
 
 const resolveToUrl = (): string => {
   const explicit = readArg(args, "to");
+
   if (explicit !== undefined) {
     return explicit.replace(/\/$/u, "");
   }
 
   const workerUrl = process.env.WORKER_URL;
+
   if (workerUrl === undefined || workerUrl.includes("127.0.0.1")) {
     throw new Error(
       "Set --to=https://your-worker.workers.dev or WORKER_URL to the remote deployment."
@@ -90,6 +96,7 @@ const source = { apiKey, workerUrl: fromUrl };
 const destination = { apiKey, workerUrl: toUrl };
 
 console.log(`[push] ${fromUrl} → ${toUrl}`);
+
 if (pauseMs > 0) {
   console.log(`[push] pausing ${pauseMs}ms between batches`);
 }
@@ -113,6 +120,7 @@ if (fresh) {
   console.log("[push] ignoring any saved checkpoint (--fresh)");
 } else if (explicitStartAfter === undefined) {
   const checkpoint = await loadPushCheckpoint();
+
   if (
     checkpoint !== null &&
     checkpoint.fromUrl === fromUrl &&
@@ -126,6 +134,7 @@ if (fresh) {
       watermarkImported: checkpointWatermarkImported,
       watermarkOffset: checkpointWatermarkOffset,
     } = checkpoint;
+
     infringementCursor = checkpointCursor;
     infringementPushed = checkpointPushed;
     startPhase = phase;
@@ -153,13 +162,16 @@ if (startPhase === "infringements") {
   let cursor = infringementCursor;
   let pushed = infringementPushed;
 
-  while (true) {
+  let moreInfringements = true;
+
+  while (moreInfringements) {
     const exported = await fetchExportInfringements(
       source,
       cursor,
       batchSize,
       total === 0 ? "scan" : "cached"
     );
+
     ({ total } = exported);
 
     if (exported.records.length === 0) {
@@ -185,12 +197,11 @@ if (startPhase === "infringements") {
       `[push] infringements ${formatNumber(pushed)}/${formatNumber(total)} (cursor=${formatNumber(cursor)})`
     );
 
-    if (exported.nextCursor === null) {
-      break;
-    }
+    moreInfringements = exported.nextCursor !== null;
 
-    cursor = exported.nextCursor;
-    await pauseBetweenBatches();
+    if (moreInfringements) {
+      await pauseBetweenBatches();
+    }
   }
 
   infringementCursor = cursor;
@@ -215,7 +226,9 @@ if (!skipWatermarks) {
   let importedWatermarks = watermarkImported;
   let watermarkTotal = 0;
 
-  while (true) {
+  let moreWatermarks = true;
+
+  while (moreWatermarks) {
     const exported = await fetchExportWatermarks(source, offset, batchSize);
     watermarkTotal = exported.total;
 
@@ -242,16 +255,16 @@ if (!skipWatermarks) {
       `[push] watermarks ${formatNumber(importedWatermarks)}/${formatNumber(watermarkTotal)}`
     );
 
-    if (exported.nextOffset === null) {
-      break;
-    }
+    moreWatermarks = exported.nextOffset !== null;
 
-    offset = exported.nextOffset;
-    await pauseBetweenBatches();
+    if (moreWatermarks) {
+      await pauseBetweenBatches();
+    }
   }
 }
 
 await postFinalizeStoredImport(destination);
+
 await clearPushCheckpoint();
 
 console.log(

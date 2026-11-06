@@ -49,7 +49,16 @@ import type { SeedReadCache } from "./seed-cache.ts";
 import { emptyBrowseResult } from "./types.ts";
 import type { ParkingStoreReader } from "./types.ts";
 
-export { DASHBOARD_SNAPSHOT_FILE } from "@/server/seed-manifest.ts";
+const emptySeedBrowsePage = async <T>(
+  query: BrowseQuery
+): Promise<BrowseResult<T>> =>
+  await Promise.resolve(emptyBrowseResult<T>(query));
+
+const emptySeedStreets = async (): Promise<LocationRankItem[]> =>
+  await Promise.resolve([]);
+
+const emptySeedSyncRun = async (): Promise<SyncRunRow | null> =>
+  await Promise.resolve(null);
 
 const toInfringementRow = (
   record: CleanInfringement,
@@ -111,12 +120,14 @@ const toInfringementRowFromPublic = (
 });
 
 const hasInfringementFilters = (query: InfringementQuery): boolean =>
-  query.from !== undefined ||
-  query.to !== undefined ||
-  query.street !== undefined ||
-  query.suburb !== undefined ||
-  query.vehicleMake !== undefined ||
-  query.vehicleModel !== undefined;
+  [
+    query.from,
+    query.to,
+    query.street,
+    query.suburb,
+    query.vehicleMake,
+    query.vehicleModel,
+  ].some((value) => value !== undefined);
 
 const matchesInfringementFilters = (
   record: CleanInfringement,
@@ -145,6 +156,7 @@ const matchesInfringementFilters = (
   }
 
   const occurredDate = record.occurredAt.slice(0, 10);
+
   if (query.from !== undefined && occurredDate < query.from) {
     return false;
   }
@@ -158,6 +170,7 @@ const matchesInfringementFilters = (
 
 const enrichSeedDashboardPayload = (raw: string): string => {
   const message = parseRawFullDashboardMessageJson(raw);
+
   if (message === null) {
     return raw;
   }
@@ -173,6 +186,7 @@ const enrichSeedDashboardPayload = (raw: string): string => {
   });
 };
 
+/** Reads parking data from seed objects, using a shared cache for manifest and snapshot data. */
 export class SeedParkingStoreReader implements ParkingStoreReader {
   readonly source = "seed" as const;
   readonly isSeedMode = true;
@@ -181,6 +195,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
   private readonly env: Env;
   private readonly cache: SeedReadCache;
 
+  /**
+   * Creates a seed reader using the supplied environment and cache.
+   * @param env - The Worker environment containing seed storage bindings.
+   * @param cache - The cache shared by seed reads.
+   */
   constructor(env: Env, cache: SeedReadCache) {
     this.env = env;
     this.cache = cache;
@@ -192,6 +211,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     }
 
     this.cache.manifestContext = await readSeedManifest(this.env);
+
     return this.cache.manifestContext;
   }
 
@@ -201,10 +221,16 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     );
   }
 
+  /**
+   * Reads the serialized dashboard snapshot, falling back to manifest totals when missing.
+   * @returns The enriched snapshot payload.
+   */
   async readDashboardSnapshotPayload(): Promise<string> {
     const { manifest, prefix } = await this.loadManifestContext();
+
     const snapshotKey =
       manifest.dashboardSnapshotKey ?? DASHBOARD_SNAPSHOT_FILE;
+
     const objectKey = seedObjectKey(prefix, snapshotKey);
 
     if (
@@ -215,11 +241,14 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     }
 
     const raw = await readSeedObjectText(this.env, objectKey);
+
     if (raw === null) {
       const { manifest: seedManifest } = await this.loadManifestContext();
+
       const syncedAt =
         migrateOptionalSyncInstant(seedManifest.exportedAt) ??
         nowInAucklandIso();
+
       return enrichSeedDashboardPayload(
         JSON.stringify({
           at: syncedAt,
@@ -261,9 +290,14 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
     this.cache.snapshotKey = objectKey;
     this.cache.snapshotPayload = enrichSeedDashboardPayload(raw);
+
     return this.cache.snapshotPayload;
   }
 
+  /**
+   * Reads seed cache status from the manifest.
+   * @returns The source, synchronization timestamp, and manifest record total.
+   */
   async getCacheStatus(): Promise<CacheStatus> {
     const { manifest } = await this.loadManifestContext();
 
@@ -277,6 +311,13 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads a page of seed infringement records after a cursor.
+   * @param after - The last infringement number already read.
+   * @param limit - Maximum number of records to return.
+   * @param _totalMode - Unused in seed mode; the total comes from the manifest.
+   * @returns The records, next cursor, and manifest total.
+   */
   async exportInfringements(
     after: number,
     limit: number,
@@ -296,6 +337,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
       }
 
       const chunkName = manifest.infringementChunks[chunkIndex];
+
       if (chunkName === undefined) {
         return records;
       }
@@ -304,6 +346,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
         this.env,
         seedObjectKey(prefix, chunkName)
       );
+
       if (raw !== null) {
         for (const line of raw.split(/\r?\n/u)) {
           if (line.trim().length === 0) {
@@ -311,11 +354,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
           }
 
           const record = parseSeedInfringementLine(line);
-          if (record.infringementNumber <= after) {
-            continue;
+
+          if (record.infringementNumber > after) {
+            records.push(record);
           }
 
-          records.push(record);
           if (records.length >= limit) {
             return records;
           }
@@ -338,6 +381,12 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads a page of seed watermarks, or an empty page when unavailable.
+   * @param offset - The number of watermarks to skip.
+   * @param limit - Maximum number of watermarks to return.
+   * @returns The watermark page, total, and next offset.
+   */
   async exportWatermarks(
     offset: number,
     limit: number
@@ -363,6 +412,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
       .map((line) => parseSeedWatermarkLine(line));
 
     const page = watermarks.slice(offset, offset + limit);
+
     const nextOffset =
       offset + page.length < watermarks.length ? offset + page.length : null;
 
@@ -373,15 +423,22 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads public live statistics from the snapshot or a manifest-based fallback.
+   * @returns Public live statistics.
+   */
   async getPublicLiveStats(): Promise<PublicLiveStats> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot !== null) {
       return snapshot.live;
     }
 
     const { manifest } = await this.loadManifestContext();
+
     const syncedAt =
       migrateOptionalSyncInstant(manifest.exportedAt) ?? nowInAucklandIso();
+
     return {
       allTimeAmountCents: 0,
       allTimeTotal: manifest.totalInfringements,
@@ -397,6 +454,10 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Projects the seed snapshot's public totals into the internal statistics shape.
+   * @returns Live counts and available amounts; period amounts default to zero.
+   */
   async getLiveStats(): Promise<LiveStats> {
     const live = await this.getPublicLiveStats();
 
@@ -412,8 +473,15 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads snapshot daily rows within an inclusive date range.
+   * @param from - The start date.
+   * @param to - The end date.
+   * @returns Matching daily rows, or an empty array without a snapshot.
+   */
   async getDailyStats(from: string, to: string): Promise<DailyStatRow[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot === null) {
       return [];
     }
@@ -423,12 +491,20 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     );
   }
 
+  /**
+   * Projects snapshot top items into statistic rows.
+   * @param groupBy - The ranking dimension.
+   * @param _window - Unused in seed mode; snapshot rankings are used.
+   * @param limit - Maximum number of rows to return.
+   * @returns Ranked rows with zero total amounts.
+   */
   async getTopStats(
     groupBy: TopGroupBy,
     _window: TopWindow,
     limit: number
   ): Promise<TopStatRow[]> {
     const items = await this.getPublicTop(groupBy, limit);
+
     return items.map((item) => ({
       count: item.count,
       key: item.label,
@@ -436,11 +512,18 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     }));
   }
 
+  /**
+   * Reads snapshot top streets or offences.
+   * @param groupBy - The ranking dimension.
+   * @param limit - Maximum number of rows to return.
+   * @returns Public ranking rows, or an empty array without a snapshot.
+   */
   async getPublicTop(
     groupBy: "street" | "offence",
     limit: number
   ): Promise<PublicTopItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot === null) {
       return [];
     }
@@ -451,26 +534,50 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     return items.slice(0, limit);
   }
 
+  /**
+   * Reads top streets from the snapshot.
+   * @param limit - Maximum number of streets to return.
+   * @returns Ranked streets, or an empty array without a snapshot.
+   */
   async getTopStreets(limit: number): Promise<LocationRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     return snapshot?.streets.slice(0, limit) ?? [];
   }
 
+  /**
+   * Reads top suburbs from the snapshot.
+   * @param limit - Maximum number of suburbs to return.
+   * @returns Ranked suburbs, or an empty array without a snapshot.
+   */
   async getTopSuburbs(limit: number): Promise<LocationRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     return snapshot?.suburbs.slice(0, limit) ?? [];
   }
 
+  /**
+   * Reads top vehicles from the snapshot.
+   * @param limit - Maximum number of vehicles to return.
+   * @returns Ranked vehicles, or an empty array without a snapshot.
+   */
   async getTopVehicles(limit: number): Promise<VehicleRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
+
     return snapshot?.vehicles.slice(0, limit) ?? [];
   }
 
+  /**
+   * Reads map routes and the pending geocode count from the snapshot.
+   * @param limit - Maximum number of routes to return.
+   * @returns Snapshot map data, or an empty result without a snapshot.
+   */
   async getMapPoints(limit: number): Promise<{
     pendingGeocode: number;
     routes: LocationMapPoint[];
   }> {
     const snapshot = await this.readDashboardSnapshot();
+
     if (snapshot === null) {
       return { pendingGeocode: 0, routes: [] };
     }
@@ -481,43 +588,53 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
-  async browseSuburbs(
-    query: BrowseQuery
-  ): Promise<BrowseResult<LocationRankItem>> {
-    void this.isSeedMode;
-    return await Promise.resolve(emptyBrowseResult(query));
-  }
+  /**
+   * Returns an empty suburb page because seed mode does not support browsing.
+   * @param query - The requested pagination and search options.
+   * @returns An empty page preserving the requested pagination.
+   */
+  readonly browseSuburbs = emptySeedBrowsePage<LocationRankItem>;
 
-  async browseStreets(
-    query: BrowseQuery
-  ): Promise<BrowseResult<LocationRankItem>> {
-    void this.isSeedMode;
-    return await Promise.resolve(emptyBrowseResult(query));
-  }
+  /**
+   * Returns an empty street page because seed mode does not support browsing.
+   * @param query - The requested pagination and search options.
+   * @returns An empty page preserving the requested pagination.
+   */
+  readonly browseStreets = emptySeedBrowsePage<LocationRankItem>;
 
-  async browseVehicles(
-    query: BrowseQuery
-  ): Promise<BrowseResult<VehicleRankItem>> {
-    void this.isSeedMode;
-    return await Promise.resolve(emptyBrowseResult(query));
-  }
+  /**
+   * Returns an empty vehicle page because seed mode does not support browsing.
+   * @param query - The requested pagination and search options.
+   * @returns An empty page preserving the requested pagination.
+   */
+  readonly browseVehicles = emptySeedBrowsePage<VehicleRankItem>;
 
-  async getStreetsInSuburb(): Promise<LocationRankItem[]> {
-    void this.isSeedMode;
-    return await Promise.resolve([]);
-  }
+  /**
+   * Returns no streets because seed mode does not support suburb browsing.
+   * @returns An empty array.
+   */
+  readonly getStreetsInSuburb = emptySeedStreets;
 
-  async getLatestSyncRun(): Promise<SyncRunRow | null> {
-    void this.isSeedMode;
-    return await Promise.resolve(null);
-  }
+  /**
+   * Seed mode does not expose sync-run records.
+   * @returns Null.
+   */
+  readonly getLatestSyncRun = emptySeedSyncRun;
 
+  /**
+   * Builds a seed-mode progress response using the manifest record total.
+   * @param start - The requested range start date.
+   * @param end - The requested range end date.
+   * @param chunkDays - The requested chunk size in days.
+   * @returns Zero completed chunks and the seed's record total and timestamp.
+   */
   async getBackfillProgressSnapshot(
     start: string,
     end: string,
     chunkDays: number
   ): Promise<BackfillProgress> {
     const cache = await this.getCacheStatus();
+
     return {
       chunkDays,
       completed: 0,
@@ -531,6 +648,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads a page of infringements from the snapshot or seed chunks.
+   * @param query - The filters and page selection.
+   * @returns The matching page and total count.
+   */
   async listInfringements(
     query: InfringementQuery
   ): Promise<InfringementListResult> {
@@ -539,6 +661,7 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     if (!hasInfringementFilters(query) && query.page === 1) {
       const snapshot = await this.readDashboardSnapshot();
       const snapshotRows = snapshot?.recentInfringements ?? [];
+
       if (
         snapshot !== null &&
         snapshotRows.length > 0 &&
@@ -575,10 +698,10 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
 
         if (skipped < startIndex) {
           skipped += 1;
-          continue;
+        } else {
+          matched.push(toInfringementRow(record, manifest.exportedAt));
         }
 
-        matched.push(toInfringementRow(record, manifest.exportedAt));
         if (matched.length >= query.limit) {
           return {
             data: matched,

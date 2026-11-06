@@ -2,7 +2,11 @@ import type { PublicInfringement } from "@/contracts/public-api";
 import type { InfringementRow } from "@/durable-objects/types";
 import { resolveOffenceDescription } from "@/lib/offence-catalog";
 
-/** Strip internal sync fields from a stored infringement row for public API. */
+/**
+ *  Strip internal sync fields from a stored infringement row for public API.
+ * @param row - Stored infringement row.
+ * @returns The resulting `PublicInfringement` value.
+ */
 export const toPublicInfringement = (
   row: InfringementRow
 ): PublicInfringement => ({
@@ -23,7 +27,11 @@ export const toPublicInfringement = (
   vehicleType: row.vehicleType,
 });
 
-/** Map infringement list results to public API shape. */
+/**
+ *  Map infringement list results to public API shape.
+ * @param rows - Stored infringement rows.
+ * @returns The resulting `PublicInfringement[]` value.
+ */
 export const toPublicInfringementList = (
   rows: InfringementRow[]
 ): PublicInfringement[] => rows.map(toPublicInfringement);

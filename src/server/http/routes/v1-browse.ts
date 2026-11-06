@@ -15,6 +15,10 @@ import {
 import { jsonError, storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 
+/**
+ * Build paginated ranking and infringement routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1BrowseRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
@@ -23,6 +27,7 @@ export const createV1BrowseRoutes = (): Hono<AppEnv> => {
       c.var.scope,
       parseBrowseQuery((key) => c.req.query(key))
     );
+
     return storedJson(c, { meta: { source: "stored" }, ...result });
   });
 
@@ -31,6 +36,7 @@ export const createV1BrowseRoutes = (): Hono<AppEnv> => {
       ...parseBrowseQuery((key) => c.req.query(key)),
       suburb: optionalTrimmedQuery(c.req.query("suburb")),
     });
+
     return storedJson(c, { meta: { source: "stored" }, ...result });
   });
 
@@ -39,18 +45,22 @@ export const createV1BrowseRoutes = (): Hono<AppEnv> => {
       c.var.scope,
       parseBrowseQuery((key) => c.req.query(key))
     );
+
     return storedJson(c, { meta: { source: "stored" }, ...result });
   });
 
   routes.get("/explore/suburbs/:suburb/streets", async (c) => {
     const suburb = decodeURIComponent(c.req.param("suburb")).trim();
+
     if (suburb === "") {
       return jsonError(400, "suburb required");
     }
+
     const result = await browseStreets(c.var.scope, {
       ...parseBrowseQuery((key) => c.req.query(key)),
       suburb,
     });
+
     return storedJson(c, { meta: { source: "stored", suburb }, ...result });
   });
 

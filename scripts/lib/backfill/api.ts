@@ -1,10 +1,9 @@
-/** HTTP calls to backfill-related worker endpoints. */
-
 import {
   describeConnectionFailure,
   describeFetchFailure,
   fetchWithTimeout,
 } from "@scripts/dev-env.ts";
+/** HTTP calls to backfill-related worker endpoints. */
 import {
   backfillHealthSchema,
   backfillResponseSchema,
@@ -17,8 +16,14 @@ import type {
 } from "@scripts/lib/backfill/schemas.ts";
 import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
 import { bearerHeaders } from "@scripts/lib/worker/client.ts";
+import { z } from "zod";
 
-/** Enqueue one backfill wave via `POST /api/v1/sync/backfill`. */
+/**
+ *  Enqueue one backfill wave via `POST /api/v1/sync/backfill`.
+ * @param ctx - Durable Object runtime state.
+ * @param options - Operation settings and progress callbacks.
+ * @returns The resulting `Promise<BackfillResponse | null>` value.
+ */
 export const postBackfillWave = async (
   ctx: WorkerScriptContext,
   options: {
@@ -32,14 +37,18 @@ export const postBackfillWave = async (
   }
 ): Promise<BackfillResponse | null> => {
   const url = new URL("/api/v1/sync/backfill", ctx.workerUrl);
+
   if (options.force) {
     url.searchParams.set("force", "true");
   }
+
   url.searchParams.set("delivery", options.delivery);
   url.searchParams.set("granularity", options.granularity);
+
   if (options.chunkDays !== undefined) {
     url.searchParams.set("chunkDays", options.chunkDays);
   }
+
   url.searchParams.set("from", options.currentFrom);
   url.searchParams.set("to", options.to);
 
@@ -56,7 +65,7 @@ export const postBackfillWave = async (
     process.exit(1);
   }
 
-  const rawBody: unknown = await response.json().catch(() => null);
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsedBody = backfillResponseSchema.safeParse(rawBody);
   const body = parsedBody.success ? parsedBody.data : null;
 
@@ -78,6 +87,12 @@ export const postBackfillWave = async (
 /**
  * Fetch backfill progress for a date range.
  * Returns `{ kind: "unavailable" }` when the worker does not expose the endpoint (404).
+ * @param ctx - Durable Object runtime state.
+ * @param start - Inclusive window start.
+ * @param end - Inclusive window end.
+ * @param granularity - Granularity supplied to this operation.
+ * @param chunkDays - Chunk Days supplied to this operation.
+ * @returns The resulting `Promise< | { kind: "progress"; progress: BackfillProgress } | { kind: "unavailable"; status: number } >` value.
  */
 export const fetchBackfillProgress = async (
   ctx: WorkerScriptContext,
@@ -93,9 +108,11 @@ export const fetchBackfillProgress = async (
     `${ctx.workerUrl}/api/v1/sync/backfill/progress`,
     ctx.workerUrl
   );
+
   url.searchParams.set("from", start);
   url.searchParams.set("to", end);
   url.searchParams.set("granularity", granularity);
+
   if (chunkDays !== undefined) {
     url.searchParams.set("chunkDays", chunkDays);
   }
@@ -103,13 +120,15 @@ export const fetchBackfillProgress = async (
   const response = await fetchWithTimeout(url.toString(), {
     headers: bearerHeaders(ctx.apiKey),
   });
-  const rawBody: unknown = await response.json().catch(() => null);
+
+  const rawBody = z.json().parse(await response.json().catch(() => null));
 
   if (response.status === 404) {
     return { kind: "unavailable", status: response.status };
   }
 
   const parsed = progressResponseSchema.safeParse(rawBody);
+
   if (!response.ok || !parsed.success) {
     throw new Error(
       describeFetchFailure(response, rawBody, "GET", url.toString())
@@ -119,14 +138,19 @@ export const fetchBackfillProgress = async (
   return { kind: "progress", progress: parsed.data };
 };
 
-/** Fetch cache + sync status via `GET /api/v1/status` (progress fallback). */
+/**
+ *  Fetch cache + sync status via `GET /api/v1/status` (progress fallback).
+ * @param ctx - Durable Object runtime state.
+ * @returns The resulting `Promise<BackfillHealth>` value.
+ */
 export const fetchBackfillHealth = async (
   ctx: WorkerScriptContext
 ): Promise<BackfillHealth> => {
   const response = await fetchWithTimeout(`${ctx.workerUrl}/api/v1/status`, {
     headers: bearerHeaders(ctx.apiKey),
   });
-  const rawBody: unknown = await response.json().catch(() => null);
+
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsed = backfillHealthSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {

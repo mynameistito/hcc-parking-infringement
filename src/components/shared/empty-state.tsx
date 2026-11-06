@@ -11,7 +11,10 @@ interface EmptyStateProps {
   className?: string;
 }
 
-/** Centered empty placeholder for ranked lists and workbench panels. */
+/**
+ *  Centered empty placeholder for ranked lists and workbench panels.
+ * @returns The rendered interface for the supplied data.
+ */
 export const EmptyState = ({
   title = "No rows yet",
   description,

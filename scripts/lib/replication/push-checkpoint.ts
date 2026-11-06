@@ -16,6 +16,7 @@ const pushCheckpointSchema = z.object({
   watermarkOffset: z.number(),
 });
 
+/** Persisted cursors and counts for a resumable local push. */
 export type PushCheckpoint = z.infer<typeof pushCheckpointSchema>;
 
 const checkpointPath = path.resolve(
@@ -25,22 +26,32 @@ const checkpointPath = path.resolve(
   ".push-local.checkpoint.json"
 );
 
+/**
+ * Reads and validates the local push checkpoint.
+ * @returns The checkpoint, or null when missing or invalid.
+ */
 export const loadPushCheckpoint = async (): Promise<PushCheckpoint | null> => {
   try {
     const raw = await readFile(checkpointPath, "utf-8");
     const parsed = pushCheckpointSchema.safeParse(JSON.parse(raw));
+
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
 };
 
+/**
+ * Writes the current local push progress to disk.
+ * @param checkpoint - Progress to persist.
+ */
 export const savePushCheckpoint = async (
   checkpoint: PushCheckpoint
 ): Promise<void> => {
   await writeFile(checkpointPath, `${JSON.stringify(checkpoint, null, 2)}\n`);
 };
 
+/** Removes the local push checkpoint if one exists. */
 export const clearPushCheckpoint = async (): Promise<void> => {
   try {
     await unlink(checkpointPath);

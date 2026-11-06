@@ -20,6 +20,7 @@ const processGeocodeBatch = async (
   batch: { street: string; suburb: string | null; town: string }[]
 ): Promise<{ geocoded: number; failed: number }> => {
   const store = getParkingStore(scope.env);
+
   const geometries = await overpassBatchRoadGeometry(
     batch.map((location) => location.street)
   );
@@ -30,6 +31,7 @@ const processGeocodeBatch = async (
 
       if (geometry !== undefined && isRealRoadGeometry(geometry)) {
         const centroid = centroidFromGeometry(geometry);
+
         const suburbLabel =
           location.suburb !== null && location.suburb !== ""
             ? `, ${location.suburb}`
@@ -44,6 +46,7 @@ const processGeocodeBatch = async (
           suburb: location.suburb,
           town: location.town,
         });
+
         return "geocoded" as const;
       }
 
@@ -52,6 +55,7 @@ const processGeocodeBatch = async (
         location.suburb,
         location.town
       );
+
       return "failed" as const;
     })
   );
@@ -62,6 +66,12 @@ const processGeocodeBatch = async (
   };
 };
 
+/**
+ * Resolve coordinates for a bounded batch of pending locations.
+ * @param scope - Request services and storage mode.
+ * @param limit - Maximum number of locations to process.
+ * @returns The resulting `Promise<{ geocoded: number; failed: number; pending: number }>` value.
+ */
 export const geocodeMissingLocations = async (
   scope: AppScope,
   limit = 50

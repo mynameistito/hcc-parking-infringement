@@ -1,6 +1,5 @@
-/** HTTP helpers for pushing local ParkingStore data to a remote worker. */
-
 import { setTimeout as delay } from "node:timers/promises";
+/** HTTP helpers for pushing local ParkingStore data to a remote worker. */
 
 import {
   describeConnectionFailure,
@@ -9,6 +8,7 @@ import {
 } from "@scripts/dev-env.ts";
 import type { WorkerScriptContext } from "@scripts/lib/worker/client.ts";
 import { bearerHeaders } from "@scripts/lib/worker/client.ts";
+import type { JSONValue } from "hono/utils/types";
 import { z } from "zod";
 
 import {
@@ -58,13 +58,14 @@ const REPLICATION_MAX_ATTEMPTS = 5;
 
 const replicationRetryDelayMs = (attempt: number): number => attempt * 2000;
 
-const throwIfDoQuotaResponse = (rawBody: unknown): void => {
+const throwIfDoQuotaResponse = (rawBody: JSONValue): void => {
   if (!isDoSqliteQuotaResponse(rawBody)) {
     return;
   }
 
   const message =
     extractHttpErrorMessage(rawBody) ?? "DO SQLite quota exceeded";
+
   throw new Error(`${message}\n\n${describeDoSqliteQuotaError()}`);
 };
 
@@ -75,16 +76,16 @@ const fetchReplicationWithRetry = async (
   run: () => Promise<Response>,
   isSuccess: (
     response: Response,
-    rawBody: unknown
+    rawBody: JSONValue
   ) => { ok: true } | { ok: false; fatal: boolean }
-): Promise<{ rawBody: unknown; response: Response }> => {
+): Promise<{ rawBody: JSONValue; response: Response }> => {
   const attemptFetch = async (
     attempt: number,
     lastError?: Error
-  ): Promise<{ rawBody: unknown; response: Response }> => {
+  ): Promise<{ rawBody: JSONValue; response: Response }> => {
     try {
       const response = await run();
-      const rawBody: unknown = await response.json().catch(() => null);
+      const rawBody = z.json().parse(await response.json().catch(() => null));
       throwIfDoQuotaResponse(rawBody);
       const result = isSuccess(response, rawBody);
 
@@ -97,6 +98,7 @@ const fetchReplicationWithRetry = async (
           `[push] ${label} failed (${response.status}), retrying in ${replicationRetryDelayMs(attempt)}ms (attempt ${attempt}/${REPLICATION_MAX_ATTEMPTS})`
         );
         await delay(replicationRetryDelayMs(attempt));
+
         return await attemptFetch(attempt + 1);
       }
 
@@ -112,6 +114,7 @@ const fetchReplicationWithRetry = async (
           `[push] ${label} error, retrying in ${replicationRetryDelayMs(attempt)}ms (attempt ${attempt}/${REPLICATION_MAX_ATTEMPTS}): ${nextError.message}`
         );
         await delay(replicationRetryDelayMs(attempt));
+
         return await attemptFetch(attempt + 1, nextError);
       }
 
@@ -122,6 +125,14 @@ const fetchReplicationWithRetry = async (
   return await attemptFetch(1);
 };
 
+/**
+ * Fetches and validates a page of exported infringements.
+ * @param ctx - Source worker URL and credentials.
+ * @param after - Cursor after the last exported infringement.
+ * @param limit - Maximum records to request.
+ * @param totalMode - Whether to use the cached total or scan storage.
+ * @returns The validated page and next cursor.
+ */
 export const fetchExportInfringements = async (
   ctx: WorkerScriptContext,
   after: number,
@@ -137,7 +148,8 @@ export const fetchExportInfringements = async (
     headers: bearerHeaders(ctx.apiKey),
     timeoutMs: 60_000,
   });
-  const rawBody: unknown = await response.json().catch(() => null);
+
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsed = exportInfringementsSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -149,11 +161,18 @@ export const fetchExportInfringements = async (
   return parsed.data;
 };
 
+/**
+ * Posts cleaned infringements to the snapshot import endpoint with retries.
+ * @param ctx - Destination worker URL and credentials.
+ * @param infringements - Cleaned records to import.
+ * @returns The validated import counts.
+ */
 export const postImportSnapshot = async (
   ctx: WorkerScriptContext,
   infringements: z.infer<typeof cleanInfringementSchema>[]
 ) => {
   const url = new URL("/api/v1/import/snapshot", ctx.workerUrl);
+
   const { rawBody, response } = await fetchReplicationWithRetry(
     `POST ${url.pathname}`,
     url.toString(),
@@ -171,6 +190,7 @@ export const postImportSnapshot = async (
       }),
     (res, body) => {
       const parsed = importSnapshotSchema.safeParse(body);
+
       if (res.ok && parsed.success) {
         return { ok: true };
       }
@@ -181,6 +201,7 @@ export const postImportSnapshot = async (
       };
     }
   );
+
   const parsed = importSnapshotSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -192,12 +213,20 @@ export const postImportSnapshot = async (
   return parsed.data;
 };
 
+/**
+ * Posts a batch of stored infringements with retries.
+ * @param ctx - Destination worker URL and credentials.
+ * @param records - Cleaned records to import.
+ * @param final - Whether this is the final batch.
+ * @returns The validated import counts.
+ */
 export const postImportStored = async (
   ctx: WorkerScriptContext,
   records: z.infer<typeof cleanInfringementSchema>[],
   final: boolean
 ) => {
   const url = new URL("/api/v1/import/stored", ctx.workerUrl);
+
   const { rawBody, response } = await fetchReplicationWithRetry(
     `POST ${url.pathname}`,
     url.toString(),
@@ -215,6 +244,7 @@ export const postImportStored = async (
       }),
     (res, body) => {
       const parsed = importStoredSchema.safeParse(body);
+
       if (res.ok && parsed.success) {
         return { ok: true };
       }
@@ -225,6 +255,7 @@ export const postImportStored = async (
       };
     }
   );
+
   const parsed = importStoredSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -236,6 +267,13 @@ export const postImportStored = async (
   return parsed.data;
 };
 
+/**
+ * Fetches and validates a page of exported ingestion watermarks.
+ * @param ctx - Source worker URL and credentials.
+ * @param offset - Offset of the first requested watermark.
+ * @param limit - Maximum watermarks to request.
+ * @returns The validated page and next offset.
+ */
 export const fetchExportWatermarks = async (
   ctx: WorkerScriptContext,
   offset: number,
@@ -249,7 +287,8 @@ export const fetchExportWatermarks = async (
     headers: bearerHeaders(ctx.apiKey),
     timeoutMs: 60_000,
   });
-  const rawBody: unknown = await response.json().catch(() => null);
+
+  const rawBody = z.json().parse(await response.json().catch(() => null));
   const parsed = exportWatermarksSchema.safeParse(rawBody);
 
   if (!response.ok || !parsed.success) {
@@ -261,11 +300,17 @@ export const fetchExportWatermarks = async (
   return parsed.data;
 };
 
+/**
+ * Posts ingestion watermarks to the destination worker.
+ * @param ctx - Destination worker URL and credentials.
+ * @param watermarks - Watermarks to import.
+ */
 export const postImportWatermarks = async (
   ctx: WorkerScriptContext,
   watermarks: z.infer<typeof exportWatermarksSchema>["watermarks"]
 ) => {
   const url = new URL("/api/v1/import/watermarks", ctx.workerUrl);
+
   const response = await fetchWithTimeout(url.toString(), {
     body: JSON.stringify({ watermarks }),
     headers: {
@@ -276,7 +321,8 @@ export const postImportWatermarks = async (
     method: "POST",
     timeoutMs: 120_000,
   });
-  const rawBody: unknown = await response.json().catch(() => null);
+
+  const rawBody = z.json().parse(await response.json().catch(() => null));
 
   if (!response.ok) {
     throw new Error(
@@ -285,6 +331,10 @@ export const postImportWatermarks = async (
   }
 };
 
+/**
+ * Requests completion of a stored infringement import.
+ * @param ctx - Destination worker URL and credentials.
+ */
 export const postFinalizeStoredImport = async (
   ctx: WorkerScriptContext
 ): Promise<void> => {
@@ -296,7 +346,8 @@ export const postFinalizeStoredImport = async (
       method: "POST",
       timeoutMs: 120_000,
     });
-    const rawBody: unknown = await response.json().catch(() => null);
+
+    const rawBody = z.json().parse(await response.json().catch(() => null));
 
     if (!response.ok) {
       throw new Error(
@@ -310,6 +361,11 @@ export const postFinalizeStoredImport = async (
   }
 };
 
+/**
+ * Fetches the exported dashboard payload as serialized JSON.
+ * @param source - Source worker URL and credentials.
+ * @returns The serialized snapshot payload.
+ */
 export const fetchDashboardSnapshot = async (
   source: WorkerScriptContext
 ): Promise<string> => {
@@ -319,7 +375,8 @@ export const fetchDashboardSnapshot = async (
     headers: bearerHeaders(source.apiKey),
     timeoutMs: 120_000,
   });
-  const rawBody: unknown = await response.json().catch(() => null);
+
+  const rawBody = z.json().parse(await response.json().catch(() => null));
 
   if (!response.ok) {
     throw new Error(
@@ -327,13 +384,11 @@ export const fetchDashboardSnapshot = async (
     );
   }
 
-  if (
-    typeof rawBody !== "object" ||
-    rawBody === null ||
-    !("payload" in rawBody)
-  ) {
+  const parsed = z.object({ payload: z.json() }).safeParse(rawBody);
+
+  if (!parsed.success) {
     throw new Error("Dashboard snapshot response missing payload");
   }
 
-  return JSON.stringify(rawBody.payload);
+  return JSON.stringify(parsed.data.payload);
 };

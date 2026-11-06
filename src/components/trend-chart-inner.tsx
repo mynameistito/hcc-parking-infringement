@@ -1,4 +1,5 @@
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import type { TooltipValueType } from "recharts";
+import { z } from "zod";
 
 import {
   ChartContainer,
@@ -14,28 +15,31 @@ import {
   xAxisTickInterval,
 } from "@/lib/trend-window";
 
+const CHART_BORDER_COLOR = "var(--border)";
+
+const { Area, AreaChart, CartesianGrid, XAxis, YAxis } =
+  await import("recharts");
+
 interface TrendPoint {
   date: string;
   label: string;
   value: number;
 }
 
-const isTrendPoint = (value: unknown): value is TrendPoint =>
-  typeof value === "object" &&
-  value !== null &&
-  "date" in value &&
-  typeof Reflect.get(value, "date") === "string" &&
-  "value" in value &&
-  typeof Reflect.get(value, "value") === "number";
+const trendPointSchema = z.object({ date: z.string(), value: z.number() });
 
 const trendTooltipLabel = (
   payload: readonly { payload?: unknown }[] | undefined
 ): string => {
   const raw: unknown = payload?.[0]?.payload;
-  if (!isTrendPoint(raw)) {
+
+  const parsed = trendPointSchema.safeParse(raw);
+
+  if (!parsed.success) {
     return "";
   }
-  return formatTrendTooltipDate(raw.date);
+
+  return formatTrendTooltipDate(parsed.data.date);
 };
 
 interface CompactTrendChartProps {
@@ -98,16 +102,20 @@ interface InteractiveTrendChartProps {
 }
 
 const formatTrendValue = (
-  value: unknown,
+  value: TooltipValueType | undefined,
   valueStyle: "number" | "currency"
 ): string => {
-  if (typeof value !== "number") {
+  const parsed = z.number().safeParse(value);
+
+  if (!parsed.success) {
     return String(value);
   }
+
   if (valueStyle === "currency") {
-    return moneyFmt.format(value);
+    return moneyFmt.format(parsed.data);
   }
-  return numberFmt.format(value);
+
+  return numberFmt.format(parsed.data);
 };
 
 const InteractiveTrendChart = ({
@@ -149,7 +157,7 @@ const InteractiveTrendChart = ({
 
       <XAxis
         axisLine={{
-          stroke: "var(--border)",
+          stroke: CHART_BORDER_COLOR,
           strokeDasharray: "3 4",
         }}
         dataKey="date"
@@ -160,7 +168,7 @@ const InteractiveTrendChart = ({
         tickFormatter={(dateKey: string) =>
           formatTrendAxisDate(dateKey, data.length)
         }
-        tickLine={{ stroke: "var(--border)" }}
+        tickLine={{ stroke: CHART_BORDER_COLOR }}
         tickMargin={8}
       />
 
@@ -173,7 +181,7 @@ const InteractiveTrendChart = ({
             labelFormatter={(_, payload) => trendTooltipLabel(payload)}
           />
         }
-        cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
+        cursor={{ stroke: CHART_BORDER_COLOR, strokeWidth: 1 }}
         isAnimationActive={false}
         shared={false}
       />
@@ -197,6 +205,9 @@ const InteractiveTrendChart = ({
   </ChartContainer>
 );
 
+/**
+ * Data, domain, and display options for the loaded trend chart.
+ */
 export interface TrendChartInnerProps {
   chartConfig: ChartConfig;
   compact: boolean;
@@ -209,6 +220,10 @@ export interface TrendChartInnerProps {
   yMax: number;
 }
 
+/**
+ * Render the loaded Recharts time-series visualization.
+ * @returns The rendered interface for the supplied data.
+ */
 export const TrendChartInner = ({
   chartConfig,
   compact,

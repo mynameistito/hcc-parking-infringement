@@ -15,6 +15,7 @@ const runWithConcurrency = async <T>(
     }
 
     const item = items[index];
+
     if (item === undefined) {
       return;
     }
@@ -30,7 +31,15 @@ const runWithConcurrency = async <T>(
   );
 };
 
-/** Run async work over items with a fixed concurrency limit (no await-in-loop). */
+/**
+ * Runs asynchronous work with a fixed concurrency limit and preserves result order.
+ * Generic T: The input item type.
+ * Generic R: The result type.
+ * @param items - The items to process.
+ * @param concurrency - The maximum number of concurrent workers.
+ * @param fn - The asynchronous operation for each item and its index.
+ * @returns Results in input order; rejects on failure while other workers may continue processing.
+ */
 export const mapWithConcurrency = async <T, R>(
   items: readonly T[],
   concurrency: number,

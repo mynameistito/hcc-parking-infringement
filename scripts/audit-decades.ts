@@ -34,6 +34,7 @@ const results = await Promise.all(
       fetchAllInWindowOrThrow(env, from, to),
       fetchStoredInfringementCount(ctx, from, to),
     ]);
+
     return { from, hcc, stored, to };
   })
 );

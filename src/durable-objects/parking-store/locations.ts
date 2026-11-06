@@ -19,6 +19,12 @@ import type {
   GeocodeCandidateRow,
 } from "./geocode-candidates.ts";
 
+/**
+ * Reads frequently infringed locations eligible for geocoding.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum eligible locations to return.
+ * @returns Candidate locations in descending infringement count order.
+ */
 export const fetchGeocodeCandidates = (
   sql: SqlStorage,
   limit: number
@@ -47,6 +53,11 @@ export const fetchGeocodeCandidates = (
   return filterGeocodeCandidates(rows, limit);
 };
 
+/**
+ * Counts locations without cached geometry that are eligible for retry.
+ * @param sql - The Durable Object SQL storage.
+ * @returns The number of locations awaiting geocoding.
+ */
 export const countLocationsNeedingGeocode = (sql: SqlStorage): number => {
   const row = sql
     .exec<{ total: number }>(
@@ -78,6 +89,13 @@ export const countLocationsNeedingGeocode = (sql: SqlStorage): number => {
   return row?.total ?? 0;
 };
 
+/**
+ * Records a failed geocoding attempt for a location.
+ * @param sql - The Durable Object SQL storage.
+ * @param street - Street name.
+ * @param suburb - Suburb name, when available.
+ * @param town - Town name.
+ */
 export const markGeocodeFailed = (
   sql: SqlStorage,
   street: string,
@@ -103,6 +121,11 @@ export const markGeocodeFailed = (
   );
 };
 
+/**
+ * Stores geocoded location data and clears any prior failure marker.
+ * @param sql - The Durable Object SQL storage.
+ * @param input - Location coordinates, display name, and road geometry.
+ */
 export const saveLocationCache = (
   sql: SqlStorage,
   input: LocationCacheInput
@@ -129,13 +152,21 @@ export const saveLocationCache = (
   );
 };
 
+interface MapPointResult {
+  pendingGeocode: number;
+  routes: LocationMapPoint[];
+}
+
+/**
+ * Reads ranked cached routes and the pending geocoding count.
+ * @param sql - The Durable Object SQL storage.
+ * @param limit - Maximum cached routes to consider.
+ * @returns Valid map routes and the number of pending locations.
+ */
 export const readMapPoints = (
   sql: SqlStorage,
   limit: number
-): {
-  pendingGeocode: number;
-  routes: LocationMapPoint[];
-} => {
+): MapPointResult => {
   const rows = sql
     .exec<{
       street: string;

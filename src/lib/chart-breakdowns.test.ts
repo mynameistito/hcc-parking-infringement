@@ -38,22 +38,22 @@ const baseMessage = {
   ],
 };
 
-describe("resolveChartBreakdowns", () => {
+describe(resolveChartBreakdowns, () => {
   it("derives breakdown slices from legacy snapshot fields", () => {
     const breakdowns = resolveChartBreakdowns(
       baseMessage satisfies FullDashboardMessage
     );
 
-    expect(chartBreakdownsHasData(breakdowns)).toBe(true);
-    expect(breakdowns.suburbs).toEqual([{ count: 5, label: "CBD" }]);
-    expect(breakdowns.offences).toEqual([
+    expect(chartBreakdownsHasData(breakdowns)).toBeTruthy();
+    expect(breakdowns.suburbs).toStrictEqual([{ count: 5, label: "CBD" }]);
+    expect(breakdowns.offences).toStrictEqual([
       { count: 4, label: "Parked in a clearway" },
     ]);
-    expect(breakdowns.vehicleMakes).toEqual([
+    expect(breakdowns.vehicleMakes).toStrictEqual([
       { count: 5, label: "Toyota" },
       { count: 1, label: "Mazda" },
     ]);
-    expect(chartBreakdownsFullyPopulated(breakdowns)).toBe(false);
+    expect(chartBreakdownsFullyPopulated(breakdowns)).toBeFalsy();
   });
 
   it("merges partial native breakdowns with legacy snapshot fields", () => {
@@ -69,10 +69,10 @@ describe("resolveChartBreakdowns", () => {
       },
     } satisfies FullDashboardMessage);
 
-    expect(breakdowns.offences).toEqual([
+    expect(breakdowns.offences).toStrictEqual([
       { count: 4, label: "Parked in a clearway" },
     ]);
-    expect(breakdowns.suburbs).toEqual([{ count: 5, label: "CBD" }]);
+    expect(breakdowns.suburbs).toStrictEqual([{ count: 5, label: "CBD" }]);
   });
 
   it("prefers the richer street ranking list for bar charts", () => {
@@ -80,11 +80,11 @@ describe("resolveChartBreakdowns", () => {
       baseMessage satisfies FullDashboardMessage
     );
 
-    expect(streets).toEqual([{ count: 8, label: "Victoria St, CBD" }]);
+    expect(streets).toStrictEqual([{ count: 8, label: "Victoria St, CBD" }]);
   });
 });
 
-describe("buildChartBreakdownFromInfringements", () => {
+describe(buildChartBreakdownFromInfringements, () => {
   it("aggregates every infringement dimension from historical records", () => {
     const { breakdowns, streets } = buildChartBreakdownFromInfringements([
       {
@@ -109,16 +109,16 @@ describe("buildChartBreakdownFromInfringements", () => {
       },
     ]);
 
-    expect(chartBreakdownsHasData(breakdowns)).toBe(true);
-    expect(breakdowns.suburbs).toEqual([
+    expect(chartBreakdownsHasData(breakdowns)).toBeTruthy();
+    expect(breakdowns.suburbs).toStrictEqual([
       { count: 1, label: "CBD" },
       { count: 1, label: "Frankton" },
     ]);
-    expect(breakdowns.towed).toEqual([
+    expect(breakdowns.towed).toStrictEqual([
       { count: 1, label: "Towed" },
       { count: 1, label: "Not towed" },
     ]);
-    expect(chartBreakdownsFullyPopulated(breakdowns)).toBe(true);
+    expect(chartBreakdownsFullyPopulated(breakdowns)).toBeTruthy();
     expect(streets).toHaveLength(2);
   });
 });

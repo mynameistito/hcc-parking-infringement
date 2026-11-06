@@ -18,9 +18,14 @@
     "cf-typegen": "wrangler types",
     "check": "ultracite check",
     "fix": "ultracite fix",
+    "knip": "knip",
     "test": "vitest run",
     "daily:refresh": "bun run scripts/daily-refresh.ts",
     "backfill": "bun run scripts/backfill.ts",
+    "audit:decades": "bun run scripts/audit-decades.ts",
+    "audit:hcc": "bun run scripts/audit-hcc.ts",
+    "audit:years": "bun run scripts/audit-years.ts",
+    "check:data": "bun run scripts/check-data.ts",
     "push:local": "bun run scripts/push-local.ts",
     "push:json": "bun run scripts/push-json.ts",
     "seed:from-local": "bun run scripts/seed-from-local.ts",
@@ -46,8 +51,8 @@
     "date-fns-tz": "3.2.0",
     "effect": "4.1.0",
     "hono": "4.13.14",
-    "lucide-react": "1.65.0",
-    "motion": "14.8.0",
+    "lucide-react": "1.63.0",
+    "motion": "14.7.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-grab": "0.2.0",
@@ -69,6 +74,7 @@
     "eslint-plugin-sonarjs": "4.2.2",
     "eslint-plugin-tsdoc": "0.5.4",
     "happy-dom": "21.0.4",
+    "knip": "6.43.0",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
     "oxlint-plugin-react-doctor": "0.9.18",
@@ -79,5 +85,12 @@
     "vite": "8.3.5",
     "vitest": "5.0.5",
     "wrangler": "4.156.0"
+  },
+  "overrides": {
+    "caniuse-lite": "1.0.30001819",
+    "electron-to-chromium": "1.5.467",
+    "node-releases": "2.0.60",
+    "rolldown": "1.2.15",
+    "unbash": "6.0.1"
   }
 }

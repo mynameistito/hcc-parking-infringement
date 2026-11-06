@@ -1,6 +1,8 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import { bearerHeaders } from "@scripts/lib/worker/client.ts";
+import type { JSONValue } from "hono/utils/types";
+import { z } from "zod";
 
 import {
   describeDoSqliteQuotaError,
@@ -15,33 +17,42 @@ const jsonHeaders = (apiKey: string): HeadersInit => ({
   "Content-Type": "application/json",
 });
 
+/**
+ * Signals that a seed import reached the worker request quota.
+ */
 export class SeedApplyQuotaError extends Error {
+  /**
+   * Describe the quota failure reported by the destination worker.
+   * @param message - Quota diagnostic and recovery guidance.
+   */
   constructor(message: string) {
     super(message);
     this.name = "SeedApplyQuotaError";
   }
 }
 
-const throwIfQuotaResponse = (rawBody: unknown): void => {
+const throwIfQuotaResponse = (rawBody: JSONValue): void => {
   if (!isDoSqliteQuotaResponse(rawBody)) {
     return;
   }
 
   const message =
     extractHttpErrorMessage(rawBody) ?? "DO SQLite quota exceeded";
+
   throw new SeedApplyQuotaError(
     `${message}\n\n${describeDoSqliteQuotaError()}`
   );
 };
 
-export const fetchSeedManifest = async (
+const fetchSeedManifest = async (
   workerUrl: string,
   apiKey: string
 ): Promise<{ infringementChunks: string[] }> => {
   const response = await fetch(`${workerUrl}/api/v1/import/seed/manifest`, {
     headers: bearerHeaders(apiKey),
   });
-  const body: unknown = await response.json().catch(() => null);
+
+  const body = z.json().parse(await response.json().catch(() => null));
 
   if (!response.ok) {
     throw new Error(
@@ -52,6 +63,10 @@ export const fetchSeedManifest = async (
   return seedManifestResponseSchema.parse(body);
 };
 
+/**
+ * Finalize the seed import on the destination worker.
+ * @param options - Operation settings and progress callbacks.
+ */
 export const finalizeSeedOnRemote = async (options: {
   apiKey: string;
   prefix?: string;
@@ -68,9 +83,11 @@ export const finalizeSeedOnRemote = async (options: {
       method: "POST",
     }
   );
-  const watermarksBody: unknown = await watermarksResponse
+
+  const watermarksBody = z
     .json()
-    .catch(() => null);
+    .parse(await watermarksResponse.json().catch(() => null));
+
   throwIfQuotaResponse(watermarksBody);
 
   if (!watermarksResponse.ok) {
@@ -86,7 +103,11 @@ export const finalizeSeedOnRemote = async (options: {
       method: "POST",
     }
   );
-  const finalizeBody: unknown = await finalizeResponse.json().catch(() => null);
+
+  const finalizeBody = z
+    .json()
+    .parse(await finalizeResponse.json().catch(() => null));
+
   throwIfQuotaResponse(finalizeBody);
 
   if (!finalizeResponse.ok) {
@@ -96,6 +117,9 @@ export const finalizeSeedOnRemote = async (options: {
   }
 };
 
+/**
+ * Chunk completion and finalization status of a seed import.
+ */
 export interface ApplySeedOnRemoteResult {
   allChunksImported: boolean;
   appliedChunks: string[];
@@ -103,6 +127,11 @@ export interface ApplySeedOnRemoteResult {
   remainingChunks: string[];
 }
 
+/**
+ * Apply uploaded seed chunks to the destination worker.
+ * @param options - Operation settings and progress callbacks.
+ * @returns The resulting `Promise<ApplySeedOnRemoteResult>` value.
+ */
 export const applySeedOnRemote = async (options: {
   apiKey: string;
   maxChunks?: number;
@@ -128,10 +157,12 @@ export const applySeedOnRemote = async (options: {
   }
 
   const pendingChunks = infringementChunks.slice(startIndex);
+
   const chunkLimit =
     options.maxChunks === undefined
       ? pendingChunks.length
       : Math.max(0, options.maxChunks);
+
   const chunksToApply = pendingChunks.slice(0, chunkLimit);
   const appliedChunks: string[] = [];
 
@@ -139,12 +170,13 @@ export const applySeedOnRemote = async (options: {
     const response = await fetch(`${options.toUrl}/api/v1/import/seed/chunk`, {
       body: JSON.stringify({
         chunk,
-        ...(options.prefix === undefined ? {} : { prefix: options.prefix }),
+        prefix: options.prefix,
       }),
       headers: jsonHeaders(options.apiKey),
       method: "POST",
     });
-    const body: unknown = await response.json().catch(() => null);
+
+    const body = z.json().parse(await response.json().catch(() => null));
     throwIfQuotaResponse(body);
 
     if (!response.ok) {

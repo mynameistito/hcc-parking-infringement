@@ -6,11 +6,18 @@ interface UseAnimatedNumberOptions {
   initialDuration?: number;
 }
 
+/**
+ * Animate a displayed total toward its current value.
+ * @param value - Value to inspect or format.
+ * @param options - Operation settings and progress callbacks.
+ * @returns The computed numeric value.
+ */
 export const useAnimatedNumber = (
   value: number,
   options: UseAnimatedNumberOptions = {}
 ): number => {
-  const { duration = 600, initialDuration = duration * 1.4 } = options;
+  const duration = options.duration ?? 600;
+  const initialDuration = options.initialDuration ?? duration * 1.4;
   const [display, setDisplay] = useState(0);
   const frameRef = useRef<number | null>(null);
   const displayRef = useRef(0);
@@ -23,6 +30,7 @@ export const useAnimatedNumber = (
 
     const from = displayRef.current;
     const to = value;
+
     if (from === to) {
       return () => {
         if (frameRef.current !== null) {
@@ -36,7 +44,11 @@ export const useAnimatedNumber = (
     const startedAt = performance.now();
 
     const tick = (now: number) => {
-      const progress = Math.min((now - startedAt) / animDuration, 1);
+      const progress = Math.max(
+        0,
+        Math.min((now - startedAt) / animDuration, 1)
+      );
+
       const eased = 1 - (1 - progress) ** 3;
       const next = Math.round(from + (to - from) * eased);
       setDisplay(next);

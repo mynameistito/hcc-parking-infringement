@@ -15,9 +15,11 @@ const aggregateVehicleMakes = (
   vehicles: readonly VehicleRankItem[]
 ): TopItem[] => {
   const totals = new Map<string, number>();
+
   for (const vehicle of vehicles) {
     totals.set(vehicle.make, (totals.get(vehicle.make) ?? 0) + vehicle.count);
   }
+
   return [...totals.entries()]
     .toSorted((left, right) => right[1] - left[1])
     .map(([label, count]) => ({ count, label }));
@@ -30,9 +32,13 @@ const pickRicherTopItems = (
   if (secondary.length > primary.length) {
     return toTopItems(secondary);
   }
+
   return [...primary];
 };
 
+/**
+ * Infringement fields used to aggregate chart categories.
+ */
 export interface InfringementChartRecord {
   isTowed: boolean;
   offenceCategory: string | null;
@@ -53,7 +59,13 @@ const mapToTopItems = (counts: Map<string, number>): TopItem[] =>
     .toSorted((left, right) => right[1] - left[1])
     .map(([label, count]) => ({ count, label }));
 
-export const mergeChartBreakdowns = (
+/**
+ * Combine category totals from two sets of breakdowns.
+ * @param primary - First set of aggregated category counts.
+ * @param secondary - Second set of aggregated category counts.
+ * @returns The resulting `ChartBreakdowns` value.
+ */
+const mergeChartBreakdowns = (
   primary: ChartBreakdowns,
   secondary: ChartBreakdowns
 ): ChartBreakdowns => ({
@@ -74,9 +86,28 @@ export const mergeChartBreakdowns = (
   ),
 });
 
+const chartCategoryLabel = (
+  value: string | null,
+  fallback = "Unknown"
+): string => {
+  const trimmed = value?.trim() ?? "";
+
+  return trimmed.length === 0 ? fallback : trimmed;
+};
+
+interface ChartAggregation {
+  breakdowns: ChartBreakdowns;
+  streets: TopItem[];
+}
+
+/**
+ * Aggregate infringement categories and street totals.
+ * @param records - Source infringement records.
+ * @returns The resulting `{ breakdowns: ChartBreakdowns; streets: TopItem[] }` value.
+ */
 export const buildChartBreakdownFromInfringements = (
   records: readonly InfringementChartRecord[]
-): { breakdowns: ChartBreakdowns; streets: TopItem[] } => {
+): ChartAggregation => {
   const suburbs = new Map<string, number>();
   const offences = new Map<string, number>();
   const offenceCategories = new Map<string, number>();
@@ -87,35 +118,30 @@ export const buildChartBreakdownFromInfringements = (
   let notTowed = 0;
 
   for (const record of records) {
-    const suburb =
-      record.suburb !== null && record.suburb.trim().length > 0
-        ? record.suburb.trim()
-        : "Unknown";
+    const suburb = chartCategoryLabel(record.suburb);
+
     incrementCount(suburbs, suburb);
 
     const offenceLabel = resolveOffenceDescription(
       record.offenceCode,
       record.offenceDescription
     );
+
     incrementCount(offences, offenceLabel);
 
-    const category =
-      record.offenceCategory !== null &&
-      record.offenceCategory.trim().length > 0
-        ? record.offenceCategory.trim()
-        : "Uncategorised";
+    const category = chartCategoryLabel(
+      record.offenceCategory,
+      "Uncategorised"
+    );
+
     incrementCount(offenceCategories, category);
 
-    const make =
-      record.vehicleMake !== null && record.vehicleMake.trim().length > 0
-        ? record.vehicleMake.trim()
-        : "Unknown";
+    const make = chartCategoryLabel(record.vehicleMake);
+
     incrementCount(vehicleMakes, make);
 
-    const type =
-      record.vehicleType !== null && record.vehicleType.trim().length > 0
-        ? record.vehicleType.trim()
-        : "Unknown";
+    const type = chartCategoryLabel(record.vehicleType);
+
     incrementCount(vehicleTypes, type);
 
     if (record.street.trim().length > 0 && record.street !== "Unknown") {
@@ -123,6 +149,7 @@ export const buildChartBreakdownFromInfringements = (
         record.street,
         suburb === "Unknown" ? undefined : suburb
       );
+
       incrementCount(streets, streetLabel);
     }
 
@@ -134,9 +161,11 @@ export const buildChartBreakdownFromInfringements = (
   }
 
   const towedItems: TopItem[] = [];
+
   if (towed > 0) {
     towedItems.push({ count: towed, label: "Towed" });
   }
+
   if (notTowed > 0) {
     towedItems.push({ count: notTowed, label: "Not towed" });
   }
@@ -154,30 +183,33 @@ export const buildChartBreakdownFromInfringements = (
   };
 };
 
-/** Whether a breakdown payload has at least one chartable series. */
+/**
+ *  Whether a breakdown payload has at least one chartable series.
+ * @param breakdowns - Breakdowns supplied to this operation.
+ * @returns Whether the requested condition holds.
+ */
 export const chartBreakdownsHasData = (
   breakdowns: ChartBreakdowns | undefined
 ): boolean => {
   if (breakdowns === undefined) {
     return false;
   }
-  return (
-    breakdowns.offences.length > 0 ||
-    breakdowns.suburbs.length > 0 ||
-    breakdowns.vehicleMakes.length > 0 ||
-    breakdowns.vehicleTypes.length > 0 ||
-    breakdowns.offenceCategories.length > 0 ||
-    breakdowns.towed.length > 0
-  );
+
+  return Object.values(breakdowns).some((items) => items.length > 0);
 };
 
-/** Whether chart slices that require full-record aggregation are present. */
+/**
+ *  Whether chart slices that require full-record aggregation are present.
+ * @param breakdowns - Breakdowns supplied to this operation.
+ * @returns Whether the requested condition holds.
+ */
 export const chartBreakdownsFullyPopulated = (
   breakdowns: ChartBreakdowns | undefined
 ): boolean => {
   if (breakdowns === undefined) {
     return false;
   }
+
   return (
     breakdowns.offenceCategories.length > 0 &&
     breakdowns.vehicleTypes.length > 0 &&
@@ -188,11 +220,14 @@ export const chartBreakdownsFullyPopulated = (
 /**
  * Fill chart breakdowns from legacy snapshot fields when older caches omit
  * `chartBreakdowns` (seed exports, IndexedDB, DO snapshot cache).
+ * @param message - Validated dashboard snapshot.
+ * @returns The resulting `ChartBreakdowns` value.
  */
 export const resolveChartBreakdowns = (
   message: FullDashboardMessage
 ): ChartBreakdowns => {
   const existing = message.chartBreakdowns;
+
   const derived: ChartBreakdowns = {
     offenceCategories: existing?.offenceCategories ?? [],
     offences: pickRicherTopItems(message.topOffences, existing?.offences ?? []),
@@ -212,7 +247,11 @@ export const resolveChartBreakdowns = (
   return mergeChartBreakdowns(derived, existing);
 };
 
-/** Prefer the ranked street list with the most rows for bar charts. */
+/**
+ *  Prefer the ranked street list with the most rows for bar charts.
+ * @param message - Validated dashboard snapshot.
+ * @returns The resulting `TopItem[]` value.
+ */
 export const resolveChartStreetItems = (
   message: FullDashboardMessage
 ): TopItem[] => {
@@ -222,6 +261,7 @@ export const resolveChartStreetItems = (
   if (fromRankedStreets.length > fromTopStreets.length) {
     return fromRankedStreets;
   }
+
   if (fromTopStreets.length > fromRankedStreets.length) {
     return fromTopStreets;
   }
@@ -230,6 +270,8 @@ export const resolveChartStreetItems = (
     (sum, item) => sum + item.count,
     0
   );
+
   const topTotal = fromTopStreets.reduce((sum, item) => sum + item.count, 0);
+
   return rankedTotal >= topTotal ? fromRankedStreets : fromTopStreets;
 };

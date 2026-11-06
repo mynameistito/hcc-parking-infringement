@@ -27,6 +27,7 @@ const pollWaveDrain = async (
     console.warn(
       "\nWave pause timed out — continuing to enqueue next wave anyway."
     );
+
     return;
   }
 
@@ -37,6 +38,7 @@ const pollWaveDrain = async (
     granularity,
     chunkDays
   );
+
   if (
     result.kind === "progress" &&
     result.progress.completed - baselineCompleted >= targetDelta
@@ -88,12 +90,15 @@ const logWaveResult = (
   const queueMessages = body?.queueMessages ?? 0;
   const delivery = body?.delivery ?? fallbackDelivery;
   const actionVerb = delivery === "direct" ? "processed" : "queued";
+
   const queueSuffix =
     delivery === "queue" && queueMessages > 0
       ? ` (${formatNumber(queueMessages)} queue msgs)`
       : "";
+
   const skippedSuffix =
     skipped > 0 ? ` · ${formatNumber(skipped)} skipped` : "";
+
   const remainingSuffix =
     remaining > 0 ? ` · ${formatNumber(remaining)} remaining` : "";
 
@@ -105,6 +110,9 @@ const logWaveResult = (
 /**
  * POST backfill waves until `continueFrom` is null or no windows remain.
  * Waits for each wave to finish ingesting before enqueueing the next.
+ * @param ctx - Durable Object runtime state.
+ * @param options - Operation settings and progress callbacks.
+ * @returns The resulting `Promise<{ bodies: BackfillResponse[]; totalEnqueued: number; }>` value.
  */
 export const queueBackfillWaves = async (
   ctx: WorkerScriptContext,
@@ -129,6 +137,7 @@ export const queueBackfillWaves = async (
       ...options,
       currentFrom,
     });
+
     bodies.push(body ?? {});
     const enqueued = body?.enqueued ?? 0;
     totalEnqueued += enqueued;
@@ -141,36 +150,34 @@ export const queueBackfillWaves = async (
       break;
     }
 
-    if (options.delivery === "direct") {
-      currentFrom = continueFrom;
-      continue;
+    if (options.delivery !== "direct") {
+      console.log(
+        `[backfill] waiting for wave to finish before queuing ${formatNumber(remaining)} more…`
+      );
+
+      const progressBefore = await fetchBackfillProgress(
+        ctx,
+        options.from,
+        options.to,
+        options.granularity,
+        options.chunkDays
+      );
+
+      const baselineCompleted =
+        progressBefore.kind === "progress"
+          ? progressBefore.progress.completed
+          : 0;
+
+      await waitForWaveDrain(
+        ctx,
+        options.from,
+        options.to,
+        options.granularity,
+        options.chunkDays,
+        baselineCompleted,
+        enqueued
+      );
     }
-
-    console.log(
-      `[backfill] waiting for wave to finish before queuing ${formatNumber(remaining)} more…`
-    );
-
-    const progressBefore = await fetchBackfillProgress(
-      ctx,
-      options.from,
-      options.to,
-      options.granularity,
-      options.chunkDays
-    );
-    const baselineCompleted =
-      progressBefore.kind === "progress"
-        ? progressBefore.progress.completed
-        : 0;
-
-    await waitForWaveDrain(
-      ctx,
-      options.from,
-      options.to,
-      options.granularity,
-      options.chunkDays,
-      baselineCompleted,
-      enqueued
-    );
 
     currentFrom = continueFrom;
   }

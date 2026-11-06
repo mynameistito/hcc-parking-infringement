@@ -27,7 +27,12 @@ interface StatsLiveRow extends Record<string, SqlStorageValue> {
   last_record_at: string | null;
 }
 
-export const mapPublicLiveStatsRow = (
+/**
+ * Maps a stored live statistics row to the public contract.
+ * @param row - Stored row, or undefined when statistics are not initialized.
+ * @returns Public live statistics with zero defaults for an absent row.
+ */
+const mapPublicLiveStatsRow = (
   row: StatsLiveRow | undefined
 ): PublicLiveStats => {
   if (row === undefined) {
@@ -61,6 +66,10 @@ export const mapPublicLiveStatsRow = (
   };
 };
 
+/**
+ * Recomputes live and daily aggregates from stored infringements.
+ * @param sql - The Durable Object SQL storage.
+ */
 export const recomputeStatsLive = (sql: SqlStorage): void => {
   const now = new Date();
   const today = formatDateInAuckland(now);
@@ -77,20 +86,24 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
     startOfDayInAucklandIso("1970-01-01"),
     endOfDayInAucklandIso("2099-12-31")
   );
+
   const todayStats = aggregateWindow(sql, todayWindow.start, todayWindow.end);
   const monthStats = aggregateWindow(sql, monthBounds.start, monthBounds.end);
   const yearStats = aggregateWindow(sql, yearBounds.start, yearBounds.end);
   const last24h = aggregateWindow(sql, last24hBounds.start, last24hBounds.end);
+
   const last7d = aggregateWindow(
     sql,
     startOfDayInAucklandIso(last7dStart),
     todayWindow.end
   );
+
   const last30d = aggregateWindow(
     sql,
     startOfDayInAucklandIso(last30dStart),
     todayWindow.end
   );
+
   const last365d = aggregateWindow(
     sql,
     startOfDayInAucklandIso(last365dStart),
@@ -173,6 +186,11 @@ export const recomputeStatsLive = (sql: SqlStorage): void => {
   }
 };
 
+/**
+ * Reads the current public live statistics from storage.
+ * @param sql - The Durable Object SQL storage.
+ * @returns Public statistics, with zero defaults when no row exists.
+ */
 export const readPublicLiveStats = (sql: SqlStorage): PublicLiveStats => {
   const rows = sql
     .exec<StatsLiveRow>(

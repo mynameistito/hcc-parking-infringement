@@ -9,16 +9,16 @@ import { z } from "zod";
 
 import { cleanInfringementSchema } from "@/server/clean-schema.ts";
 
-export const PARKING_STORE_SNAPSHOT_VERSION = 1 as const;
+const PARKING_STORE_SNAPSHOT_VERSION = 1 as const;
 
-export const ingestWatermarkExportSchema = z.object({
+const ingestWatermarkExportSchema = z.object({
   end: z.string(),
   ingestedAt: z.string(),
   recordCount: z.number(),
   start: z.string(),
 });
 
-export const parkingStoreSnapshotSchema = z.object({
+const parkingStoreSnapshotSchema = z.object({
   exportedAt: z.string(),
   infringements: z.array(cleanInfringementSchema),
   source: z.string(),
@@ -27,23 +27,36 @@ export const parkingStoreSnapshotSchema = z.object({
   watermarks: z.array(ingestWatermarkExportSchema),
 });
 
+/**
+ * Validated infringement and watermark export.
+ */
 export type ParkingStoreSnapshot = z.infer<typeof parkingStoreSnapshotSchema>;
+
+/**
+ * Persisted synchronization-window watermark.
+ */
 export type IngestWatermarkExport = z.infer<typeof ingestWatermarkExportSchema>;
 
-export const parseParkingStoreSnapshot = (raw: unknown): ParkingStoreSnapshot =>
-  parkingStoreSnapshotSchema.parse(raw);
-
+/**
+ * Read and parse an exported parking snapshot.
+ * @param filePath - Path to the exported JSON snapshot.
+ * @returns The resulting `Promise<ParkingStoreSnapshot>` value.
+ */
 export const readParkingStoreSnapshot = async (
   filePath: string
 ): Promise<ParkingStoreSnapshot> => {
   const raw = await readFile(filePath, "utf-8");
-  return parseParkingStoreSnapshot(JSON.parse(raw));
+
+  return parkingStoreSnapshotSchema.parse(JSON.parse(raw));
 };
 
-export const ensureParentDir = async (filePath: string): Promise<void> => {
+const ensureParentDir = async (filePath: string): Promise<void> => {
   await mkdir(path.dirname(filePath), { recursive: true });
 };
 
+/**
+ * Streaming snapshot writer and its completion operation.
+ */
 export interface SnapshotWriteHandle {
   appendInfringements: (
     records: z.infer<typeof cleanInfringementSchema>[]
@@ -54,7 +67,12 @@ export interface SnapshotWriteHandle {
   }) => Promise<void>;
 }
 
-/** Stream a large snapshot to disk without holding all infringements in memory. */
+/**
+ *  Stream a large snapshot to disk without holding all infringements in memory.
+ * @param filePath - Path to the exported JSON snapshot.
+ * @param meta - Meta supplied to this operation.
+ * @returns The resulting `Promise<SnapshotWriteHandle>` value.
+ */
 export const createSnapshotWriter = async (
   filePath: string,
   meta: { exportedAt: string; source: string }

@@ -18,15 +18,15 @@ import {
 } from "@/lib/auckland-time";
 import { toIsoOccurredAt } from "@/server/clean-normalize";
 
-describe("nowInAucklandIso", () => {
+describe(nowInAucklandIso, () => {
   it("returns an Auckland offset, not UTC Z", () => {
     const value = nowInAucklandIso();
     expect(value).toMatch(/[+-]\d{2}:\d{2}$/u);
-    expect(value.includes("Z")).toBe(false);
+    expect(value).not.toContain("Z");
   });
 });
 
-describe("startOfDayInAucklandIso", () => {
+describe(startOfDayInAucklandIso, () => {
   it("uses +13:00 during NZDT (summer)", () => {
     expect(startOfDayInAucklandIso("2026-01-15")).toBe(
       "2026-01-15T00:00:00+13:00"
@@ -40,7 +40,7 @@ describe("startOfDayInAucklandIso", () => {
   });
 });
 
-describe("endOfDayInAucklandIso", () => {
+describe(endOfDayInAucklandIso, () => {
   it("uses the correct DST offset at end of day", () => {
     expect(endOfDayInAucklandIso("2026-01-15")).toBe(
       "2026-01-15T23:59:59.999+13:00"
@@ -51,7 +51,7 @@ describe("endOfDayInAucklandIso", () => {
   });
 });
 
-describe("localDateTimeInAucklandIso", () => {
+describe(localDateTimeInAucklandIso, () => {
   it("applies NZDT offset to local infringement times", () => {
     expect(localDateTimeInAucklandIso("2026-01-15", "10:30")).toBe(
       "2026-01-15T10:30:00+13:00"
@@ -71,7 +71,7 @@ describe("localDateTimeInAucklandIso", () => {
   });
 });
 
-describe("normalizeOptionalAucklandInstant", () => {
+describe(normalizeOptionalAucklandInstant, () => {
   it("expands date-only values to end-of-day Auckland ISO", () => {
     expect(normalizeOptionalAucklandInstant("2026-01-15")).toBe(
       "2026-01-15T23:59:59.999+13:00"
@@ -84,14 +84,14 @@ describe("normalizeOptionalAucklandInstant", () => {
   });
 });
 
-describe("addDaysInAuckland", () => {
+describe(addDaysInAuckland, () => {
   it("steps calendar days in Auckland time", () => {
     expect(addDaysInAuckland("2026-06-15", 1)).toBe("2026-06-16");
     expect(addDaysInAuckland("2026-06-15", -1)).toBe("2026-06-14");
   });
 });
 
-describe("dateBounds", () => {
+describe(dateBounds, () => {
   it("returns start and end with matching offsets", () => {
     const bounds = dateBounds("2026-01-15");
     expect(bounds.start).toBe("2026-01-15T00:00:00+13:00");
@@ -99,18 +99,18 @@ describe("dateBounds", () => {
   });
 });
 
-describe("rollingHoursBoundsInAuckland", () => {
+describe(rollingHoursBoundsInAuckland, () => {
   it("expresses both bounds in Auckland offset form", () => {
     const now = new Date("2026-06-26T00:00:00+12:00");
     const bounds = rollingHoursBoundsInAuckland(now, 24);
 
     expect(bounds.end).toMatch(/\+12:00$/u);
     expect(bounds.start).toMatch(/\+12:00$/u);
-    expect(bounds.start < bounds.end).toBe(true);
+    expect(Date.parse(bounds.start)).toBeLessThan(Date.parse(bounds.end));
   });
 });
 
-describe("monthBoundsInAuckland", () => {
+describe(monthBoundsInAuckland, () => {
   it("covers the full calendar month in Auckland", () => {
     const bounds = monthBoundsInAuckland(new Date("2026-06-15T12:00:00Z"));
     expect(bounds.start).toBe("2026-06-01T00:00:00+12:00");
@@ -118,7 +118,7 @@ describe("monthBoundsInAuckland", () => {
   });
 });
 
-describe("yearBoundsInAuckland", () => {
+describe(yearBoundsInAuckland, () => {
   it("covers the full calendar year in Auckland", () => {
     const bounds = yearBoundsInAuckland(new Date("2026-06-15T12:00:00Z"));
     expect(bounds.start).toBe("2026-01-01T00:00:00+13:00");
@@ -126,7 +126,7 @@ describe("yearBoundsInAuckland", () => {
   });
 });
 
-describe("formatDateInAuckland", () => {
+describe(formatDateInAuckland, () => {
   it("formats today as YYYY-MM-DD", () => {
     expect(todayInAuckland(new Date("2026-06-26T12:00:00Z"))).toMatch(
       /^\d{4}-\d{2}-\d{2}$/u
@@ -137,7 +137,7 @@ describe("formatDateInAuckland", () => {
   });
 });
 
-describe("formatAucklandDateKey", () => {
+describe(formatAucklandDateKey, () => {
   it("formats calendar keys in Pacific/Auckland", () => {
     expect(formatAucklandDateKey("2026-06-15", "EEE").toUpperCase()).toBe(
       "MON"
@@ -145,7 +145,7 @@ describe("formatAucklandDateKey", () => {
   });
 });
 
-describe("instantInAucklandIso", () => {
+describe(instantInAucklandIso, () => {
   it("includes Auckland offset", () => {
     expect(instantInAucklandIso(new Date("2026-06-26T00:00:00Z"))).toBe(
       "2026-06-26T12:00:00.000+12:00"

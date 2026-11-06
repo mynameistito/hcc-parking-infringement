@@ -17,11 +17,17 @@ const EMPTY_PACE_TRENDS: PublicPaceTrends = {
   last7d: { current: 0, direction: "flat", percent: 0, previous: 0 },
 };
 
-/** Parse WebSocket payload without synthesizing chart breakdowns. */
-export const parseRawFullDashboardMessage = (
+/**
+ * Parses a WebSocket payload without synthesizing chart breakdowns.
+ * @param input - The untrusted payload to validate.
+ * @returns A validated message, or null when validation fails.
+ */
+const parseRawFullDashboardMessage = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The WebSocket boundary is untrusted and safeParse validates this value immediately.
   input: unknown
 ): FullDashboardMessage | null => {
   const parsed = fullDashboardMessageSchema.safeParse(input);
+
   if (!parsed.success) {
     return null;
   }
@@ -35,32 +41,46 @@ export const parseRawFullDashboardMessage = (
 /** Parse an unknown value into a validated full-dashboard WebSocket message. */
 export const parseFullDashboardMessage = parseRawFullDashboardMessage;
 
-/** Parse a JSON string into a validated full-dashboard message. */
+/**
+ * Parses JSON into a validated full-dashboard message.
+ * @param json - The serialized message.
+ * @returns The validated message, or null when parsing or validation fails.
+ */
 export const parseFullDashboardMessageJson = (
   json: string
 ): FullDashboardMessage | null => {
   try {
     const input: unknown = JSON.parse(json);
+
     return parseFullDashboardMessage(input);
   } catch {
     return null;
   }
 };
 
-/** Parse JSON without enriching chart breakdowns (for cache completeness checks). */
+/**
+ * Parses JSON without enriching chart breakdowns for completeness checks.
+ * @param json - The serialized message.
+ * @returns The validated raw message, or null when parsing or validation fails.
+ */
 export const parseRawFullDashboardMessageJson = (
   json: string
 ): FullDashboardMessage | null => {
   try {
     const input: unknown = JSON.parse(json);
+
     return parseRawFullDashboardMessage(input);
   } catch {
     return null;
   }
 };
 
-/** Map a validated message into the internal dashboard snapshot shape. */
-export const toPublicDashboardSnapshot = (
+/**
+ * Maps a validated message into the internal dashboard snapshot shape.
+ * @param message - The validated full-dashboard message.
+ * @returns The normalized public snapshot.
+ */
+const toPublicDashboardSnapshot = (
   message: FullDashboardMessage
 ): PublicDashboardSnapshot => ({
   at: message.at,
@@ -83,19 +103,29 @@ export const toPublicDashboardSnapshot = (
   vehicles: message.vehicles,
 });
 
-/** Parse JSON into the internal dashboard snapshot shape. */
+/**
+ * Parses JSON into the internal dashboard snapshot shape.
+ * @param json - The serialized message.
+ * @returns The normalized snapshot, or null when parsing or validation fails.
+ */
 export const parsePublicDashboardSnapshotJson = (
   json: string
 ): PublicDashboardSnapshot | null => {
   const message = parseFullDashboardMessageJson(json);
+
   return message === null ? null : toPublicDashboardSnapshot(message);
 };
 
-/** Heuristic payload weight for choosing the richest cached snapshot. */
+/**
+ * Calculates a heuristic payload weight for comparing cached snapshots.
+ * @param message - The validated full-dashboard message.
+ * @returns The sum of selected collection lengths.
+ */
 export const getDashboardSnapshotPayloadWeight = (
   message: FullDashboardMessage
 ): number => {
   const breakdowns = resolveChartBreakdowns(message);
+
   return (
     message.recentInfringements.length +
     message.topStreets.length +
@@ -108,29 +138,53 @@ export const getDashboardSnapshotPayloadWeight = (
   );
 };
 
+/**
+ * Calculates a snapshot payload weight from JSON.
+ * @param json - The serialized message.
+ * @returns The payload weight, or zero for invalid JSON or messages.
+ */
 export const getDashboardSnapshotPayloadWeightJson = (json: string): number => {
   const message = parseFullDashboardMessageJson(json);
+
   return message === null ? 0 : getDashboardSnapshotPayloadWeight(message);
 };
 
-/** Whether a snapshot has enough data for the full dashboard experience. */
+/**
+ * Checks whether a snapshot contains the required full-dashboard data.
+ * @param message - The validated full-dashboard message.
+ * @returns Whether the required trend, pace, and chart data is present.
+ */
 export const dashboardSnapshotIsComplete = (
   message: FullDashboardMessage
 ): boolean => {
   const dailyTrend = message.dailyTrend ?? [];
   const { paceTrends } = message;
+
+  if (dailyTrend.length === 0 || paceTrends === undefined) {
+    return false;
+  }
+
+  if (
+    paceTrends.last7d === undefined ||
+    paceTrends.last30d === undefined ||
+    paceTrends.last365d === undefined
+  ) {
+    return false;
+  }
+
   return (
-    dailyTrend.length > 0 &&
-    paceTrends !== undefined &&
-    paceTrends.last7d !== undefined &&
-    paceTrends.last30d !== undefined &&
-    paceTrends.last365d !== undefined &&
-    (message.live.allTimeTotal === 0 ||
-      chartBreakdownsFullyPopulated(message.chartBreakdowns))
+    message.live.allTimeTotal === 0 ||
+    chartBreakdownsFullyPopulated(message.chartBreakdowns)
   );
 };
 
+/**
+ * Checks whether a serialized snapshot contains the required dashboard data.
+ * @param json - The serialized message.
+ * @returns Whether the JSON is valid and the snapshot is complete.
+ */
 export const dashboardSnapshotIsCompleteJson = (json: string): boolean => {
   const message = parseRawFullDashboardMessageJson(json);
+
   return message !== null && dashboardSnapshotIsComplete(message);
 };

@@ -23,11 +23,14 @@ const handleAppError = (error: Error, _c: Context<AppEnv>): Response => {
   }
 
   console.error(error);
+
   return jsonError(500, "Internal server error");
 };
 
 app.onError(handleAppError);
+
 app.route("/api/v1", createV1Routes());
+
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 export { app };

@@ -11,20 +11,35 @@ export const moneyFmt = new Intl.NumberFormat("en-NZ", {
   style: "currency",
 });
 
-/** Display label for a vehicle from infringement fields. */
+/**
+ * Builds a display label from an infringement's vehicle fields.
+ * @param record - The public infringement record.
+ * @returns The make and model, vehicle type, or an unknown-vehicle label.
+ */
 export const formatVehicle = (record: PublicInfringement): string => {
   const parts = [record.vehicleMake, record.vehicleModel].filter(Boolean);
+
   if (parts.length > 0) {
     return parts.join(" ");
   }
+
   return record.vehicleType ?? "Unknown vehicle";
 };
 
-/** Compact occurrence date and time in Pacific/Auckland. */
+/**
+ * Formats an occurrence instant as a compact Pacific/Auckland date and time.
+ * @param occurredAt - An Auckland instant with a numeric offset.
+ * @returns The formatted occurrence date and time.
+ */
 export const formatOccurrenceInstantShort = (occurredAt: string): string =>
   formatAucklandInstant(occurredAt, "d MMM yy, h:mm a");
 
-/** Street line with optional suburb suffix. */
+/**
+ * Combines a street with an available suburb name.
+ * @param street - The street name.
+ * @param suburb - The suburb name, if known.
+ * @returns A street label with an optional suburb suffix.
+ */
 export const formatStreetSuburb = (
   street: string,
   suburb: string | undefined
@@ -32,5 +47,6 @@ export const formatStreetSuburb = (
   if (suburb !== undefined && suburb.length > 0 && suburb !== "Unknown") {
     return `${street}, ${suburb}`;
   }
+
   return street;
 };

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   getDashboardSnapshotPayloadWeight,
   parseFullDashboardMessage,
@@ -37,39 +39,24 @@ const openDashboardSnapshotDb = async (): Promise<IDBDatabase> =>
     });
   });
 
-const parseCachedSnapshot = (
-  value: unknown
-): CachedDashboardSnapshot | null => {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("version" in value) ||
-    !("savedAt" in value) ||
-    !("snapshot" in value)
-  ) {
-    return null;
-  }
+const cachedSnapshotSchema = z.object({
+  savedAt: z.string(),
+  snapshot: z.unknown().transform((value, context) => {
+    const snapshot = parseFullDashboardMessage(value);
 
-  const candidate = value;
+    if (snapshot === null) {
+      context.addIssue({
+        code: "custom",
+        message: "Invalid cached dashboard snapshot",
+      });
 
-  if (
-    candidate.version !== DASHBOARD_SNAPSHOT_CACHE_VERSION ||
-    typeof candidate.savedAt !== "string"
-  ) {
-    return null;
-  }
+      return z.NEVER;
+    }
 
-  const snapshot = parseFullDashboardMessage(candidate.snapshot);
-  if (snapshot === null) {
-    return null;
-  }
-
-  return {
-    savedAt: candidate.savedAt,
-    snapshot,
-    version: DASHBOARD_SNAPSHOT_CACHE_VERSION,
-  };
-};
+    return snapshot;
+  }),
+  version: z.literal(DASHBOARD_SNAPSHOT_CACHE_VERSION),
+});
 
 const readDashboardSnapshotFromIndexedDb =
   async (): Promise<CachedDashboardSnapshot | null> => {
@@ -82,12 +69,13 @@ const readDashboardSnapshotFromIndexedDb =
           DASHBOARD_SNAPSHOT_DB_STORE,
           "readonly"
         );
+
         const store = transaction.objectStore(DASHBOARD_SNAPSHOT_DB_STORE);
         const request = store.get(DASHBOARD_SNAPSHOT_CACHE_KEY);
 
         request.addEventListener("success", () => {
-          const result: unknown = Reflect.get(request, "result");
-          resolve(parseCachedSnapshot(result));
+          const cached = cachedSnapshotSchema.safeParse(request.result);
+          resolve(cached.success ? cached.data : null);
         });
 
         request.addEventListener("error", () => {
@@ -111,6 +99,7 @@ const writeDashboardSnapshotToIndexedDb = async (
         DASHBOARD_SNAPSHOT_DB_STORE,
         "readwrite"
       );
+
       const store = transaction.objectStore(DASHBOARD_SNAPSHOT_DB_STORE);
       store.put(cached, DASHBOARD_SNAPSHOT_CACHE_KEY);
 
@@ -136,6 +125,7 @@ const persistDashboardSnapshotToLocalStorage = (
       snapshot,
       version: DASHBOARD_SNAPSHOT_CACHE_VERSION,
     };
+
     window.localStorage.setItem(
       DASHBOARD_SNAPSHOT_CACHE_KEY,
       JSON.stringify(cached)
@@ -147,16 +137,23 @@ const persistDashboardSnapshotToLocalStorage = (
 
 export const getDashboardSnapshotWeight = getDashboardSnapshotPayloadWeight;
 
+/**
+ * Read the local-storage dashboard fallback.
+ * @returns The resulting `FullDashboardMessage | null` value.
+ */
 export const readPersistedDashboardSnapshotSync =
   (): FullDashboardMessage | null => {
     try {
       const raw = window.localStorage.getItem(DASHBOARD_SNAPSHOT_CACHE_KEY);
+
       if (raw === null) {
         return null;
       }
 
       const parsed: unknown = JSON.parse(raw);
-      const cached = parseCachedSnapshot(parsed);
+      const cachedResult = cachedSnapshotSchema.safeParse(parsed);
+      const cached = cachedResult.success ? cachedResult.data : null;
+
       if (cached !== null && getDashboardSnapshotWeight(cached.snapshot) > 0) {
         return cached.snapshot;
       }
@@ -167,10 +164,15 @@ export const readPersistedDashboardSnapshotSync =
     return null;
   };
 
+/**
+ * Restore the newest available cached dashboard snapshot.
+ * @returns The resulting `Promise<FullDashboardMessage | null>` value.
+ */
 export const readPersistedDashboardSnapshot =
   async (): Promise<FullDashboardMessage | null> => {
     try {
       const cached = await readDashboardSnapshotFromIndexedDb();
+
       if (cached !== null && getDashboardSnapshotWeight(cached.snapshot) > 0) {
         return cached.snapshot;
       }
@@ -180,18 +182,22 @@ export const readPersistedDashboardSnapshot =
 
     try {
       const raw = window.localStorage.getItem(DASHBOARD_SNAPSHOT_CACHE_KEY);
+
       if (raw === null) {
         return null;
       }
 
       const parsed: unknown = JSON.parse(raw);
-      const cached = parseCachedSnapshot(parsed);
+      const cachedResult = cachedSnapshotSchema.safeParse(parsed);
+      const cached = cachedResult.success ? cachedResult.data : null;
+
       if (cached !== null && getDashboardSnapshotWeight(cached.snapshot) > 0) {
         try {
           await writeDashboardSnapshotToIndexedDb(cached);
         } catch {
           // Keep using the localStorage copy if migration is unavailable.
         }
+
         return cached.snapshot;
       }
 
@@ -203,6 +209,10 @@ export const readPersistedDashboardSnapshot =
     return null;
   };
 
+/**
+ * Persist a nonempty dashboard snapshot for offline startup.
+ * @param snapshot - Validated dashboard snapshot.
+ */
 export const persistDashboardSnapshot = (
   snapshot: FullDashboardMessage
 ): void => {

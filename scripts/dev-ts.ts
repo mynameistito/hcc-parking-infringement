@@ -24,21 +24,33 @@ const readStdout = async (child: ReturnType<typeof spawn>): Promise<string> => {
     chunks.push(chunk);
   });
   await once(child, "close");
+
   return Buffer.concat(chunks).toString("utf-8").trim();
 };
 
 const resolveTailscaleHost = async (): Promise<string> => {
   const fromEnv = process.env.DEV_HOST?.trim();
+
   if (fromEnv !== undefined && fromEnv.length > 0) {
     return fromEnv;
   }
 
   try {
-    const child = spawn("tailscale", ["ip", "-4"], {
-      shell: true,
+    const tailscalePath =
+      process.platform === "win32"
+        ? path.join(
+            process.env.ProgramFiles ?? "C:\\Program Files",
+            "Tailscale",
+            "tailscale.exe"
+          )
+        : "/usr/bin/tailscale";
+
+    const child = spawn(tailscalePath, ["ip", "-4"], {
       stdio: ["ignore", "pipe", "ignore"],
     });
+
     const output = await readStdout(child);
+
     if (output.length > 0) {
       return output.split(/\s+/u)[0] ?? output;
     }
@@ -49,6 +61,7 @@ const resolveTailscaleHost = async (): Promise<string> => {
   console.warn(
     "Could not detect a Tailscale IPv4 address. Set DEV_HOST or install the Tailscale CLI."
   );
+
   return "0.0.0.0";
 };
 
@@ -58,9 +71,11 @@ const isPortInUse = async (host: string, port: number): Promise<boolean> => {
   try {
     await once(socket, "connect");
     socket.destroy();
+
     return true;
   } catch {
     socket.destroy();
+
     return false;
   }
 };
@@ -85,8 +100,10 @@ const assertPortAvailable = async (
 };
 
 const args = scriptArgv();
+
 const portValue =
   readArgValue(args, "port") ?? process.env.DEV_PORT ?? DEFAULT_PORT;
+
 const normalizedPort = portValue.replaceAll(/^["']|["']$/gu, "");
 
 if (!/^\d+$/u.test(normalizedPort)) {
@@ -100,6 +117,7 @@ const host = await resolveTailscaleHost();
 await assertPortAvailable(host, port, strictPort);
 
 const workerUrl = `http://${host}:${port}`;
+
 process.env.WORKER_URL ??= workerUrl;
 
 const forwardedArgs = args.filter(
@@ -123,13 +141,14 @@ if (strictPort) {
 }
 
 console.log(`Starting Vite on ${workerUrl}`);
+
 console.log("Tailnet dashboard:", workerUrl);
+
 console.log("WORKER_URL for scripts:", workerUrl, "\n");
 
-const child = spawn("bunx", ["vite", ...viteArgs], {
+const child = spawn(process.execPath, ["x", "vite", ...viteArgs], {
   cwd: rootDir,
   env: process.env,
-  shell: true,
   stdio: "inherit",
 });
 

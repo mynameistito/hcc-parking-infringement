@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 const TrendChart = lazy(async () => {
   const module = await import("@/components/trend-chart");
+
   return { default: module.TrendChart };
 });
 
@@ -20,12 +21,15 @@ const formatTrendPercent = (percent: number | null): string => {
   if (percent === null) {
     return "—";
   }
+
   let sign = "";
+
   if (percent > 0) {
     sign = "+";
   } else if (percent < 0) {
     sign = "−";
   }
+
   return `${sign}${Math.abs(percent).toFixed(1)}%`;
 };
 
@@ -33,6 +37,7 @@ const TrendBadge = ({ trend }: { trend: TrendResult }) => {
   const isDown = trend.direction === "down";
   const isUp = trend.direction === "up";
   let Icon = Minus;
+
   if (isUp) {
     Icon = ArrowUpRight;
   } else if (isDown) {
@@ -44,7 +49,7 @@ const TrendBadge = ({ trend }: { trend: TrendResult }) => {
       className={cn(
         "inline-flex items-center gap-0.5 text-xs font-medium tabular-nums",
         !isUp && !isDown && "text-muted-foreground",
-        isDown && "text-[var(--chart-2)]",
+        isDown && "text-chart-2",
         isUp && "text-destructive"
       )}
     >
@@ -75,12 +80,12 @@ const PaceStatBox = ({
   });
 
   return (
-    <div className="min-w-0 rounded-[6px] border border-border bg-background px-3 py-2">
+    <div className="border-border bg-background min-w-0 rounded-lg border px-3 py-2">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <span className="text-muted-foreground text-xs">{label}</span>
         <TrendBadge trend={trend} />
       </div>
-      <span className="mt-0.5 block min-h-[30px] font-mono text-3xl font-semibold leading-none tabular-nums tracking-[-0.04em]">
+      <span className="mt-0.5 block min-h-[30px] font-mono text-3xl leading-none font-semibold tracking-tighter tabular-nums">
         {numberFmt.format(animated)}
       </span>
       <Suspense fallback={<Skeleton className="mt-1.5 h-12" />}>
@@ -104,6 +109,10 @@ interface PacePanelProps {
   isLoading?: boolean;
 }
 
+/**
+ * Display recent infringement pace and comparisons.
+ * @returns The rendered interface for the supplied data.
+ */
 export const PacePanel = ({
   dailyTrend,
   last7d,
@@ -113,6 +122,7 @@ export const PacePanel = ({
   isLoading,
 }: PacePanelProps) => {
   const loading = isLoading === true;
+
   const panel = useMemo(
     () =>
       buildPacePanelData(
@@ -128,10 +138,10 @@ export const PacePanel = ({
   );
 
   return (
-    <aside className="border-t border-border p-3 sm:p-4 lg:border-t-0 lg:border-l">
+    <aside className="border-border border-t p-3 sm:p-4 lg:border-t-0 lg:border-l">
       <div className="mb-2 flex min-h-5 items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-primary">Current pace</h2>
-        <span className="text-[11px] text-muted-foreground">Live snapshot</span>
+        <h2 className="text-primary text-sm font-semibold">Current pace</h2>
+        <span className="text-muted-foreground text-xs">Live snapshot</span>
       </div>
       <div className="grid grid-cols-1 gap-1.5 md:grid-cols-3 lg:grid-cols-1">
         {loading ? (

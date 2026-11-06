@@ -10,6 +10,10 @@ import { storedJson } from "@/server/http/response.ts";
 import type { AppEnv } from "@/server/http/response.ts";
 import { getParkingStoreReadSource } from "@/server/parking-read-source.ts";
 
+/**
+ * Build liveness and readiness routes.
+ * @returns The resulting `Hono<AppEnv>` value.
+ */
 export const createV1HealthRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
@@ -23,6 +27,7 @@ export const createV1HealthRoutes = (): Hono<AppEnv> => {
   routes.get("/health", async (c) => {
     const cache = await getCacheStatus(c.var.scope);
     const readSource = getParkingStoreReadSource(c.env);
+
     return c.json({
       dataSource: cache.source,
       deployment: {
@@ -39,6 +44,7 @@ export const createV1HealthRoutes = (): Hono<AppEnv> => {
   routes.get("/cache", async (c) => {
     const cache = await getCacheStatus(c.var.scope);
     const readSource = getParkingStoreReadSource(c.env);
+
     return storedJson(c, {
       meta: {
         description: c.var.scope.isSeedMode

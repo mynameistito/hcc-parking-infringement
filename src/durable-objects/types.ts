@@ -13,7 +13,6 @@ export type {
 export type {
   BrowseQuery,
   BrowseResult,
-  BrowseSort,
   LocationRankItem,
   PublicTopItem,
   VehicleRankItem,

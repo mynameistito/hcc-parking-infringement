@@ -6,22 +6,32 @@ import { cleanInfringements } from "@/server/clean.ts";
 import { assertParkingStoreWritable } from "@/server/parking-writes.ts";
 import { getParkingStore } from "@/server/store.ts";
 
-const importBatchSchema = z.object({
+/** Parse the administration import body before it enters the import service. */
+export const importBatchSchema = z.object({
   final: z.boolean().optional().default(false),
   records: z.array(z.record(z.string(), z.unknown())).max(5000),
 });
 
+/**
+ * Imported batch counts and finalization state.
+ */
 export interface ImportInfringementsResult extends ImportBatchResult {
   final: boolean;
 }
 
+/**
+ * Parse and store an infringement import batch.
+ * @param scope - Request services and storage mode.
+ * @param payload - Parsed infringement import command.
+ * @returns The resulting `Promise<ImportInfringementsResult>` value.
+ */
 export const importInfringements = async (
   scope: AppScope,
-  body: unknown
+  payload: z.output<typeof importBatchSchema>
 ): Promise<ImportInfringementsResult> => {
   assertParkingStoreWritable(scope);
-  const payload = importBatchSchema.parse(body);
   const { cleaned, skipped } = cleanInfringements(payload.records);
+
   const result = await getParkingStore(scope.env).importInfringementBatch({
     final: payload.final,
     records: cleaned,

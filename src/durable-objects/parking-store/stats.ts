@@ -10,14 +10,15 @@ import { getCachedInfringementCount } from "./infringement-count.ts";
 import { aggregatePeriod } from "./stats-aggregates.ts";
 import { getSyncMeta } from "./sync.ts";
 
-export { aggregatePeriod, aggregateWindow } from "./stats-aggregates.ts";
-export type { WindowAggregate } from "./stats-aggregates.ts";
-export {
-  mapPublicLiveStatsRow,
-  readPublicLiveStats,
-  recomputeStatsLive,
-} from "./stats-live.ts";
+export { aggregateWindow } from "./stats-aggregates.ts";
 
+export { readPublicLiveStats, recomputeStatsLive } from "./stats-live.ts";
+
+/**
+ * Read current totals and the last synchronization timestamp.
+ * @param sql - Parking storage SQL connection.
+ * @returns The resulting `LiveStats` value.
+ */
 export const getLiveStats = (sql: SqlStorage): LiveStats => {
   const cached = sql
     .exec<{ last_synced_at: string | null }>(
@@ -27,21 +28,25 @@ export const getLiveStats = (sql: SqlStorage): LiveStats => {
     .one();
 
   const now = new Date();
+
   const today = aggregatePeriod(
     sql,
     todayBounds(now).start,
     todayBounds(now).end
   );
+
   const thisMonth = aggregatePeriod(
     sql,
     monthBoundsInAuckland(now).start,
     monthBoundsInAuckland(now).end
   );
+
   const thisYear = aggregatePeriod(
     sql,
     yearBoundsInAuckland(now).start,
     yearBoundsInAuckland(now).end
   );
+
   const allTime = sql
     .exec<{ count: number; total_cents: number }>(
       "SELECT count(*) as count, coalesce(sum(amount_cents), 0) as total_cents FROM infringements"
@@ -60,6 +65,11 @@ export const getLiveStats = (sql: SqlStorage): LiveStats => {
   };
 };
 
+/**
+ * Read stored record counts and ingestion status.
+ * @param sql - Parking storage SQL connection.
+ * @returns The resulting `CacheStatus` value.
+ */
 export const getCacheStatus = (sql: SqlStorage): CacheStatus => {
   const statsRow = sql
     .exec<{ all_time_total: number }>(
@@ -80,6 +90,7 @@ export const getCacheStatus = (sql: SqlStorage): CacheStatus => {
     .one();
 
   const cachedTotal = getCachedInfringementCount(sql);
+
   const totalRecords =
     statsRow !== undefined && statsRow.all_time_total > 0
       ? statsRow.all_time_total

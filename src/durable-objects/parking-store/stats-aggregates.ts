@@ -1,9 +1,23 @@
+/** Infringement count and fine total for a period. */
+interface PeriodAggregate {
+  count: number;
+  totalCents: number;
+}
+
+/** Infringement counts and fine totals for a time window. */
 export interface WindowAggregate {
   amountCents: number;
   count: number;
   towedCount: number;
 }
 
+/**
+ * Aggregates infringements within inclusive timestamp bounds.
+ * @param sql - The Durable Object SQL storage.
+ * @param start - Inclusive start timestamp.
+ * @param end - Inclusive end timestamp.
+ * @returns Record count, total fines, and towed count.
+ */
 export const aggregateWindow = (
   sql: SqlStorage,
   start: string,
@@ -28,11 +42,19 @@ export const aggregateWindow = (
   };
 };
 
+/**
+ * Reads infringement count and fine total within inclusive timestamp bounds.
+ * @param sql - The Durable Object SQL storage.
+ * @param start - Inclusive start timestamp.
+ * @param end - Inclusive end timestamp.
+ * @returns Record count and total fines.
+ */
 export const aggregatePeriod = (
   sql: SqlStorage,
   start: string,
   end: string
-): { count: number; totalCents: number } => {
+): PeriodAggregate => {
   const row = aggregateWindow(sql, start, end);
+
   return { count: row.count, totalCents: row.amountCents };
 };

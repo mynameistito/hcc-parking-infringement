@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { rollingCalendarWindowStart } from "@/lib/rolling-window";
 
-describe("rollingCalendarWindowStart", () => {
+describe(rollingCalendarWindowStart, () => {
   it("returns the inclusive start date for an N-day calendar window", () => {
     const now = new Date("2026-06-15T12:00:00+12:00");
 

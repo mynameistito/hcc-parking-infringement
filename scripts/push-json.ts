@@ -25,10 +25,12 @@ loadDevVars();
 
 const args = scriptArgv();
 const skipWatermarks = readFlag(args, "skip-watermarks");
+
 const batchSize = Math.min(
   parsePositiveInt(readArg(args, "batch-size"), 1000),
   5000
 );
+
 const pauseMs = parseNonNegativeInt(readArg(args, "pause-ms"), 500);
 const startAfter = parseNonNegativeInt(readArg(args, "start-after"), 0);
 const saveOut = readArg(args, "save-out");
@@ -46,12 +48,15 @@ const source = { apiKey, workerUrl: fromUrl };
 const destination = { apiKey, workerUrl: toUrl };
 
 console.log(`[push:json] pull ${fromUrl} → POST snapshot JSON → ${toUrl}`);
+
 if (pauseMs > 0) {
   console.log(`[push:json] pausing ${pauseMs}ms between batches`);
 }
+
 if (saveOut !== undefined) {
   console.log(`[push:json] also saving snapshot to ${saveOut}`);
 }
+
 if (startAfter > 0) {
   console.log(
     `[push:json] resuming after infringement #${formatNumber(startAfter)}`

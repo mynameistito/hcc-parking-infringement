@@ -1,7 +1,3 @@
-import {
-  dashboardSnapshotIsCompleteJson,
-  getDashboardSnapshotPayloadWeightJson,
-} from "@/contracts/dashboard-snapshot.ts";
 import { toPublicInfringementList } from "@/contracts/projections.ts";
 import type {
   PublicDashboardSnapshot,
@@ -28,10 +24,10 @@ import {
 } from "./rankings.ts";
 import { readPublicLiveStats } from "./stats.ts";
 
-export const getDashboardSnapshotPayloadWeight =
-  getDashboardSnapshotPayloadWeightJson;
-
-export const snapshotIsComplete = dashboardSnapshotIsCompleteJson;
+export {
+  dashboardSnapshotIsCompleteJson as snapshotIsComplete,
+  getDashboardSnapshotPayloadWeightJson as getDashboardSnapshotPayloadWeight,
+} from "@/contracts/dashboard-snapshot.ts";
 
 const EMPTY_CHART_BREAKDOWNS = {
   offenceCategories: [],
@@ -44,6 +40,13 @@ const EMPTY_CHART_BREAKDOWNS = {
 
 const FULL_DAILY_TREND_START = "1970-01-01";
 
+/**
+ * Serializes an initial dashboard with live totals and empty detailed data.
+ * @param live - Current public live statistics.
+ * @param paceTrends - Current pace comparisons.
+ * @param at - Snapshot timestamp.
+ * @returns The serialized full-dashboard message.
+ */
 export const buildColdDashboardSnapshotPayload = (
   live: PublicLiveStats,
   paceTrends: PublicPaceTrends,
@@ -68,10 +71,20 @@ export const buildColdDashboardSnapshotPayload = (
     vehicles: [],
   });
 
+/**
+ * Serializes a full dashboard snapshot as a WebSocket message.
+ * @param snapshot - Dashboard data to serialize.
+ * @returns The serialized full-dashboard message.
+ */
 export const buildFullDashboardSnapshotPayload = (
   snapshot: PublicDashboardSnapshot
 ): string => JSON.stringify({ type: "full", ...snapshot });
 
+/**
+ * Reads the cached serialized dashboard snapshot.
+ * @param sql - The Durable Object SQL storage.
+ * @returns The stored payload, or null when no cache exists.
+ */
 export const readStoredDashboardSnapshotPayload = (
   sql: SqlStorage
 ): string | null => {
@@ -85,6 +98,11 @@ export const readStoredDashboardSnapshotPayload = (
   return rows[0]?.payload ?? null;
 };
 
+/**
+ * Stores or replaces the cached dashboard payload.
+ * @param sql - The Durable Object SQL storage.
+ * @param payload - Serialized dashboard message to cache.
+ */
 export const writeDashboardSnapshotCache = (
   sql: SqlStorage,
   payload: string
@@ -101,6 +119,11 @@ export const writeDashboardSnapshotCache = (
   );
 };
 
+/**
+ * Builds a full dashboard snapshot from stored aggregates and records.
+ * @param sql - The Durable Object SQL storage.
+ * @returns The assembled public dashboard snapshot.
+ */
 export const assembleFullDashboardSnapshot = (
   sql: SqlStorage
 ): PublicDashboardSnapshot => {

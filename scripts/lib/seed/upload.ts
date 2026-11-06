@@ -5,13 +5,17 @@ import { waitForClose } from "@scripts/lib/process-close.ts";
 
 import { MANIFEST_FILE, seedObjectKey } from "@/server/seed-manifest.ts";
 
+/**
+ * Upload exported seed files to the configured R2 bucket.
+ * @param options - Operation settings and progress callbacks.
+ */
 export const uploadSeedDirectory = async (options: {
   bucket: string;
   dir: string;
   files: string[];
   prefix: string;
 }): Promise<void> => {
-  const rootDir = path.resolve(import.meta.dirname, "..", "..");
+  const rootDir = path.resolve(import.meta.dirname, "..", "..", "..");
 
   await Promise.all(
     options.files.map(async (file) => {
@@ -24,8 +28,9 @@ export const uploadSeedDirectory = async (options: {
 
       const code = await waitForClose(
         spawn(
-          "bunx",
+          process.execPath,
           [
+            "x",
             "wrangler",
             "r2",
             "object",
@@ -34,7 +39,7 @@ export const uploadSeedDirectory = async (options: {
             `--file=${localPath}`,
             "--remote",
           ],
-          { cwd: rootDir, shell: true, stdio: "inherit" }
+          { cwd: rootDir, stdio: "inherit" }
         )
       );
 

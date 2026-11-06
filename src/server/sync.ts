@@ -1,24 +1,14 @@
 import type { AppScope } from "@/server/app-scope.ts";
 
-export type {
-  SyncRunType,
-  SyncWindowOptions,
-  SyncWindowResult,
-} from "@/server/sync-window.ts";
-export {
-  DEFAULT_BACKFILL_CHUNK_DAYS,
-  hourlySync,
-  splitDateRange,
-  syncWindow,
-} from "@/server/sync-window.ts";
-export type { StartBackfillOptions } from "@/server/sync-backfill.ts";
-export {
-  BACKFILL_EARLIEST,
-  PAGE_SIZE_LIMIT,
-  processBackfillMessage,
-  startBackfill,
-} from "@/server/sync-backfill.ts";
+export { hourlySync, splitDateRange } from "@/server/sync-window.ts";
 
+export { BACKFILL_EARLIEST, startBackfill } from "@/server/sync-backfill.ts";
+
+/**
+ * Read the most recent synchronization run when storage supports it.
+ * @param scope - Request services and storage mode.
+ * @returns The rendered interface for the supplied data.
+ */
 export const getLatestSyncRun = async (scope: AppScope) => {
   if (scope.isSeedMode) {
     return null;

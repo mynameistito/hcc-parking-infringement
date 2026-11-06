@@ -1,19 +1,26 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 /**
  * Shared environment for CLI scripts: `.dev.vars`, worker URL resolution,
  * and fetch helpers with timeouts and actionable error messages.
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import type { JSONValue } from "hono/utils/types";
+import { z } from "zod";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
 const DEFAULT_WORKER_URL = "http://127.0.0.1:5173";
 const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 
-/** Whether a worker URL targets a local dev server (not workers.dev). */
+/**
+ *  Whether a worker URL targets a local dev server (not workers.dev).
+ * @param url - Worker URL to inspect.
+ * @returns Whether the requested condition holds.
+ */
 export const isLocalWorkerUrl = (url: string): boolean => {
   try {
     const { hostname } = new URL(url);
+
     return (
       hostname === "127.0.0.1" ||
       hostname === "localhost" ||
@@ -25,8 +32,12 @@ export const isLocalWorkerUrl = (url: string): boolean => {
   }
 };
 
-/** Vite often binds `localhost` only; wrangler uses `127.0.0.1`. Try both. */
-export const localWorkerUrlAlternates = (workerUrl: string): string[] => {
+/**
+ *  Vite often binds `localhost` only; wrangler uses `127.0.0.1`. Try both.
+ * @param workerUrl - Worker origin.
+ * @returns The resulting `string[]` value.
+ */
+const localWorkerUrlAlternates = (workerUrl: string): string[] => {
   try {
     const parsed = new URL(workerUrl);
     const alternates: string[] = [];
@@ -45,9 +56,13 @@ export const localWorkerUrlAlternates = (workerUrl: string): string[] => {
   }
 };
 
-/** Default export source when `--from` / `--from-port` are not set. */
+/**
+ *  Default export source when `--from` / `--from-port` are not set.
+ * @returns The formatted or resolved string value.
+ */
 export const defaultLocalPushSourceUrl = (): string => {
   const workerUrl = process.env.WORKER_URL;
+
   if (workerUrl !== undefined && isLocalWorkerUrl(workerUrl)) {
     return workerUrl.replace(/\/$/u, "");
   }
@@ -61,6 +76,7 @@ let devVarsLoaded = false;
 const ensureLocalNoProxy = (): void => {
   const hosts = ["localhost", "127.0.0.1", "::1"];
   const existing = process.env.NO_PROXY ?? process.env.no_proxy ?? "";
+
   const parts = existing
     .split(",")
     .map((part) => part.trim())
@@ -87,31 +103,41 @@ const ensureLocalNoProxy = (): void => {
 
 ensureLocalNoProxy();
 
-const parseDevVars = (content: string): Record<string, string> => {
-  const vars: Record<string, string> = {};
+const parseDevVarLine = (line: string): [string, string] | null => {
+  const trimmed = line.trim();
+
+  if (trimmed === "" || trimmed.startsWith("#")) {
+    return null;
+  }
+
+  const equalsIndex = trimmed.indexOf("=");
+
+  if (equalsIndex === -1) {
+    return null;
+  }
+
+  const key = trimmed.slice(0, equalsIndex).trim();
+  let value = trimmed.slice(equalsIndex + 1).trim();
+
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+
+  return [key, value];
+};
+
+const parseDevVars = (content: string): Map<string, string> => {
+  const vars = new Map<string, string>();
 
   for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed === "" || trimmed.startsWith("#")) {
-      continue;
+    const entry = parseDevVarLine(line);
+
+    if (entry !== null) {
+      vars.set(...entry);
     }
-
-    const equalsIndex = trimmed.indexOf("=");
-    if (equalsIndex === -1) {
-      continue;
-    }
-
-    const key = trimmed.slice(0, equalsIndex).trim();
-    let value = trimmed.slice(equalsIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    vars[key] = value;
   }
 
   return vars;
@@ -129,7 +155,7 @@ export const loadDevVars = (): void => {
     const content = readFileSync(path.join(rootDir, ".dev.vars"), "utf-8");
     const vars = parseDevVars(content);
 
-    for (const [key, value] of Object.entries(vars)) {
+    for (const [key, value] of vars) {
       process.env[key] ??= value;
     }
   } catch {
@@ -137,31 +163,46 @@ export const loadDevVars = (): void => {
   }
 };
 
-/** Worker base URL from `WORKER_URL` or the Vite dev default (`http://127.0.0.1:5173`). */
+/**
+ *  Worker base URL from `WORKER_URL` or the Vite dev default (`http://127.0.0.1:5173`).
+ * @returns The formatted or resolved string value.
+ */
 export const getWorkerUrl = (): string =>
   (process.env.WORKER_URL ?? DEFAULT_WORKER_URL).replace(/\/$/u, "");
 
-/** Minimal env for scripts that call the HCC Open Data API directly. */
+/**
+ *  Minimal env for scripts that call the HCC Open Data API directly.
+ * @returns The resulting `Pick<Env, "HCC_API_BASE">` value.
+ */
 export const getHccClientEnv = (): Pick<Env, "HCC_API_BASE"> => ({
   HCC_API_BASE: process.env.HCC_API_BASE,
 });
 
-/** Resolve worker URL from CLI `--port` / `--port=`, then `WORKER_URL`, then default. */
+/**
+ *  Resolve worker URL from CLI `--port` / `--port=`, then `WORKER_URL`, then default.
+ * @param args - Command-line argument tokens.
+ * @returns The formatted or resolved string value.
+ */
 export const resolveWorkerUrl = (args: string[] = []): string => {
   const portFromEquals = args
     .find((arg) => arg.startsWith("--port="))
     ?.split("=")[1]
     ?.trim();
+
   const portFlagIndex = args.indexOf("--port");
+
   const portFromFlag =
     portFlagIndex === -1 ? undefined : args[portFlagIndex + 1]?.trim();
+
   const port = portFromEquals ?? portFromFlag;
 
   if (port !== undefined && port !== "") {
     const normalizedPort = port.replaceAll(/^["']|["']$/gu, "");
+
     if (!/^\d+$/u.test(normalizedPort)) {
       throw new Error(`Invalid --port value "${port}" — expected a number.`);
     }
+
     return `http://127.0.0.1:${normalizedPort}`;
   }
 
@@ -173,13 +214,19 @@ export interface FetchWithTimeoutInit extends RequestInit {
   timeoutMs?: number;
 }
 
-/** Fetch with an abort timeout so dead ports / proxies fail fast instead of hanging. */
+/**
+ *  Fetch with an abort timeout so dead ports / proxies fail fast instead of hanging.
+ * @param url - Worker URL to inspect.
+ * @param init - Fetch request options.
+ * @returns The resulting `Promise<Response>` value.
+ */
 export const fetchWithTimeout = async (
   url: string,
   init?: FetchWithTimeoutInit
 ): Promise<Response> => {
   const timeoutMs = init?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   const controller = new AbortController();
+
   const timeout = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
@@ -194,24 +241,29 @@ export const fetchWithTimeout = async (
   }
 };
 
-const formatErrorReason = (error: unknown, timeoutMs: number): string => {
-  if (error instanceof Error && error.name === "AbortError") {
+const formatErrorReason = (cause: unknown, timeoutMs: number): string => {
+  if (cause instanceof Error && cause.name === "AbortError") {
     return `timed out after ${timeoutMs}ms`;
   }
 
-  if (error instanceof Error) {
-    return error.message;
+  if (cause instanceof Error) {
+    return cause.message;
   }
 
-  return String(error);
+  return String(cause);
 };
 
-/** Fail fast when the worker port is wrong or unreachable. */
+/**
+ *  Fail fast when the worker port is wrong or unreachable.
+ * @param workerUrl - Worker origin.
+ * @param options - Operation settings and progress callbacks.
+ */
 export const assertWorkerReachable = async (
   workerUrl: string,
   options?: { path?: string; timeoutMs?: number }
 ): Promise<void> => {
   const baseUrl = workerUrl.replace(/\/$/u, "");
+
   const paths = [
     options?.path ?? "/api/v1/health/live",
     "/api/v1/health",
@@ -274,29 +326,28 @@ export const assertWorkerReachable = async (
   );
 };
 
-const extractErrorMessage = (rawBody: unknown): string | undefined => {
-  if (rawBody === null || rawBody === undefined) {
-    return undefined;
-  }
+const errorMessageSchema = z.union([
+  z.string().min(1),
+  z.object({ error: z.string().min(1) }).transform((body) => body.error),
+]);
 
-  if (typeof rawBody === "string" && rawBody.length > 0) {
-    return rawBody;
-  }
+const extractErrorMessage = (rawBody: JSONValue): string | undefined => {
+  const parsed = errorMessageSchema.safeParse(rawBody);
 
-  if (typeof rawBody === "object" && rawBody !== null && "error" in rawBody) {
-    const { error } = rawBody;
-    if (typeof error === "string" && error.length > 0) {
-      return error;
-    }
-  }
-
-  return undefined;
+  return parsed.success ? parsed.data : undefined;
 };
 
-/** Format an HTTP error with hints for common worker misconfiguration (405, 401). */
+/**
+ *  Format an HTTP error with hints for common worker misconfiguration (405, 401).
+ * @param response - Worker HTTP response.
+ * @param rawBody - Raw Body supplied to this operation.
+ * @param method - Method supplied to this operation.
+ * @param url - Worker URL to inspect.
+ * @returns The formatted or resolved string value.
+ */
 export const describeFetchFailure = (
   response: Response,
-  rawBody: unknown,
+  rawBody: JSONValue,
   method: string,
   url: string
 ): string => {
@@ -322,24 +373,30 @@ export const describeFetchFailure = (
   return lines.join("\n");
 };
 
-const formatConnectionErrorReason = (error: unknown): string => {
-  if (error instanceof Error && error.name === "AbortError") {
+const formatConnectionErrorReason = (cause: unknown): string => {
+  if (cause instanceof Error && cause.name === "AbortError") {
     return "request timed out (wrong port, dev server not running, or HTTP proxy intercepting localhost)";
   }
 
-  return formatErrorReason(error, DEFAULT_FETCH_TIMEOUT_MS);
+  return formatErrorReason(cause, DEFAULT_FETCH_TIMEOUT_MS);
 };
 
-/** Format a connection/timeout error with dev-server startup hints. */
+/**
+ *  Format a connection/timeout error with dev-server startup hints.
+ * @param cause - Failure reported by the operation.
+ * @param method - Method supplied to this operation.
+ * @param url - Worker URL to inspect.
+ * @returns The formatted or resolved string value.
+ */
 export const describeConnectionFailure = (
-  error: unknown,
+  cause: unknown,
   method: string,
   url: string
 ): string => {
-  const reason = formatConnectionErrorReason(error);
+  const reason = formatConnectionErrorReason(cause);
 
   const lines = [
-    `Could not reach ${url}`,
+    `${method} could not reach ${url}`,
     reason,
     "Start a dev server (`bun run dev` or `bun run dev:wrangler`), pass `--port=...`, or set WORKER_URL.",
     "Use the exact port from the wrangler terminal (often 8787, not 8788).",

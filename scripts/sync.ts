@@ -35,7 +35,7 @@ try {
   process.exit(1);
 }
 
-const rawBody: unknown = await response.json().catch(() => null);
+const rawBody = z.json().parse(await response.json().catch(() => null));
 const parsedBody = syncResponseSchema.safeParse(rawBody);
 const body = parsedBody.success ? parsedBody.data : null;
 

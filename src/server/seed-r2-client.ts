@@ -3,8 +3,19 @@ import { AwsClient } from "aws4fetch";
 const DEFAULT_SEED_BUCKET = "hcc-parking-infringement-seed";
 const SEED_OBJECT_CACHE = "parking-seed-objects";
 
+/** Text-object operations required by the seed storage adapter. */
+interface SeedBucket {
+  get: (key: string) => Promise<{ text: () => Promise<string> } | null>;
+  put: (
+    key: string,
+    value: string,
+    options: R2PutOptions
+  ) => Promise<R2Object | null>;
+}
+
+/** Worker bindings and optional S3 settings for seed object storage. */
 export interface SeedR2Env {
-  PARKING_SEED?: R2Bucket;
+  PARKING_SEED?: SeedBucket;
   R2_ACCESS_KEY_ID?: string;
   R2_ACCESS_KEY?: string;
   R2_SECRET_ACCESS_KEY?: string;
@@ -17,6 +28,7 @@ const DEFAULT_SEED_CACHE_SECONDS = 60;
 
 const resolveR2AccessKeyId = (env: SeedR2Env): string | undefined => {
   const accessKeyId = env.R2_ACCESS_KEY_ID ?? env.R2_ACCESS_KEY;
+
   return accessKeyId !== undefined && accessKeyId.length > 0
     ? accessKeyId
     : undefined;
@@ -32,6 +44,7 @@ const bindingCacheUrl = (env: SeedR2Env, key: string): string =>
 
 const resolveR2AccountId = (env: SeedR2Env): string => {
   const accountId = env.R2_ACCOUNT_ID;
+
   if (accountId === undefined || accountId.length === 0) {
     throw new Error(
       "Set R2_ACCOUNT_ID in wrangler vars when using R2 S3 API credentials."
@@ -43,12 +56,13 @@ const resolveR2AccountId = (env: SeedR2Env): string => {
 
 const hasR2Binding = (
   env: SeedR2Env
-): env is SeedR2Env & { PARKING_SEED: R2Bucket } =>
+): env is SeedR2Env & { PARKING_SEED: SeedBucket } =>
   env.PARKING_SEED !== undefined;
 
 const hasR2S3Credentials = (env: SeedR2Env): boolean => {
   const accessKeyId = resolveR2AccessKeyId(env);
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+
   return (
     accessKeyId !== undefined &&
     secretAccessKey !== undefined &&
@@ -56,7 +70,11 @@ const hasR2S3Credentials = (env: SeedR2Env): boolean => {
   );
 };
 
-export const assertSeedR2Configured = (env: SeedR2Env): void => {
+/**
+ * Verifies that a seed bucket binding or S3 credentials are available.
+ * @param env - Seed storage bindings and settings.
+ */
+const assertSeedR2Configured = (env: SeedR2Env): void => {
   if (hasR2Binding(env) || hasR2S3Credentials(env)) {
     return;
   }
@@ -67,10 +85,11 @@ export const assertSeedR2Configured = (env: SeedR2Env): void => {
 };
 
 const readViaBinding = async (
-  bucket: R2Bucket,
+  bucket: SeedBucket,
   key: string
 ): Promise<string | null> => {
   const object = await bucket.get(key);
+
   if (object === null) {
     return null;
   }
@@ -84,11 +103,14 @@ const buildS3ObjectUrl = (
   key: string
 ): string => {
   const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+
   return `https://${accountId}.r2.cloudflarestorage.com/${bucketName}/${encodedKey}`;
 };
 
 const resolveSeedCacheSeconds = (env: SeedR2Env): number => {
+  // oxlint-disable-next-line unicorn/prefer-number-coercion -- Preserve decimal-prefix parsing for existing cache settings.
   const value = Number.parseInt(env.PARKING_SEED_CACHE_SECONDS ?? "", 10);
+
   if (!Number.isFinite(value) || value < 0) {
     return DEFAULT_SEED_CACHE_SECONDS;
   }
@@ -105,6 +127,7 @@ const readCachedObjectTextUnsafe = async (
 
   const cache = await caches.open(SEED_OBJECT_CACHE);
   const response = await cache.match(url);
+
   if (response === undefined) {
     return null;
   }
@@ -123,8 +146,10 @@ const writeCachedObjectTextUnsafe = async (
 
   const cache = await caches.open(SEED_OBJECT_CACHE);
   const maxAge = resolveSeedCacheSeconds(env);
+
   if (maxAge === 0) {
     await cache.delete(url);
+
     return;
   }
 
@@ -184,6 +209,7 @@ const readViaS3Api = async (
 ): Promise<string | null> => {
   const accessKeyId = resolveR2AccessKeyId(env);
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+
   if (accessKeyId === undefined || secretAccessKey === undefined) {
     throw new Error("R2 S3 credentials are not configured.");
   }
@@ -194,13 +220,16 @@ const readViaS3Api = async (
     secretAccessKey,
     service: "s3",
   });
+
   const url = buildS3ObjectUrl(
     resolveR2AccountId(env),
     resolveSeedBucketName(env),
     key
   );
+
   const cached =
     resolveSeedCacheSeconds(env) === 0 ? null : await readCachedObjectText(url);
+
   if (cached !== null) {
     return cached;
   }
@@ -219,11 +248,12 @@ const readViaS3Api = async (
 
   const text = await response.text();
   await writeCachedObjectText(url, env, text);
+
   return text;
 };
 
 const writeViaBinding = async (
-  bucket: R2Bucket,
+  bucket: SeedBucket,
   key: string,
   value: string,
   contentType: string
@@ -241,6 +271,7 @@ const writeViaS3Api = async (
 ): Promise<void> => {
   const accessKeyId = resolveR2AccessKeyId(env);
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+
   if (accessKeyId === undefined || secretAccessKey === undefined) {
     throw new Error("R2 S3 credentials are not configured.");
   }
@@ -251,11 +282,13 @@ const writeViaS3Api = async (
     secretAccessKey,
     service: "s3",
   });
+
   const url = buildS3ObjectUrl(
     resolveR2AccountId(env),
     resolveSeedBucketName(env),
     key
   );
+
   const response = await client.fetch(url, {
     body: value,
     headers: { "Content-Type": contentType },
@@ -271,6 +304,12 @@ const writeViaS3Api = async (
   await deleteCachedObjectText(url);
 };
 
+/**
+ * Reads a seed object as text using the binding or S3 API and a best-effort cache.
+ * @param env - Seed storage bindings and settings.
+ * @param key - Object key to read.
+ * @returns Object text, or null when the object is absent.
+ */
 export const readSeedObjectText = async (
   env: SeedR2Env,
   key: string
@@ -279,23 +318,35 @@ export const readSeedObjectText = async (
 
   if (hasR2Binding(env)) {
     const url = bindingCacheUrl(env, key);
+
     const cached =
       resolveSeedCacheSeconds(env) === 0
         ? null
         : await readCachedObjectText(url);
+
     if (cached !== null) {
       return cached;
     }
+
     const text = await readViaBinding(env.PARKING_SEED, key);
+
     if (text !== null) {
       await writeCachedObjectText(url, env, text);
     }
+
     return text;
   }
 
   return await readViaS3Api(env, key);
 };
 
+/**
+ * Writes a seed object and invalidates its local cache entry.
+ * @param env - Seed storage bindings and settings.
+ * @param key - Object key to write.
+ * @param value - Text content to store.
+ * @param contentType - Content type for the stored object.
+ */
 export const writeSeedObjectText = async (
   env: SeedR2Env,
   key: string,
@@ -307,6 +358,7 @@ export const writeSeedObjectText = async (
   if (hasR2Binding(env)) {
     await writeViaBinding(env.PARKING_SEED, key, value, contentType);
     await deleteCachedObjectText(bindingCacheUrl(env, key));
+
     return;
   }
 

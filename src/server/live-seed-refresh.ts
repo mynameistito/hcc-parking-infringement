@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { parsePublicDashboardSnapshotJson } from "@/contracts/dashboard-snapshot.ts";
 import type {
   ChartBreakdowns,
@@ -53,11 +55,13 @@ interface ExistingSeedState {
   readonly snapshotLive: PublicLiveStats | null;
 }
 
+/** Inclusive date window fetched as one live seed refresh chunk. */
 export interface LiveSeedRefreshWindow {
   readonly end: string;
   readonly start: string;
 }
 
+/** Aggregates and object key produced by a refreshed infringement chunk. */
 export interface LiveSeedRefreshChunkSummary {
   readonly lastHccFetchAt?: string;
   readonly amountCents: number;
@@ -90,6 +94,7 @@ export interface LiveSeedRefreshChunkSummary {
   readonly vehicles: [string, number][];
 }
 
+/** Existing seed state and date windows used to coordinate a refresh. */
 export interface LiveSeedRefreshPlan {
   readonly bootstrapAfter: string | null;
   readonly existingLive: PublicLiveStats | null;
@@ -103,6 +108,7 @@ export interface LiveSeedRefreshPlan {
   readonly windows: LiveSeedRefreshWindow[];
 }
 
+/** Date range and counts reported after publishing a live seed refresh. */
 export interface RefreshLiveSeedResult {
   readonly from: string;
   readonly skipped: number;
@@ -111,7 +117,8 @@ export interface RefreshLiveSeedResult {
 }
 
 const parseRefreshDays = (value: string | undefined): number => {
-  const parsed = Number.parseInt(value ?? "", 10);
+  const parsed = Math.trunc(Number(value ?? ""));
+
   if (!Number.isFinite(parsed) || parsed < 1) {
     return DEFAULT_REFRESH_DAYS;
   }
@@ -180,6 +187,7 @@ const buildVehicles = (
   records: readonly CleanInfringement[]
 ): VehicleRankItem[] => {
   const counts = new Map<string, number>();
+
   for (const record of records) {
     incrementRank(counts, vehicleKey(record));
   }
@@ -191,6 +199,7 @@ const buildVehicles = (
       const [make, model] = key.split("\u0000");
       const safeMake = make ?? "Unknown";
       const safeModel = model ?? "Unknown";
+
       return {
         count,
         label: `${safeMake} ${safeModel}`.trim(),
@@ -211,6 +220,7 @@ const vehiclesFromMap = (
       const [make, model] = key.split("\u0000");
       const safeMake = make ?? "Unknown";
       const safeModel = model ?? "Unknown";
+
       return {
         count,
         label: `${safeMake} ${safeModel}`.trim(),
@@ -225,6 +235,7 @@ const buildDailyTrend = (
   to: string
 ): DailyStatPoint[] => {
   const counts = new Map<string, { count: number; totalCents: number }>();
+
   for (const record of records) {
     const date = toDateKey(record);
     const current = counts.get(date) ?? { count: 0, totalCents: 0 };
@@ -236,6 +247,7 @@ const buildDailyTrend = (
 
   const trend: DailyStatPoint[] = [];
   let cursor = from;
+
   while (cursor <= to) {
     const point = counts.get(cursor) ?? { count: 0, totalCents: 0 };
     trend.push({
@@ -267,6 +279,7 @@ const latestInstant = (
   if (left === null) {
     return right;
   }
+
   if (right === null) {
     return left;
   }
@@ -295,6 +308,7 @@ const uniqueByInfringementNumber = (
   records: readonly CleanInfringement[]
 ): CleanInfringement[] => {
   const byNumber = new Map<number, CleanInfringement>();
+
   for (const record of records) {
     byNumber.set(record.infringementNumber, record);
   }
@@ -319,60 +333,50 @@ const readRefreshCursor = async (
     env,
     seedObjectKey(prefix, REFRESH_CURSOR_FILE)
   );
+
   if (cursorRaw === null) {
     return null;
   }
 
-  const parsed: unknown = JSON.parse(cursorRaw);
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 2 ||
-    !("publishedInfringementNumbers" in parsed)
-  ) {
-    return null;
-  }
+  const parsed = z
+    .object({
+      publishedInfringementNumbers: z.array(
+        z.number().refine(Number.isSafeInteger)
+      ),
+      version: z.literal(2),
+    })
+    .safeParse(JSON.parse(cursorRaw));
 
-  const candidate: unknown = parsed.publishedInfringementNumbers;
-  if (!Array.isArray(candidate)) {
-    return null;
-  }
-
-  const values: unknown[] = candidate;
-  if (
-    !values.every(
-      (value): value is number =>
-        typeof value === "number" && Number.isSafeInteger(value)
-    )
-  ) {
-    return null;
-  }
-
-  return values;
+  return parsed.success ? parsed.data.publishedInfringementNumbers : null;
 };
 
 const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
   try {
     const { manifest, prefix } = await readSeedManifest(env);
+
     const snapshotKey =
       manifest.dashboardSnapshotKey ?? DASHBOARD_SNAPSHOT_FILE;
+
     const snapshotRaw = await readSeedObjectText(
       env,
       seedObjectKey(prefix, snapshotKey)
     );
+
     const snapshot =
       snapshotRaw === null
         ? null
         : parsePublicDashboardSnapshotJson(snapshotRaw);
+
     const snapshotLive = snapshot?.live ?? null;
     let publishedInfringementNumbers: number[] = [];
+
     try {
       publishedInfringementNumbers =
         (await readRefreshCursor(env, prefix)) ?? [];
     } catch {
       // A malformed cursor must not discard the valid manifest or snapshot.
     }
+
     const bootstrapAfter =
       publishedInfringementNumbers.length === 0
         ? (snapshotLive?.lastRecordAt ?? null)
@@ -387,11 +391,12 @@ const loadExistingSeedState = async (env: Env): Promise<ExistingSeedState> => {
     };
   } catch {
     const prefix = env.PARKING_STORE_SEED_PREFIX;
+
     return {
       bootstrapAfter: null,
       manifest: null,
       prefix:
-        typeof prefix === "string" && prefix.length > 0
+        prefix !== undefined && prefix.length > 0
           ? prefix
           : "parking-store/v1/",
       publishedInfringementNumbers: [],
@@ -435,6 +440,12 @@ const buildManifest = (options: {
 const toNdjson = (records: readonly CleanInfringement[]): string =>
   `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
 
+/**
+ * Plans date windows using the current seed state and refresh settings.
+ * @param env - Worker environment containing seed storage and refresh configuration.
+ * @param chunkDays - Maximum number of days per window.
+ * @returns The windows and existing state needed to perform the refresh.
+ */
 export const planLiveSeedRefresh = async (
   env: Env,
   chunkDays = 7
@@ -468,6 +479,12 @@ export const planLiveSeedRefresh = async (
   };
 };
 
+/**
+ * Fetches, cleans, and stores one HCC window and summarizes its records.
+ * @param env - HCC client and seed storage bindings.
+ * @param options - Window, publication cursor, and output chunk details.
+ * @returns Aggregates and counts for the stored chunk.
+ */
 export const refreshLiveSeedChunkFromHcc = async (
   env: HccClientEnv & SeedR2Env,
   options: {
@@ -481,11 +498,13 @@ export const refreshLiveSeedChunkFromHcc = async (
   }
 ): Promise<LiveSeedRefreshChunkSummary> => {
   const now = parseAucklandInstant(options.syncedAt);
+
   const fetched = await fetchAllInWindow(
     env,
     options.window.start,
     options.window.end
   );
+
   if (!fetched.ok) {
     throw new Error(formatHccFetchError(fetched.error));
   }
@@ -495,15 +514,18 @@ export const refreshLiveSeedChunkFromHcc = async (
   const { cleaned, skipped } = cleanInfringements(fetched.value.records);
   const records = uniqueByInfringementNumber(cleaned);
   const published = new Set(options.publishedInfringementNumbers);
+
   const newRecords = records.filter(
     (record) =>
       !published.has(record.infringementNumber) &&
       (options.bootstrapAfter === null ||
         record.occurredAt > options.bootstrapAfter)
   );
+
   const todayRecords = records.filter(
     (record) => toDateKey(record) === options.to
   );
+
   const last24hStart = now.getTime() - 24 * 60 * 60 * 1000;
   const last7dStart = rollingCalendarWindowStart(now, 7);
   const last30dStart = rollingCalendarWindowStart(now, 30);
@@ -571,6 +593,12 @@ export const refreshLiveSeedChunkFromHcc = async (
   };
 };
 
+/**
+ * Combines chunk summaries and publishes the dashboard, manifest, and cursor.
+ * @param env - Worker environment containing seed storage bindings.
+ * @param options - Existing state, refresh range, and completed chunk summaries.
+ * @returns The published range and record counts.
+ */
 export const finalizeLiveSeedRefresh = async (
   env: Env,
   options: {
@@ -607,9 +635,11 @@ export const finalizeLiveSeedRefresh = async (
   let records = 0;
   let newAmountCents = 0;
   let newRecords = 0;
+
   const publishedInfringementNumbers = new Set(
     options.publishedInfringementNumbers
   );
+
   let skipped = 0;
   let thisMonth = 0;
   let today = 0;
@@ -629,9 +659,11 @@ export const finalizeLiveSeedRefresh = async (
     records += summary.records;
     newAmountCents += summary.newAmountCents;
     newRecords += summary.newRecords;
+
     for (const infringementNumber of summary.infringementNumbers) {
       publishedInfringementNumbers.add(infringementNumber);
     }
+
     skipped += summary.skipped;
     thisMonth += summary.thisMonth;
     today += summary.today;
@@ -654,6 +686,7 @@ export const finalizeLiveSeedRefresh = async (
         count: 0,
         totalCents: 0,
       };
+
       dailyCounts.set(point.date, {
         count: current.count + point.count,
         totalCents: current.totalCents + point.totalCents,
@@ -663,6 +696,7 @@ export const finalizeLiveSeedRefresh = async (
 
   const dailyTrend: DailyStatPoint[] = [];
   let cursor = options.from;
+
   while (cursor <= options.to) {
     const point = dailyCounts.get(cursor) ?? { count: 0, totalCents: 0 };
     dailyTrend.push({
@@ -728,13 +762,16 @@ export const finalizeLiveSeedRefresh = async (
     type: "full",
     vehicles: vehiclesFromMap(vehicleCounts, RANK_LIMIT),
   };
+
   const refreshedChunks = options.summaries.map((summary) => summary.chunk);
+
   const historicalChunks =
     options.existingManifest?.infringementChunks.filter(
       (chunk) =>
         chunk !== RECENT_SEED_CHUNK &&
         !chunk.startsWith(SEED_REFRESH_CHUNK_PREFIX)
     ) ?? [];
+
   const manifest = buildManifest({
     existing: {
       dashboardSnapshotKey: DASHBOARD_SNAPSHOT_FILE,
@@ -791,16 +828,19 @@ const buildLiveStats = (options: {
   readonly syncedAt: string;
 }): PublicLiveStats => {
   const { now } = options;
+
   const recentAmountCents = options.records.reduce(
     (sum, record) => sum + record.amountCents,
     0
   );
+
   const [lastRecord] = options.records;
   const last24hStart = now.getTime() - 24 * 60 * 60 * 1000;
   const last7dStart = rollingCalendarWindowStart(now, 7);
   const last30dStart = rollingCalendarWindowStart(now, 30);
   const last365dStart = rollingCalendarWindowStart(now, 365);
   const thisMonthStart = `${options.today.slice(0, 7)}-01`;
+
   const todayRecords = options.records.filter(
     (record) => toDateKey(record) === options.today
   );
@@ -827,6 +867,11 @@ const buildLiveStats = (options: {
   };
 };
 
+/**
+ * Builds dashboard state from cleaned records and existing live totals.
+ * @param options - Records, date range, timestamps, and prior live statistics.
+ * @returns The complete dashboard message for the supplied records.
+ */
 export const buildLiveSeedSnapshot = (options: {
   readonly existingLive: PublicLiveStats | null;
   readonly now: Date;
@@ -850,6 +895,7 @@ export const buildLiveSeedSnapshot = (options: {
   const chart = buildChartBreakdownFromInfringements(records);
   const topStreets = chart.streets.slice(0, RANK_LIMIT);
   const topOffences = topItemsFromMap(offenceCounts, RANK_LIMIT);
+
   const chartBreakdowns: ChartBreakdowns = {
     ...chart.breakdowns,
     offences: chart.breakdowns.offences.slice(0, RANK_LIMIT),

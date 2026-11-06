@@ -49,6 +49,7 @@ const fresh = readFlag(args, "fresh");
 const finalizeOnly = readFlag(args, "finalize");
 const prefix = readArg(args, "prefix");
 const pauseMs = parsePositiveInt(readArg(args, "pause-ms"), 5000);
+
 const chunksPerRun = parsePositiveInt(
   readArg(args, "chunks-per-run"),
   FREE_TIER_SEED_CHUNKS_PER_DAY
@@ -86,9 +87,11 @@ if (finalizeOnly) {
       console.error(error.message);
       process.exit(1);
     }
+
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
+
   process.exit(0);
 }
 

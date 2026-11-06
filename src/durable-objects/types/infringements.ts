@@ -1,3 +1,4 @@
+/** Stored infringement fields and their first-seen and update timestamps. */
 export interface InfringementRow {
   infringementNumber: number;
   occurredAt: string;
@@ -18,6 +19,7 @@ export interface InfringementRow {
   updatedAt: string;
 }
 
+/** Pagination and optional filters for listing infringements. */
 export interface InfringementQuery {
   page: number;
   limit: number;
@@ -29,6 +31,7 @@ export interface InfringementQuery {
   vehicleModel?: string;
 }
 
+/** A page of stored infringements and its total matching count. */
 export interface InfringementListResult {
   data: InfringementRow[];
   page: number;

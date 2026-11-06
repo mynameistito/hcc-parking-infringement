@@ -22,9 +22,11 @@ loadDevVars();
 
 const args = scriptArgv();
 const granularitySchema = z.enum(["day", "week"]);
+
 const granularity = granularitySchema.parse(
   readArgWithDefault(args, "granularity", "week")
 );
+
 const fromDate = readArgWithDefault(args, "from", "2020-01-01");
 const today = todayInAuckland();
 const ctx = createWorkerContext();
@@ -42,6 +44,7 @@ const windowResults = await Promise.all(
       fetchAllInWindowOrThrow(env, window.start, window.end),
       fetchStoredInfringementCount(ctx, window.start, window.end),
     ]);
+
     return { hcc, stored, window };
   })
 );
@@ -60,6 +63,7 @@ for (const { hcc, stored, window } of windowResults) {
   }
 
   const delta = hcc.records.length - stored;
+
   if (delta !== 0 || hcc.possiblyTruncated) {
     mismatches += 1;
     console.log(
@@ -69,6 +73,7 @@ for (const { hcc, stored, window } of windowResults) {
 }
 
 console.log("\n=== Summary ===");
+
 console.log({
   granularity,
   hccTotal,

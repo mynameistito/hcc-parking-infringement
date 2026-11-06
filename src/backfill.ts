@@ -1,5 +1,7 @@
+/** Supported execution modes for backfill windows. */
 export type BackfillDelivery = "direct" | "queue";
 
+/** Inclusive start and end dates for a backfill window. */
 export interface BackfillWindow {
   endDate: string;
   startDate: string;
@@ -19,15 +21,21 @@ export interface LegacyBackfillMessage {
   startDate: string;
 }
 
+/** A backfill window with its optional execution settings. */
 export interface BackfillWindowJob extends BackfillWindow {
   delivery?: BackfillDelivery;
   force?: boolean;
 }
 
-export const isLegacyBackfillMessage = (
+const isLegacyBackfillMessage = (
   body: BackfillMessage | LegacyBackfillMessage
 ): body is LegacyBackfillMessage => !("windows" in body);
 
+/**
+ * Expands a batched or legacy queue message into individual window jobs.
+ * @param body - Current or legacy backfill queue payload.
+ * @returns Window jobs preserving delivery and force settings.
+ */
 export const expandBackfillMessage = (
   body: BackfillMessage | LegacyBackfillMessage
 ): BackfillWindowJob[] => {
@@ -49,6 +57,12 @@ export const expandBackfillMessage = (
   }));
 };
 
+/**
+ * Groups backfill windows into queue messages of bounded size.
+ * @param windows - Windows to dispatch.
+ * @param options - Delivery, force, and windows-per-message settings.
+ * @returns Batched backfill queue messages.
+ */
 export const packBackfillQueueMessages = (
   windows: readonly BackfillWindow[],
   options: {

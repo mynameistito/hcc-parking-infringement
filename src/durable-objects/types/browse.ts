@@ -1,8 +1,10 @@
+/** Public ranking label and infringement count. */
 export interface PublicTopItem {
   label: string;
   count: number;
 }
 
+/** Ranked location with optional street and suburb identifiers. */
 export interface LocationRankItem {
   street?: string;
   suburb?: string;
@@ -10,6 +12,7 @@ export interface LocationRankItem {
   count: number;
 }
 
+/** Ranked vehicle make and model with its display label and count. */
 export interface VehicleRankItem {
   make: string;
   model: string;
@@ -17,8 +20,10 @@ export interface VehicleRankItem {
   count: number;
 }
 
-export type BrowseSort = "count" | "name";
+/** Supported browse ranking orders. */
+type BrowseSort = "count" | "name";
 
+/** Search, sorting, and pagination options for a browse request. */
 export interface BrowseQuery {
   q?: string;
   page: number;
@@ -27,6 +32,10 @@ export interface BrowseQuery {
   suburb?: string;
 }
 
+/**
+ * A page of browse results and its total matching count.
+ * Generic T: The item type in the returned page.
+ */
 export interface BrowseResult<T> {
   items: T[];
   page: number;
