@@ -11,9 +11,15 @@ import {
 import { readPaceTrends } from "./pace-trends.ts";
 import { readPublicLiveStats } from "./stats.ts";
 
+/** Maintains and resolves the cached live dashboard payload. */
 export class DashboardLiveState {
   private cachedPayload: string | null = null;
 
+  /**
+   * Rebuilds and stores a full dashboard payload.
+   * @param sql - The Durable Object SQL storage.
+   * @returns The serialized dashboard payload.
+   */
   refresh(sql: SqlStorage): string {
     const payload = buildFullDashboardSnapshotPayload(
       assembleFullDashboardSnapshot(sql)
@@ -25,6 +31,11 @@ export class DashboardLiveState {
     return payload;
   }
 
+  /**
+   * Resolves a complete cached payload or rebuilds one from storage.
+   * @param sql - The Durable Object SQL storage.
+   * @returns The serialized dashboard payload.
+   */
   resolve(sql: SqlStorage): string {
     const payload =
       this.cachedPayload ?? readStoredDashboardSnapshotPayload(sql);
@@ -51,6 +62,10 @@ export class DashboardLiveState {
     );
   }
 
+  /**
+   * Reads the in-memory dashboard cache.
+   * @returns The cached payload, or null before it is populated.
+   */
   getCachedPayload(): string | null {
     return this.cachedPayload;
   }
