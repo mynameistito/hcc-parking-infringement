@@ -4,7 +4,7 @@ import { bearerHeaders } from "@scripts/lib/worker/client.ts";
 import { z } from "zod";
 
 /** Response from `POST /api/v1/geocode/run`. */
-export const geocodeRunResultSchema = z.object({
+const geocodeRunResultSchema = z.object({
   failed: z.number().optional(),
   geocoded: z.number().optional(),
   ok: z.boolean().optional(),
@@ -14,7 +14,7 @@ export const geocodeRunResultSchema = z.object({
 export type GeocodeRunResult = z.infer<typeof geocodeRunResultSchema>;
 
 /** Response from `GET /api/v1/locations/map`. */
-export const mapResponseSchema = z.object({
+const mapResponseSchema = z.object({
   data: z
     .object({
       pendingGeocode: z.number().optional(),

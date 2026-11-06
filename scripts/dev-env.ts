@@ -27,7 +27,7 @@ export const isLocalWorkerUrl = (url: string): boolean => {
 };
 
 /** Vite often binds `localhost` only; wrangler uses `127.0.0.1`. Try both. */
-export const localWorkerUrlAlternates = (workerUrl: string): string[] => {
+const localWorkerUrlAlternates = (workerUrl: string): string[] => {
   try {
     const parsed = new URL(workerUrl);
     const alternates: string[] = [];

@@ -24,7 +24,7 @@ export interface BackfillWindowJob extends BackfillWindow {
   force?: boolean;
 }
 
-export const isLegacyBackfillMessage = (
+const isLegacyBackfillMessage = (
   body: BackfillMessage | LegacyBackfillMessage
 ): body is LegacyBackfillMessage => !("windows" in body);
 
