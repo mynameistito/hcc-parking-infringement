@@ -28,6 +28,11 @@ export interface HccClientEnv {
 const DEFAULT_API_BASE =
   "https://api.hcc.govt.nz/OpenData/get_parking_infringement";
 
+/**
+ * Formats an HCC transport or response error for operators.
+ * @param error - Structured HCC fetch failure.
+ * @returns A human-readable failure description.
+ */
 export const formatHccFetchError = (error: HccFetchError): string => {
   if (error.tag === "http") {
     return `HCC API error ${error.status}: ${error.body}`;
@@ -58,6 +63,7 @@ const hccInfringementResponseSchema = z.object({
   Paging: z.array(hccPagingSchema).min(1),
 });
 
+/** Date window, page, and optional transport controls for an HCC request. */
 export interface FetchInfringementsOptions {
   startDate: string;
   endDate: string;
@@ -128,6 +134,12 @@ const releaseHccSlot = (): void => {
   hccInFlight -= 1;
 };
 
+/**
+ * Fetches and validates one page of HCC infringements.
+ * @param env - HCC endpoint configuration.
+ * @param options - Date range, page, and transport controls.
+ * @returns A validated response or a structured fetch error.
+ */
 export const fetchInfringements = async (
   env: HccClientEnv,
   options: FetchInfringementsOptions
@@ -202,11 +214,18 @@ export const fetchInfringements = async (
   }
 };
 
+/** Optional cancellation signal and fetch implementation for HCC requests. */
 export interface HccRequestOptions {
   signal?: AbortSignal;
   fetch?: typeof fetch;
 }
 
+/**
+ * Creates the Effect transport layer used by the paginated HCC client.
+ * @param env - HCC endpoint configuration.
+ * @param options - Optional cancellation and fetch controls.
+ * @returns A layer providing the HCC transport.
+ */
 export const hccTransportLayer = (
   env: HccClientEnv,
   options: HccRequestOptions = {}
@@ -240,7 +259,14 @@ export const hccTransportLayer = (
     })
   );
 
-/** Promise boundary for existing CLI and Worker entrypoints. */
+/**
+ * Fetches all HCC pages for a date window at the Promise boundary.
+ * @param env - HCC endpoint configuration.
+ * @param startDate - First date in the requested window.
+ * @param endDate - Last date in the requested window.
+ * @param options - Optional cancellation and fetch controls.
+ * @returns The records or a structured HCC fetch error.
+ */
 export const fetchAllInWindow = async (
   env: HccClientEnv,
   startDate: string,
@@ -260,7 +286,13 @@ export const fetchAllInWindow = async (
     )
   );
 
-/** CLI helper: throw on HCC fetch failure instead of returning Result. */
+/**
+ * Fetches a complete HCC date window and throws on failure.
+ * @param env - HCC endpoint configuration.
+ * @param startDate - First date in the requested window.
+ * @param endDate - Last date in the requested window.
+ * @returns The fetched records and pagination status.
+ */
 export const fetchAllInWindowOrThrow = async (
   env: HccClientEnv,
   startDate: string,
