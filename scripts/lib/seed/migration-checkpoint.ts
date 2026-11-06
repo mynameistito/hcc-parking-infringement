@@ -6,6 +6,7 @@ import path from "node:path";
 const CHECKPOINT_DIR = path.join(".data", "migration");
 const CHECKPOINT_FILE = path.join(CHECKPOINT_DIR, "seed-to-do.json");
 
+/** Saved chunk progress and destination for a seed-to-Durable-Object migration. */
 export interface SeedToDoMigrationCheckpoint {
   completedChunks: string[];
   lastChunk: string | null;
@@ -39,6 +40,11 @@ const readCheckpointFile =
     }
   };
 
+/**
+ * Loads a saved migration checkpoint for the requested destination.
+ * @param targetUrl - Destination worker URL.
+ * @returns The matching checkpoint, or null when missing or invalid.
+ */
 export const loadSeedToDoMigrationCheckpoint = async (
   targetUrl: string
 ): Promise<SeedToDoMigrationCheckpoint | null> => {
@@ -51,6 +57,10 @@ export const loadSeedToDoMigrationCheckpoint = async (
   return checkpoint;
 };
 
+/**
+ * Persists seed migration progress to the local checkpoint file.
+ * @param checkpoint - Migration progress to save.
+ */
 export const saveSeedToDoMigrationCheckpoint = async (
   checkpoint: SeedToDoMigrationCheckpoint
 ): Promise<void> => {
@@ -58,6 +68,7 @@ export const saveSeedToDoMigrationCheckpoint = async (
   await writeFile(CHECKPOINT_FILE, `${JSON.stringify(checkpoint, null, 2)}\n`);
 };
 
+/** Clears the local seed migration checkpoint when present. */
 export const clearSeedToDoMigrationCheckpoint = async (): Promise<void> => {
   try {
     await writeFile(CHECKPOINT_FILE, "");
