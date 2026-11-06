@@ -32,6 +32,14 @@ const importSnapshotBatchSchema = z.object({
   infringements: z.array(cleanInfringementSchema).max(5000),
 });
 
+/**
+ * Exports a page of stored infringements.
+ * @param scope - Application scope and parking reader.
+ * @param after - Cursor after the last exported infringement.
+ * @param limit - Maximum records to return.
+ * @param totalMode - Whether to read a cached total or scan storage.
+ * @returns The exported records, total, and next cursor.
+ */
 export const exportStoredInfringements = async (
   scope: AppScope,
   after: number,
@@ -40,8 +48,15 @@ export const exportStoredInfringements = async (
 ): Promise<ExportInfringementsResult> =>
   await scope.parking.exportInfringements(after, limit, totalMode);
 
+/**
+ * Validates and imports a batch of stored infringements.
+ * @param scope - Application scope and writable parking store.
+ * @param body - Untrusted request payload containing the records.
+ * @returns Import counts and finalization status.
+ */
 export const importStoredInfringements = async (
   scope: AppScope,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The request body is untrusted and validated by the import schema.
   body: unknown
 ): Promise<{
   final: boolean;
@@ -80,8 +95,15 @@ export const importStoredInfringements = async (
   };
 };
 
+/**
+ * Validates and imports a batch from a snapshot.
+ * @param scope - Application scope and writable parking store.
+ * @param body - Untrusted snapshot batch payload.
+ * @returns Received and upserted record counts.
+ */
 export const importSnapshotBatch = async (
   scope: AppScope,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The request body is untrusted and validated by the import schema.
   body: unknown
 ): Promise<{
   recordsReceived: number;
@@ -100,6 +122,13 @@ export const importSnapshotBatch = async (
   };
 };
 
+/**
+ * Exports a page of stored ingestion watermarks.
+ * @param scope - Application scope and parking reader.
+ * @param offset - Offset of the first watermark.
+ * @param limit - Maximum watermarks to return.
+ * @returns The exported page and total.
+ */
 export const exportStoredWatermarks = async (
   scope: AppScope,
   offset: number,
@@ -107,8 +136,15 @@ export const exportStoredWatermarks = async (
 ): Promise<ExportWatermarksResult> =>
   await scope.parking.exportWatermarks(offset, limit);
 
+/**
+ * Validates and imports ingestion watermarks.
+ * @param scope - Application scope and writable parking store.
+ * @param body - Untrusted request payload containing watermarks.
+ * @returns Imported and total watermark counts.
+ */
 export const importStoredWatermarks = async (
   scope: AppScope,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The request body is untrusted and validated by the import schema.
   body: unknown
 ): Promise<{ imported: number; total: number }> => {
   assertParkingStoreWritable(scope);
@@ -126,6 +162,11 @@ export const importStoredWatermarks = async (
   };
 };
 
+/**
+ * Finalizes a stored import and recomputes derived data.
+ * @param scope - Application scope and writable parking store.
+ * @returns Whether recomputation was performed.
+ */
 export const finalizeStoredImport = async (
   scope: AppScope
 ): Promise<{ recomputed: boolean }> => {
