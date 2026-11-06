@@ -1,7 +1,9 @@
 import type { CleanInfringement } from "@/server/clean.ts";
 
+/** The source of a parking-data synchronization run. */
 export type SyncRunType = "hourly" | "manual" | "backfill";
 
+/** Cleaned records and fetch counts to apply for a synchronization window. */
 export interface SyncWindowPayload {
   runType: SyncRunType;
   start: string;
@@ -11,6 +13,7 @@ export interface SyncWindowPayload {
   skipped: number;
 }
 
+/** The recorded run identifier and counts after applying a sync window. */
 export interface SyncWindowResult {
   runId: number;
   recordsFetched: number;
@@ -18,6 +21,7 @@ export interface SyncWindowResult {
   skipped: number;
 }
 
+/** Cleaned records and counters for a stored-data import batch. */
 export interface ImportBatchPayload {
   records: CleanInfringement[];
   recordsReceived: number;
@@ -25,6 +29,7 @@ export interface ImportBatchPayload {
   final: boolean;
 }
 
+/** Import counts and derived-state status after a batch is applied. */
 export interface ImportBatchResult {
   recordsReceived: number;
   recordsUpserted: number;
@@ -33,6 +38,7 @@ export interface ImportBatchResult {
   totalRecords: number;
 }
 
+/** Persisted synchronization run metadata and outcome. */
 export interface SyncRunRow {
   id: number;
   runType: string;
@@ -47,11 +53,13 @@ export interface SyncRunRow {
   finishedAt: string | null;
 }
 
+/** Start and end date keys identifying an ingestion window. */
 export interface DateWindow {
   start: string;
   end: string;
 }
 
+/** Backfill completion, latest watermark, and stored-record totals. */
 export interface BackfillProgress {
   chunkDays: number;
   completed: number;
@@ -64,6 +72,7 @@ export interface BackfillProgress {
   totalRecords: number;
 }
 
+/** Read-source identity, record count, and latest synchronization metadata. */
 export interface CacheStatus {
   source: "parking-store" | "parking-store-seed";
   totalRecords: number;
