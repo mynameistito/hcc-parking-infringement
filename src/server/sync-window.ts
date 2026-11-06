@@ -13,6 +13,7 @@ export type { SyncRunType } from "@/durable-objects/types.ts";
 
 const HOURLY_OVERLAP_DAYS = 7;
 
+/** Date range and run settings for an ingestion window. */
 export interface SyncWindowOptions {
   start: string;
   end: string;
@@ -20,6 +21,7 @@ export interface SyncWindowOptions {
   force?: boolean;
 }
 
+/** Run identifier, ingestion counts, and fetch status for a sync window. */
 export interface SyncWindowResult {
   runId: number;
   recordsFetched: number;
@@ -29,6 +31,13 @@ export interface SyncWindowResult {
   hccSkipped?: boolean;
 }
 
+/**
+ * Fetches or accepts a window of records and applies it to the parking store.
+ * @param scope - Application scope and storage bindings.
+ * @param options - Window bounds, run type, and optional force flag.
+ * @param prefetched - Optional HCC records already fetched for this window.
+ * @returns Sync counts and whether the HCC fetch was skipped or truncated.
+ */
 export const syncWindow = async (
   scope: AppScope,
   options: SyncWindowOptions,
@@ -105,6 +114,12 @@ export const syncWindow = async (
   };
 };
 
+/**
+ * Synchronizes the recent overlapping window ending today in Auckland.
+ * @param scope - Application scope and storage bindings.
+ * @param runType - Type recorded for the synchronization run.
+ * @returns The window synchronization result.
+ */
 export const hourlySync = async (
   scope: AppScope,
   runType: SyncRunType = "hourly"
@@ -117,6 +132,13 @@ export const hourlySync = async (
 
 export const DEFAULT_BACKFILL_CHUNK_DAYS = BACKFILL_CHUNK_DAYS_DEFAULT;
 
+/**
+ * Splits an inclusive date range into consecutive bounded windows.
+ * @param startDate - First date to include.
+ * @param endDate - Last date to include.
+ * @param chunkDays - Maximum days in each window.
+ * @returns The consecutive date windows.
+ */
 export const splitDateRange = (
   startDate: string,
   endDate: string,
