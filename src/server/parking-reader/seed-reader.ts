@@ -175,6 +175,7 @@ const enrichSeedDashboardPayload = (raw: string): string => {
   });
 };
 
+/** Reads parking data from seed objects, using a shared cache for manifest and snapshot data. */
 export class SeedParkingStoreReader implements ParkingStoreReader {
   readonly source = "seed" as const;
   readonly isSeedMode = true;
@@ -183,6 +184,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
   private readonly env: Env;
   private readonly cache: SeedReadCache;
 
+  /**
+   * Creates a seed reader using the supplied environment and cache.
+   * @param env - The Worker environment containing seed storage bindings.
+   * @param cache - The cache shared by seed reads.
+   */
   constructor(env: Env, cache: SeedReadCache) {
     this.env = env;
     this.cache = cache;
@@ -204,6 +210,10 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     );
   }
 
+  /**
+   * Reads the serialized dashboard snapshot, falling back to manifest totals when missing.
+   * @returns The enriched snapshot payload.
+   */
   async readDashboardSnapshotPayload(): Promise<string> {
     const { manifest, prefix } = await this.loadManifestContext();
 
@@ -273,6 +283,10 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     return this.cache.snapshotPayload;
   }
 
+  /**
+   * Reads seed cache status from the manifest.
+   * @returns The source, synchronization timestamp, and manifest record total.
+   */
   async getCacheStatus(): Promise<CacheStatus> {
     const { manifest } = await this.loadManifestContext();
 
@@ -286,6 +300,13 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads a page of seed infringement records after a cursor.
+   * @param after - The last infringement number already read.
+   * @param limit - Maximum number of records to return.
+   * @param _totalMode - Unused in seed mode; the total comes from the manifest.
+   * @returns The records, next cursor, and manifest total.
+   */
   async exportInfringements(
     after: number,
     limit: number,
@@ -351,6 +372,12 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads a page of seed watermarks, or an empty page when unavailable.
+   * @param offset - The number of watermarks to skip.
+   * @param limit - Maximum number of watermarks to return.
+   * @returns The watermark page, total, and next offset.
+   */
   async exportWatermarks(
     offset: number,
     limit: number
@@ -387,6 +414,10 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads public live statistics from the snapshot or a manifest-based fallback.
+   * @returns Public live statistics.
+   */
   async getPublicLiveStats(): Promise<PublicLiveStats> {
     const snapshot = await this.readDashboardSnapshot();
 
@@ -414,6 +445,10 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Projects the seed snapshot's public totals into the internal statistics shape.
+   * @returns Live counts and available amounts; period amounts default to zero.
+   */
   async getLiveStats(): Promise<LiveStats> {
     const live = await this.getPublicLiveStats();
 
@@ -429,6 +464,12 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads snapshot daily rows within an inclusive date range.
+   * @param from - The start date.
+   * @param to - The end date.
+   * @returns Matching daily rows, or an empty array without a snapshot.
+   */
   async getDailyStats(from: string, to: string): Promise<DailyStatRow[]> {
     const snapshot = await this.readDashboardSnapshot();
 
@@ -441,6 +482,13 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     );
   }
 
+  /**
+   * Projects snapshot top items into statistic rows.
+   * @param groupBy - The ranking dimension.
+   * @param _window - Unused in seed mode; snapshot rankings are used.
+   * @param limit - Maximum number of rows to return.
+   * @returns Ranked rows with zero total amounts.
+   */
   async getTopStats(
     groupBy: TopGroupBy,
     _window: TopWindow,
@@ -455,6 +503,12 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     }));
   }
 
+  /**
+   * Reads snapshot top streets or offences.
+   * @param groupBy - The ranking dimension.
+   * @param limit - Maximum number of rows to return.
+   * @returns Public ranking rows, or an empty array without a snapshot.
+   */
   async getPublicTop(
     groupBy: "street" | "offence",
     limit: number
@@ -471,24 +525,44 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     return items.slice(0, limit);
   }
 
+  /**
+   * Reads top streets from the snapshot.
+   * @param limit - Maximum number of streets to return.
+   * @returns Ranked streets, or an empty array without a snapshot.
+   */
   async getTopStreets(limit: number): Promise<LocationRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
 
     return snapshot?.streets.slice(0, limit) ?? [];
   }
 
+  /**
+   * Reads top suburbs from the snapshot.
+   * @param limit - Maximum number of suburbs to return.
+   * @returns Ranked suburbs, or an empty array without a snapshot.
+   */
   async getTopSuburbs(limit: number): Promise<LocationRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
 
     return snapshot?.suburbs.slice(0, limit) ?? [];
   }
 
+  /**
+   * Reads top vehicles from the snapshot.
+   * @param limit - Maximum number of vehicles to return.
+   * @returns Ranked vehicles, or an empty array without a snapshot.
+   */
   async getTopVehicles(limit: number): Promise<VehicleRankItem[]> {
     const snapshot = await this.readDashboardSnapshot();
 
     return snapshot?.vehicles.slice(0, limit) ?? [];
   }
 
+  /**
+   * Reads map routes and the pending geocode count from the snapshot.
+   * @param limit - Maximum number of routes to return.
+   * @returns Snapshot map data, or an empty result without a snapshot.
+   */
   async getMapPoints(limit: number): Promise<{
     pendingGeocode: number;
     routes: LocationMapPoint[];
@@ -505,6 +579,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Returns an empty suburb page because seed mode does not support browsing.
+   * @param query - The requested pagination and search options.
+   * @returns An empty page preserving the requested pagination.
+   */
   async browseSuburbs(
     query: BrowseQuery
   ): Promise<BrowseResult<LocationRankItem>> {
@@ -513,6 +592,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     return await Promise.resolve(emptyBrowseResult(query));
   }
 
+  /**
+   * Returns an empty street page because seed mode does not support browsing.
+   * @param query - The requested pagination and search options.
+   * @returns An empty page preserving the requested pagination.
+   */
   async browseStreets(
     query: BrowseQuery
   ): Promise<BrowseResult<LocationRankItem>> {
@@ -521,6 +605,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     return await Promise.resolve(emptyBrowseResult(query));
   }
 
+  /**
+   * Returns an empty vehicle page because seed mode does not support browsing.
+   * @param query - The requested pagination and search options.
+   * @returns An empty page preserving the requested pagination.
+   */
   async browseVehicles(
     query: BrowseQuery
   ): Promise<BrowseResult<VehicleRankItem>> {
@@ -529,18 +618,33 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     return await Promise.resolve(emptyBrowseResult(query));
   }
 
+  /**
+   * Returns no streets because seed mode does not support suburb browsing.
+   * @returns An empty array.
+   */
   async getStreetsInSuburb(): Promise<LocationRankItem[]> {
     void this.isSeedMode;
 
     return await Promise.resolve([]);
   }
 
+  /**
+   * Seed mode does not expose sync-run records.
+   * @returns Null.
+   */
   async getLatestSyncRun(): Promise<SyncRunRow | null> {
     void this.isSeedMode;
 
     return await Promise.resolve(null);
   }
 
+  /**
+   * Builds a seed-mode progress response using the manifest record total.
+   * @param start - The requested range start date.
+   * @param end - The requested range end date.
+   * @param chunkDays - The requested chunk size in days.
+   * @returns Zero completed chunks and the seed's record total and timestamp.
+   */
   async getBackfillProgressSnapshot(
     start: string,
     end: string,
@@ -561,6 +665,11 @@ export class SeedParkingStoreReader implements ParkingStoreReader {
     };
   }
 
+  /**
+   * Reads a page of infringements from the snapshot or seed chunks.
+   * @param query - The filters and page selection.
+   * @returns The matching page and total count.
+   */
   async listInfringements(
     query: InfringementQuery
   ): Promise<InfringementListResult> {
