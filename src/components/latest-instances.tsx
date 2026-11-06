@@ -317,6 +317,7 @@ const getNextInfringementsPage = (loadedCount: number): number =>
     ? 1
     : Math.floor(loadedCount / INFRINGEMENTS_DEFAULT_PAGE_SIZE) + 1;
 
+/** Displays recent infringements with sortable columns and incremental loading. */
 export const LatestInstances = ({
   recentInfringements,
   total,
