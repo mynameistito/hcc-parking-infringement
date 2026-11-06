@@ -9,6 +9,11 @@ import {
 
 import { GEOCODE_FAILURE_RETRY_MS } from "./constants.ts";
 
+/**
+ * Checks whether a geocoding failure is still within its retry delay.
+ * @param failedAt - Recorded failure instant, if available.
+ * @returns Whether the failure should defer another attempt.
+ */
 export const isRecentGeocodeFailure = (
   failedAt: string | null | undefined
 ): boolean => {
@@ -25,6 +30,12 @@ export const isRecentGeocodeFailure = (
   }
 };
 
+/**
+ * Checks whether a location lacks usable road geometry and can be retried.
+ * @param geometryJson - Stored geometry JSON, if available.
+ * @param geocodeFailedAt - Last recorded failure instant, if available.
+ * @returns Whether the location is eligible for geocoding.
+ */
 export const locationNeedsGeocode = (
   geometryJson: string | null | undefined,
   geocodeFailedAt: string | null | undefined
@@ -38,6 +49,7 @@ export const locationNeedsGeocode = (
   return geometry.length === 0;
 };
 
+/** SQL row containing a location and its current geocoding state. */
 export interface GeocodeCandidateRow extends Record<string, SqlStorageValue> {
   street: string;
   suburb: string | null;
@@ -47,6 +59,7 @@ export interface GeocodeCandidateRow extends Record<string, SqlStorageValue> {
   geocode_failed_at: string | null;
 }
 
+/** Location and infringement count selected for geocoding. */
 export interface GeocodeCandidate {
   street: string;
   suburb: string | null;
@@ -54,6 +67,12 @@ export interface GeocodeCandidate {
   count: number;
 }
 
+/**
+ * Selects eligible locations in input order up to the requested limit.
+ * @param rows - Candidate locations and their stored geometry state.
+ * @param limit - Maximum number of candidates to return.
+ * @returns Locations eligible for a geocoding attempt.
+ */
 export const filterGeocodeCandidates = (
   rows: GeocodeCandidateRow[],
   limit: number
@@ -80,5 +99,9 @@ export const filterGeocodeCandidates = (
   return results;
 };
 
+/**
+ * Calculates the Auckland timestamp before which failures may be retried.
+ * @returns The current retry cutoff as an ISO timestamp.
+ */
 export const geocodeRetryCutoffIso = (): string =>
   instantInAucklandIso(new Date(Date.now() - GEOCODE_FAILURE_RETRY_MS));
