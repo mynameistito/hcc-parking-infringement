@@ -53,11 +53,13 @@ interface ExistingSeedState {
   readonly snapshotLive: PublicLiveStats | null;
 }
 
+/** Inclusive date window fetched as one live seed refresh chunk. */
 export interface LiveSeedRefreshWindow {
   readonly end: string;
   readonly start: string;
 }
 
+/** Aggregates and object key produced by a refreshed infringement chunk. */
 export interface LiveSeedRefreshChunkSummary {
   readonly lastHccFetchAt?: string;
   readonly amountCents: number;
@@ -90,6 +92,7 @@ export interface LiveSeedRefreshChunkSummary {
   readonly vehicles: [string, number][];
 }
 
+/** Existing seed state and date windows used to coordinate a refresh. */
 export interface LiveSeedRefreshPlan {
   readonly bootstrapAfter: string | null;
   readonly existingLive: PublicLiveStats | null;
@@ -103,6 +106,7 @@ export interface LiveSeedRefreshPlan {
   readonly windows: LiveSeedRefreshWindow[];
 }
 
+/** Date range and counts reported after publishing a live seed refresh. */
 export interface RefreshLiveSeedResult {
   readonly from: string;
   readonly skipped: number;
@@ -454,6 +458,12 @@ const buildManifest = (options: {
 const toNdjson = (records: readonly CleanInfringement[]): string =>
   `${records.map((record) => JSON.stringify(record)).join("\n")}\n`;
 
+/**
+ * Plans date windows using the current seed state and refresh settings.
+ * @param env - Worker environment containing seed storage and refresh configuration.
+ * @param chunkDays - Maximum number of days per window.
+ * @returns The windows and existing state needed to perform the refresh.
+ */
 export const planLiveSeedRefresh = async (
   env: Env,
   chunkDays = 7
@@ -487,6 +497,12 @@ export const planLiveSeedRefresh = async (
   };
 };
 
+/**
+ * Fetches, cleans, and stores one HCC window and summarizes its records.
+ * @param env - HCC client and seed storage bindings.
+ * @param options - Window, publication cursor, and output chunk details.
+ * @returns Aggregates and counts for the stored chunk.
+ */
 export const refreshLiveSeedChunkFromHcc = async (
   env: HccClientEnv & SeedR2Env,
   options: {
@@ -595,6 +611,12 @@ export const refreshLiveSeedChunkFromHcc = async (
   };
 };
 
+/**
+ * Combines chunk summaries and publishes the dashboard, manifest, and cursor.
+ * @param env - Worker environment containing seed storage bindings.
+ * @param options - Existing state, refresh range, and completed chunk summaries.
+ * @returns The published range and record counts.
+ */
 export const finalizeLiveSeedRefresh = async (
   env: Env,
   options: {
@@ -863,6 +885,11 @@ const buildLiveStats = (options: {
   };
 };
 
+/**
+ * Builds dashboard state from cleaned records and existing live totals.
+ * @param options - Records, date range, timestamps, and prior live statistics.
+ * @returns The complete dashboard message for the supplied records.
+ */
 export const buildLiveSeedSnapshot = (options: {
   readonly existingLive: PublicLiveStats | null;
   readonly now: Date;
