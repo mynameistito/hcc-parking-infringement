@@ -3,6 +3,7 @@ import { AwsClient } from "aws4fetch";
 const DEFAULT_SEED_BUCKET = "hcc-parking-infringement-seed";
 const SEED_OBJECT_CACHE = "parking-seed-objects";
 
+/** Worker bindings and optional S3 settings for seed object storage. */
 export interface SeedR2Env {
   PARKING_SEED?: R2Bucket;
   R2_ACCESS_KEY_ID?: string;
@@ -59,6 +60,10 @@ const hasR2S3Credentials = (env: SeedR2Env): boolean => {
   );
 };
 
+/**
+ * Verifies that a seed bucket binding or S3 credentials are available.
+ * @param env - Seed storage bindings and settings.
+ */
 export const assertSeedR2Configured = (env: SeedR2Env): void => {
   if (hasR2Binding(env) || hasR2S3Credentials(env)) {
     return;
@@ -93,6 +98,7 @@ const buildS3ObjectUrl = (
 };
 
 const resolveSeedCacheSeconds = (env: SeedR2Env): number => {
+  // oxlint-disable-next-line unicorn/prefer-number-coercion -- Preserve decimal-prefix parsing for existing cache settings.
   const value = Number.parseInt(env.PARKING_SEED_CACHE_SECONDS ?? "", 10);
 
   if (!Number.isFinite(value) || value < 0) {
@@ -288,6 +294,12 @@ const writeViaS3Api = async (
   await deleteCachedObjectText(url);
 };
 
+/**
+ * Reads a seed object as text using the binding or S3 API and a best-effort cache.
+ * @param env - Seed storage bindings and settings.
+ * @param key - Object key to read.
+ * @returns Object text, or null when the object is absent.
+ */
 export const readSeedObjectText = async (
   env: SeedR2Env,
   key: string
@@ -318,6 +330,13 @@ export const readSeedObjectText = async (
   return await readViaS3Api(env, key);
 };
 
+/**
+ * Writes a seed object and invalidates its local cache entry.
+ * @param env - Seed storage bindings and settings.
+ * @param key - Object key to write.
+ * @param value - Text content to store.
+ * @param contentType - Content type for the stored object.
+ */
 export const writeSeedObjectText = async (
   env: SeedR2Env,
   key: string,
