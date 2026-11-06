@@ -27,7 +27,7 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
       aria-label="Chart legend"
       tabIndex={0}
       className={cn(
-        "max-h-52 overflow-y-auto pr-1 text-xs focus-visible:outline-2 focus-visible:outline-ring",
+        "focus-visible:outline-ring max-h-52 overflow-y-auto pr-1 text-xs focus-visible:outline-2",
         className
       )}
     >
@@ -39,20 +39,20 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
           return (
             <li
               key={`${item.label}-${index}`}
-              className="grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-[4px] px-1 py-0.5 hover:bg-muted/60"
+              className="hover:bg-muted/60 grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-[4px] px-1 py-0.5"
             >
               <span
                 className="size-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: chartColorAt(index) }}
                 aria-hidden="true"
               />
-              <span className="min-w-0 break-words text-foreground">
+              <span className="text-foreground min-w-0 break-words">
                 {item.label}
               </span>
-              <span className="font-mono text-muted-foreground tabular-nums">
+              <span className="text-muted-foreground font-mono tabular-nums">
                 {share.toFixed(1)}%
               </span>
-              <span className="font-mono text-foreground tabular-nums">
+              <span className="text-foreground font-mono tabular-nums">
                 {numberFmt.format(item.count)}
               </span>
             </li>

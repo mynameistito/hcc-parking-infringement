@@ -130,12 +130,8 @@
   }
 
   body {
-    @apply antialiased bg-background text-foreground;
-    font-family:
-      "Geist Variable",
-      system-ui,
-      -apple-system,
-      sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: "Geist Variable", system-ui, -apple-system, sans-serif;
   }
   html {
     @apply font-sans;

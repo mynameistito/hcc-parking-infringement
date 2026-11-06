@@ -59,7 +59,7 @@ export const RankedBarChart = ({
     return (
       <div
         className={cn(
-          "flex h-32 items-center justify-center rounded-[4px] bg-muted/30 text-xs text-muted-foreground",
+          "bg-muted/30 text-muted-foreground flex h-32 items-center justify-center rounded-[4px] text-xs",
           className
         )}
       >

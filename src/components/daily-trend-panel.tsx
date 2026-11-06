@@ -148,7 +148,7 @@ export const DailyTrendPanel = ({
       className="overflow-hidden py-0"
       aria-label="Daily infringement trend"
     >
-      <CardHeader className="gap-3 border-b border-border p-4 sm:p-5">
+      <CardHeader className="border-border gap-3 border-b p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-1">
             <CardTitle className="flex items-center gap-2">
@@ -236,11 +236,11 @@ export const DailyTrendPanel = ({
         </div>
 
         <dl className="grid grid-cols-2 gap-2 self-end lg:grid-cols-1 lg:self-stretch">
-          <div className="rounded-[6px] border border-border bg-muted/40 px-3 py-2">
-            <dt className="text-[11px] text-muted-foreground">
+          <div className="border-border bg-muted/40 rounded-[6px] border px-3 py-2">
+            <dt className="text-muted-foreground text-[11px]">
               {WINDOW_LABELS[window]} total
             </dt>
-            <dd className="mt-0.5 font-mono text-lg font-semibold tabular-nums tracking-[-0.03em]">
+            <dd className="mt-0.5 font-mono text-lg font-semibold tracking-[-0.03em] tabular-nums">
               {loading ? (
                 <Skeleton className="h-6 w-20" />
               ) : (
@@ -248,11 +248,11 @@ export const DailyTrendPanel = ({
               )}
             </dd>
           </div>
-          <div className="rounded-[6px] border border-border bg-muted/40 px-3 py-2">
-            <dt className="text-[11px] text-muted-foreground">{pointLabel}</dt>
+          <div className="border-border bg-muted/40 rounded-[6px] border px-3 py-2">
+            <dt className="text-muted-foreground text-[11px]">{pointLabel}</dt>
             <dd
               className={cn(
-                "mt-0.5 font-mono text-lg font-semibold tabular-nums tracking-[-0.03em]"
+                "mt-0.5 font-mono text-lg font-semibold tracking-[-0.03em] tabular-nums"
               )}
             >
               {loading ? (

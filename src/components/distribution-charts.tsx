@@ -41,7 +41,7 @@ const PieCard = ({
   isLoading,
   collapseAfter,
 }: PieCardProps) => (
-  <Card className="gap-3 bg-background py-4">
+  <Card className="bg-background gap-3 py-4">
     <CardHeader className="px-4">
       <CardTitle>
         <h3>{title}</h3>
@@ -73,7 +73,7 @@ export const DistributionCharts = ({
 
   return (
     <Card className="overflow-hidden py-0" aria-label="Distribution charts">
-      <CardHeader className="border-b border-border">
+      <CardHeader className="border-border border-b">
         <CardTitle className="flex items-center gap-2">
           <PieChartIcon
             className="size-4 text-[var(--ring)]"
@@ -87,7 +87,7 @@ export const DistributionCharts = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 p-4">
-        <Card className="gap-3 bg-muted/30 py-4">
+        <Card className="bg-muted/30 gap-3 py-4">
           <CardHeader className="px-4">
             <CardTitle>
               <h3>All streets</h3>

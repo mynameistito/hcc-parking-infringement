@@ -8,7 +8,7 @@ const ToggleGroup = ({ className, ...props }: ToggleGroupPrimitive.Props) => (
     data-slot="toggle-group"
     className={(state) =>
       cn(
-        "flex w-fit items-center gap-0 rounded-lg bg-muted p-0.5",
+        "bg-muted flex w-fit items-center gap-0 rounded-lg p-0.5",
         typeof className === "function" ? className(state) : className
       )
     }
@@ -21,7 +21,7 @@ const ToggleGroupItem = ({ className, ...props }: TogglePrimitive.Props) => (
     data-slot="toggle-group-item"
     className={(state) =>
       cn(
-        "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3",
+        "text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground focus-visible:outline-ring inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 text-xs font-medium focus-visible:outline-2 disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3",
         typeof className === "function" ? className(state) : className
       )
     }

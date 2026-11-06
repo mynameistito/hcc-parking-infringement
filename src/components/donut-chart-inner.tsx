@@ -90,12 +90,12 @@ export const DonutChartInner = ({
       {showCenter ? (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           {centerValue === undefined ? null : (
-            <span className="font-mono text-lg font-semibold tracking-[-0.03em] text-foreground tabular-nums">
+            <span className="text-foreground font-mono text-lg font-semibold tracking-[-0.03em] tabular-nums">
               {centerValue}
             </span>
           )}
           {centerLabel === undefined ? null : (
-            <span className="mt-0.5 text-[10px] text-muted-foreground uppercase">
+            <span className="text-muted-foreground mt-0.5 text-[10px] uppercase">
               {centerLabel}
             </span>
           )}

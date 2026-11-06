@@ -93,7 +93,7 @@ export const DonutChart = ({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-[4px] bg-muted/30 text-xs text-muted-foreground",
+          "bg-muted/30 text-muted-foreground flex items-center justify-center rounded-[4px] text-xs",
           size === "lg" ? "h-52" : "h-44",
           className
         )}

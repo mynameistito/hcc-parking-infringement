@@ -68,7 +68,7 @@ export const LiveTicker = ({
       <CardContent className="p-0">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
           <section className="flex min-h-[260px] flex-col justify-between p-5 sm:p-6 lg:p-8">
-            <div className="flex min-h-4 items-center gap-2 text-xs font-medium text-muted-foreground uppercase">
+            <div className="text-muted-foreground flex min-h-4 items-center gap-2 text-xs font-medium uppercase">
               <Sigma className="size-4 text-[var(--ring)]" aria-hidden="true" />
               All-time infringements
             </div>
@@ -76,7 +76,7 @@ export const LiveTicker = ({
             <div>
               <div
                 className={cn(
-                  "min-h-12 font-mono text-5xl font-semibold leading-none tracking-[-0.05em] text-primary tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
+                  "text-primary min-h-12 font-mono text-5xl leading-none font-semibold tracking-[-0.05em] tabular-nums sm:min-h-[4.5rem] sm:text-7xl",
                   pulse && "animate-ticker-pulse"
                 )}
                 aria-live="polite"
@@ -87,22 +87,22 @@ export const LiveTicker = ({
                   numberFmt.format(animatedTotal)
                 )}
               </div>
-              <p className="mt-3 min-h-6 max-w-md text-sm leading-6 text-muted-foreground">
+              <p className="text-muted-foreground mt-3 min-h-6 max-w-md text-sm leading-6">
                 Running total from the public infringement feed.
               </p>
             </div>
 
             <div className="mt-5 min-h-10">
-              <div className="flex w-fit flex-wrap items-center gap-2 rounded-[6px] border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className="border-border bg-muted text-muted-foreground flex w-fit flex-wrap items-center gap-2 rounded-[6px] border px-3 py-2 text-sm">
                 <Banknote
-                  className="size-4 text-muted-foreground"
+                  className="text-muted-foreground size-4"
                   aria-hidden="true"
                 />
                 Total fines
                 {loading ? (
                   <Skeleton className="h-5 w-24 rounded-[4px]" />
                 ) : (
-                  <strong className="font-mono font-semibold text-foreground tabular-nums">
+                  <strong className="text-foreground font-mono font-semibold tabular-nums">
                     {moneyFmt.format(animatedFinesCents / 100)}
                   </strong>
                 )}
