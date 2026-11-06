@@ -1,19 +1,21 @@
+import { parseCachedInfringementCount } from "./infringement-count-value.ts";
 import { getSyncMeta, setSyncMeta } from "./sync.ts";
 
 const INFRINGEMENT_COUNT_KEY = "infringement_count";
 
-export const getCachedInfringementCount = (sql: SqlStorage): number | null => {
-  const value = getSyncMeta(sql, INFRINGEMENT_COUNT_KEY);
+/**
+ * Reads the cached infringement count from sync metadata.
+ * @param sql - The Durable Object SQL storage.
+ * @returns The cached nonnegative count, or null when absent or invalid.
+ */
+export const getCachedInfringementCount = (sql: SqlStorage): number | null =>
+  parseCachedInfringementCount(getSyncMeta(sql, INFRINGEMENT_COUNT_KEY));
 
-  if (value === null) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-};
-
+/**
+ * Stores an infringement count in sync metadata.
+ * @param sql - The Durable Object SQL storage.
+ * @param count - The count to store.
+ */
 export const setCachedInfringementCount = (
   sql: SqlStorage,
   count: number
@@ -21,6 +23,11 @@ export const setCachedInfringementCount = (
   setSyncMeta(sql, INFRINGEMENT_COUNT_KEY, String(count));
 };
 
+/**
+ * Increases the cached count by a positive delta.
+ * @param sql - The Durable Object SQL storage.
+ * @param delta - The increment; nonpositive values are ignored.
+ */
 export const bumpCachedInfringementCount = (
   sql: SqlStorage,
   delta: number
@@ -33,7 +40,11 @@ export const bumpCachedInfringementCount = (
   setCachedInfringementCount(sql, current + delta);
 };
 
-/** Full-table scan — only for finalize/admin refresh when quota allows. */
+/**
+ * Recomputes and caches the count using a full-table scan for finalize or admin refresh when quota allows.
+ * @param sql - The Durable Object SQL storage.
+ * @returns The count obtained from the scan.
+ */
 export const recomputeCachedInfringementCount = (sql: SqlStorage): number => {
   const totalRow = sql
     .exec<{ total: number }>("SELECT count(*) as total FROM infringements")
@@ -45,6 +56,12 @@ export const recomputeCachedInfringementCount = (sql: SqlStorage): number => {
   return count;
 };
 
+/**
+ * Resolves the cached count, optionally scanning when it is absent.
+ * @param sql - The Durable Object SQL storage.
+ * @param mode - Whether a missing cached count may be scanned.
+ * @returns The cached or scanned count, or zero when scanning is disabled.
+ */
 export const resolveInfringementCount = (
   sql: SqlStorage,
   mode: "cached" | "scan"
