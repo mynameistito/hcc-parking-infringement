@@ -249,37 +249,39 @@ const MobileInfringementCard = ({
   );
 
   return (
-    <Card role="article" className="gap-2 py-3">
-      <CardHeader className="flex items-start justify-between gap-3 px-3 text-xs">
-        <div className="min-w-0">
-          <time
-            className="font-mono text-muted-foreground tabular-nums"
-            dateTime={infringement.occurredAt}
-          >
-            {formatOccurrenceInstantShort(infringement.occurredAt)}
-          </time>
-          <p className="mt-1 break-words font-medium text-foreground">
-            {location.length > 0 ? location : EMPTY_CELL}
+    <article>
+      <Card className="gap-2 py-3">
+        <CardHeader className="flex items-start justify-between gap-3 px-3 text-xs">
+          <div className="min-w-0">
+            <time
+              className="font-mono text-muted-foreground tabular-nums"
+              dateTime={infringement.occurredAt}
+            >
+              {formatOccurrenceInstantShort(infringement.occurredAt)}
+            </time>
+            <p className="mt-1 break-words font-medium text-foreground">
+              {location.length > 0 ? location : EMPTY_CELL}
+            </p>
+          </div>
+          <strong className="shrink-0 font-mono font-semibold text-foreground tabular-nums">
+            {moneyFmt.format(infringement.amountCents / 100)}
+          </strong>
+        </CardHeader>
+        <CardContent className="px-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+            <span className="wrap-anywhere">{formatVehicle(infringement)}</span>
+            {infringement.isTowed ? (
+              <Badge variant="destructive" className="text-[0.6rem]">
+                Towed
+              </Badge>
+            ) : null}
+          </div>
+          <p className="mt-2 break-words leading-snug text-muted-foreground">
+            {infringement.offenceDescription}
           </p>
-        </div>
-        <strong className="shrink-0 font-mono font-semibold text-foreground tabular-nums">
-          {moneyFmt.format(infringement.amountCents / 100)}
-        </strong>
-      </CardHeader>
-      <CardContent className="px-3 text-xs">
-        <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-          <span className="wrap-anywhere">{formatVehicle(infringement)}</span>
-          {infringement.isTowed ? (
-            <Badge variant="destructive" className="text-[0.6rem]">
-              Towed
-            </Badge>
-          ) : null}
-        </div>
-        <p className="mt-2 break-words leading-snug text-muted-foreground">
-          {infringement.offenceDescription}
-        </p>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </article>
   );
 };
 
@@ -460,13 +462,14 @@ export const LatestInstances = ({
           </div>
         )}
 
-        <div
+        {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The scrollable table must be reachable for keyboard scrolling. */}
+        <section
           ref={scrollRef}
-          role="region"
           aria-label="Latest infringements table"
           tabIndex={0}
           className="hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border border-border md:block"
         >
+          {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
           <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
             <colgroup>
               <col className="w-[7.5rem]" />
@@ -553,7 +556,7 @@ export const LatestInstances = ({
               )}
             </div>
           ) : null}
-        </div>
+        </section>
       </CardContent>
     </Card>
   );
