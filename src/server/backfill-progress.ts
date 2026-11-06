@@ -2,7 +2,7 @@ import type { BackfillProgress } from "@/durable-objects/types.ts";
 import { BACKFILL_CHUNK_DAYS_DEFAULT } from "@/lib/backfill-constants.ts";
 import type { AppScope } from "@/server/app-scope.ts";
 
-export type { BackfillProgress };
+export type { BackfillProgress } from "@/durable-objects/types.ts";
 
 export const getBackfillProgress = async (
   scope: AppScope,

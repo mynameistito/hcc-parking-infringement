@@ -1,7 +1,3 @@
-import {
-  dashboardSnapshotIsCompleteJson,
-  getDashboardSnapshotPayloadWeightJson,
-} from "@/contracts/dashboard-snapshot.ts";
 import { toPublicInfringementList } from "@/contracts/projections.ts";
 import type {
   PublicDashboardSnapshot,
@@ -28,10 +24,10 @@ import {
 } from "./rankings.ts";
 import { readPublicLiveStats } from "./stats.ts";
 
-export const getDashboardSnapshotPayloadWeight =
-  getDashboardSnapshotPayloadWeightJson;
-
-export const snapshotIsComplete = dashboardSnapshotIsCompleteJson;
+export {
+  dashboardSnapshotIsCompleteJson as snapshotIsComplete,
+  getDashboardSnapshotPayloadWeightJson as getDashboardSnapshotPayloadWeight,
+} from "@/contracts/dashboard-snapshot.ts";
 
 const EMPTY_CHART_BREAKDOWNS = {
   offenceCategories: [],

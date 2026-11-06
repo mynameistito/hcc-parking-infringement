@@ -9,7 +9,7 @@ import {
 } from "@/lib/chart-breakdowns";
 import { resolveOffenceDescription } from "@/lib/offence-catalog";
 
-export type { FullDashboardMessage };
+export type { FullDashboardMessage } from "@/contracts/public-api";
 
 export const parseDashboardMessage = (
   data: string
