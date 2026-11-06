@@ -1,9 +1,14 @@
 import {
   createColumnHelper,
+  createSortedRowModel,
+  columnVisibilityFeature,
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_basic,
+  sortFn_datetime,
+  tableFeatures,
+  useTable,
 } from "@tanstack/react-table";
 import type { Column, SortingState } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react";
@@ -45,7 +50,18 @@ const SORT_LABELS: Record<string, string> = {
   vehicle: "Vehicle",
 };
 
-const columnHelper = createColumnHelper<PublicInfringement>();
+const features = tableFeatures({
+  columnVisibilityFeature,
+  rowSortingFeature,
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    basic: sortFn_basic,
+    datetime: sortFn_datetime,
+  },
+  sortedRowModel: createSortedRowModel(),
+});
+
+const columnHelper = createColumnHelper<typeof features, PublicInfringement>();
 
 const sortDescFirst = (columnId: string): boolean =>
   columnId === "occurredAt" || columnId === "fine";
@@ -61,6 +77,7 @@ const mergeInfringements = (
     if (seen.has(row.infringementNumber)) {
       continue;
     }
+
     seen.add(row.infringementNumber);
     merged.push(row);
   }
@@ -82,13 +99,13 @@ const SortDirectionIcon = ({ sorted }: { sorted: false | "asc" | "desc" }) => {
   );
 };
 
-const SortableHeader = ({
+const SortableHeader = <TValue,>({
   align = "left",
   column,
   label,
 }: {
   align?: "left" | "right";
-  column: Column<PublicInfringement>;
+  column: Column<typeof features, PublicInfringement, TValue>;
   label: string;
 }) => {
   const sorted = column.getIsSorted();
@@ -105,8 +122,10 @@ const SortableHeader = ({
       onClick={() => {
         if (sorted === false) {
           column.toggleSorting(sortDescFirst(column.id), false);
+
           return;
         }
+
         column.toggleSorting(sorted === "asc", false);
       }}
     >
@@ -120,29 +139,35 @@ const getCellClassName = (columnId: string): string => {
   if (columnId === "fine") {
     return "whitespace-nowrap px-3 py-2 text-right font-mono font-semibold tabular-nums";
   }
+
   if (columnId === "occurredAt") {
     return "whitespace-nowrap px-3 py-2 text-muted-foreground";
   }
+
   if (columnId === "offence") {
     return "min-w-[16rem] px-3 py-2 text-muted-foreground whitespace-normal leading-snug";
   }
+
   return "px-3 py-2 text-muted-foreground";
 };
 
-const getAriaSort = (
-  column: Column<PublicInfringement>
+const getAriaSort = <TValue,>(
+  column: Column<typeof features, PublicInfringement, TValue>
 ): "ascending" | "descending" | "none" => {
   const sorted = column.getIsSorted();
+
   if (sorted === "asc") {
     return "ascending";
   }
+
   if (sorted === "desc") {
     return "descending";
   }
+
   return "none";
 };
 
-const columns = [
+const columns = columnHelper.columns([
   columnHelper.accessor("occurredAt", {
     cell: (info) => (
       <time className="font-mono tabular-nums" dateTime={info.getValue()}>
@@ -150,24 +175,25 @@ const columns = [
       </time>
     ),
     header: ({ column }) => <SortableHeader column={column} label="Date" />,
-    sortingFn: "datetime",
+    sortFn: "datetime",
   }),
   columnHelper.accessor((row) => formatVehicle(row), {
     cell: (info) => info.getValue(),
     header: ({ column }) => <SortableHeader column={column} label="Vehicle" />,
     id: "vehicle",
-    sortingFn: "alphanumeric",
+    sortFn: "alphanumeric",
   }),
   columnHelper.accessor(
     (row) => formatStreetSuburb(row.street, row.suburb ?? undefined),
     {
       cell: (info) => {
         const label = info.getValue();
+
         return label.length > 0 ? label : EMPTY_CELL;
       },
       header: ({ column }) => <SortableHeader column={column} label="Street" />,
       id: "street",
-      sortingFn: "alphanumeric",
+      sortFn: "alphanumeric",
     }
   ),
   columnHelper.accessor("offenceDescription", {
@@ -188,7 +214,7 @@ const columns = [
     },
     header: ({ column }) => <SortableHeader column={column} label="Offence" />,
     id: "offence",
-    sortingFn: "alphanumeric",
+    sortFn: "alphanumeric",
   }),
   columnHelper.accessor("amountCents", {
     cell: (info) => moneyFmt.format(info.getValue() / 100),
@@ -196,12 +222,13 @@ const columns = [
       <SortableHeader align="right" column={column} label="Fine" />
     ),
     id: "fine",
-    sortingFn: "basic",
+    sortFn: "basic",
   }),
-];
+]);
 
 const formatSortSummary = (sorting: SortingState): string => {
   const [active] = sorting;
+
   if (active === undefined) {
     return "Newest first";
   }
@@ -225,7 +252,7 @@ const MobileRowsSkeleton = () => (
       <Card className="gap-0 py-3" key={index}>
         <CardContent className="px-3">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 flex flex-col gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Skeleton className="h-4 w-full max-w-[13rem]" />
               <Skeleton className="h-3 w-full max-w-[9rem]" />
             </div>
@@ -254,21 +281,21 @@ const MobileInfringementCard = ({
         <CardHeader className="flex items-start justify-between gap-3 px-3 text-xs">
           <div className="min-w-0">
             <time
-              className="font-mono text-muted-foreground tabular-nums"
+              className="text-muted-foreground font-mono tabular-nums"
               dateTime={infringement.occurredAt}
             >
               {formatOccurrenceInstantShort(infringement.occurredAt)}
             </time>
-            <p className="mt-1 break-words font-medium text-foreground">
+            <p className="text-foreground mt-1 font-medium break-words">
               {location.length > 0 ? location : EMPTY_CELL}
             </p>
           </div>
-          <strong className="shrink-0 font-mono font-semibold text-foreground tabular-nums">
+          <strong className="text-foreground shrink-0 font-mono font-semibold tabular-nums">
             {moneyFmt.format(infringement.amountCents / 100)}
           </strong>
         </CardHeader>
         <CardContent className="px-3 text-xs">
-          <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2">
             <span className="wrap-anywhere">{formatVehicle(infringement)}</span>
             {infringement.isTowed ? (
               <Badge variant="destructive" className="text-[0.6rem]">
@@ -276,7 +303,7 @@ const MobileInfringementCard = ({
               </Badge>
             ) : null}
           </div>
-          <p className="mt-2 wrap-anywhere leading-snug text-muted-foreground">
+          <p className="text-muted-foreground mt-2 leading-snug wrap-anywhere">
             {infringement.offenceDescription}
           </p>
         </CardContent>
@@ -303,19 +330,23 @@ export const LatestInstances = ({
   const initialSignatureRef = useRef("");
 
   const totalCount = total ?? recentInfringements.length;
+
   const rows = useMemo(
     () => mergeInfringements(recentInfringements, extraRows),
     [extraRows, recentInfringements]
   );
+
   const hasMore = rows.length < totalCount;
 
   useEffect(() => {
     const signature = recentInfringements
       .map((row) => row.infringementNumber)
       .join(",");
+
     if (signature === initialSignatureRef.current) {
       return;
     }
+
     initialSignatureRef.current = signature;
     setExtraRows([]);
   }, [recentInfringements]);
@@ -326,15 +357,19 @@ export const LatestInstances = ({
     }
 
     setLoadingMore(true);
+
     try {
       const nextPage = getNextInfringementsPage(rows.length);
+
       const result = await fetchRecentInfringements({
         limit: INFRINGEMENTS_DEFAULT_PAGE_SIZE,
         page: nextPage,
       });
+
       if (result.data.length === 0) {
         return;
       }
+
       setExtraRows((current) => [...current, ...result.data]);
     } finally {
       setLoadingMore(false);
@@ -343,6 +378,7 @@ export const LatestInstances = ({
 
   useEffect(() => {
     const root = scrollRef.current;
+
     if (root === null || isLoading === true || loadingMore || !hasMore) {
       return;
     }
@@ -384,12 +420,11 @@ export const LatestInstances = ({
     };
   }, [hasMore, isLoading, loadMore]);
 
-  const table = useReactTable({
+  const table = useTable({
     columns,
     data: rows,
     enableSortingRemoval: false,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    features,
     onSortingChange: setSorting,
     state: { sorting },
   });
@@ -398,9 +433,11 @@ export const LatestInstances = ({
     if (rows.length === 0) {
       return "No rows yet";
     }
+
     if (totalCount > rows.length) {
       return `${numberFmt.format(rows.length)} of ${numberFmt.format(totalCount)} loaded`;
     }
+
     return `${numberFmt.format(rows.length)} shown`;
   }, [rows.length, totalCount]);
 
@@ -408,15 +445,15 @@ export const LatestInstances = ({
 
   return (
     <Card
-      className="min-w-0 overflow-visible bg-card"
+      className="bg-card min-w-0 overflow-visible"
       aria-label="Latest parking infringements"
     >
       <CardContent className="p-4 sm:p-5 lg:p-6">
         <div className="mb-3 flex items-start justify-between gap-3 sm:items-center">
-          <h2 className="text-sm font-semibold text-primary">
+          <h2 className="text-primary text-sm font-semibold">
             Latest Instances
           </h2>
-          <span className="text-right text-xs text-muted-foreground">
+          <span className="text-muted-foreground text-right text-xs">
             {sortSummary} · {rowCountLabel}
           </span>
         </div>
@@ -467,7 +504,7 @@ export const LatestInstances = ({
           ref={scrollRef}
           aria-label="Latest infringements table"
           tabIndex={0}
-          className="hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border border-border md:block"
+          className="border-border hidden h-[70vh] min-h-64 overflow-x-auto overflow-y-auto overscroll-y-contain rounded-[6px] border md:block"
         >
           {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
           <table className="w-full min-w-[56rem] border-collapse text-left text-xs">
@@ -478,7 +515,7 @@ export const LatestInstances = ({
               <col />
               <col className="w-[5rem]" />
             </colgroup>
-            <thead className="sticky top-0 z-10 bg-muted text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
+            <thead className="bg-muted text-muted-foreground sticky top-0 z-10 shadow-[0_1px_0_0_var(--border)]">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -509,7 +546,7 @@ export const LatestInstances = ({
                 {table.getRowModel().rows.length === 0 ? (
                   <tr>
                     <td
-                      className="px-3 py-6 text-center text-muted-foreground"
+                      className="text-muted-foreground px-3 py-6 text-center"
                       colSpan={columns.length}
                     >
                       Waiting for infringement rows...
@@ -519,7 +556,7 @@ export const LatestInstances = ({
                   table.getRowModel().rows.map((row) => (
                     <tr
                       key={row.original.infringementNumber}
-                      className="border-t border-border/70"
+                      className="border-border/70 border-t"
                     >
                       {row.getVisibleCells().map((cell) => (
                         <td
@@ -541,7 +578,7 @@ export const LatestInstances = ({
           {hasMore ? (
             <div
               ref={sentinelRef}
-              className="flex items-center justify-center gap-2 border-t border-border/70 px-3 py-3 text-xs text-muted-foreground"
+              className="border-border/70 text-muted-foreground flex items-center justify-center gap-2 border-t px-3 py-3 text-xs"
             >
               {loadingMore ? (
                 <>
