@@ -177,110 +177,120 @@ export const Dashboard = ({
   connectionStatus = "connecting",
   dataStatus = "loading",
   error,
-}: DashboardProps) => (
-  <div className="min-h-screen bg-background text-foreground">
-    <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 md:px-8 lg:py-10">
-      <header className="mb-6 border-b border-border pb-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-              Hamilton City Council Open Data
-            </p>
-            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary sm:text-5xl">
-              Hamilton parking infringements
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Live infringement totals, hotspot streets, vehicle trends, and
-              ticket activity for Hamilton, New Zealand.
-            </p>
-          </div>
-
-          <div className="flex flex-col items-start gap-3 lg:items-end">
-            <div className="flex flex-wrap items-center gap-2">
-              <LiveStatusBadge connectionStatus={connectionStatus} />
-              {dataStatus === "updating" ? (
-                <Badge variant="outline" className="bg-background">
-                  Updating...
-                </Badge>
-              ) : null}
-              <ThemeToggle />
+}: DashboardProps) => {
+  const [recentOpen, setRecentOpen] = useState(false);
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 md:px-8 lg:py-10">
+        <header className="mb-6 border-b border-border pb-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+                Hamilton City Council Open Data
+              </p>
+              <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary sm:text-5xl">
+                Hamilton parking infringements
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+                Live infringement totals, hotspot streets, vehicle trends, and
+                ticket activity for Hamilton, New Zealand.
+              </p>
             </div>
-            <LastUpdated
-              lastSyncedAt={live.lastSyncedAt}
-              dataStatus={dataStatus}
-            />
-          </div>
-        </div>
-      </header>
 
-      {error !== null && error !== undefined && error.length > 0 ? (
-        <Alert variant="destructive" className="mb-6 bg-background">
-          <AlertCircle className="size-4" aria-hidden="true" />
-          <AlertTitle>Dashboard update failed</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      <main className="grid min-w-0 gap-6">
-        <LiveTicker
-          stats={live}
-          dailyTrend={dailyTrend}
-          paceTrends={paceTrends}
-          isLoading={dataStatus === "loading"}
-        />
-        <DailyTrendPanel
-          dailyTrend={dailyTrend}
-          isLoading={dataStatus === "loading"}
-        />
-        <details className="rounded-lg border border-border bg-card p-5 sm:p-6">
-          <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
-            Street and vehicle breakdowns
-          </summary>
-          <div className="mt-6">
-            <DistributionCharts
-              breakdowns={chartBreakdowns}
-              streets={streets}
-              isLoading={dataStatus === "loading"}
-            />
+            <div className="flex flex-col items-start gap-3 lg:items-end">
+              <div className="flex flex-wrap items-center gap-2">
+                <LiveStatusBadge connectionStatus={connectionStatus} />
+                {dataStatus === "updating" ? (
+                  <Badge variant="outline" className="bg-background">
+                    Updating...
+                  </Badge>
+                ) : null}
+                <ThemeToggle />
+              </div>
+              <LastUpdated
+                lastSyncedAt={live.lastSyncedAt}
+                dataStatus={dataStatus}
+              />
+            </div>
           </div>
-        </details>
-        <details className="rounded-lg border border-border bg-card p-5 sm:p-6">
-          <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
-            Recent parking tickets
-          </summary>
-          <div className="mt-6">
-            <LatestInstances
-              recentInfringements={recentInfringements}
-              total={recentInfringementsTotal}
-              isLoading={dataStatus === "loading"}
-            />
-          </div>
-        </details>
-      </main>
+        </header>
 
-      <footer className="mt-8 border-t border-border pt-5 text-xs text-muted-foreground">
-        <p>
-          Parking infringement data from{" "}
-          <a
-            className="underline underline-offset-2 hover:text-foreground"
-            href="https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about"
-            rel="noopener noreferrer"
-            target="_blank"
+        {error !== null && error !== undefined && error.length > 0 ? (
+          <Alert variant="destructive" className="mb-6 bg-background">
+            <AlertCircle className="size-4" aria-hidden="true" />
+            <AlertTitle>Dashboard update failed</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <main className="grid min-w-0 gap-6">
+          <LiveTicker
+            stats={live}
+            dailyTrend={dailyTrend}
+            paceTrends={paceTrends}
+            isLoading={dataStatus === "loading"}
+          />
+          <DailyTrendPanel
+            dailyTrend={dailyTrend}
+            isLoading={dataStatus === "loading"}
+          />
+          <details className="rounded-lg border border-border bg-card p-5 sm:p-6">
+            <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
+              Street and vehicle breakdowns
+            </summary>
+            <div className="mt-6">
+              <DistributionCharts
+                breakdowns={chartBreakdowns}
+                streets={streets}
+                isLoading={dataStatus === "loading"}
+              />
+            </div>
+          </details>
+          <details
+            className="rounded-lg border border-border bg-card p-5 sm:p-6"
+            onToggle={(event) => {
+              setRecentOpen(event.currentTarget.open);
+            }}
           >
-            HCC infringement dataset
-          </a>
-          , licensed under{" "}
-          <a
-            className="underline underline-offset-2 hover:text-foreground"
-            href="https://creativecommons.org/licenses/by/4.0/"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            CC BY 4.0
-          </a>
-          .
-        </p>
-      </footer>
+            <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-ring">
+              Recent parking tickets
+            </summary>
+            <div className="mt-6">
+              {recentOpen ? (
+                <LatestInstances
+                  recentInfringements={recentInfringements}
+                  total={recentInfringementsTotal}
+                  isLoading={dataStatus === "loading"}
+                />
+              ) : null}
+            </div>
+          </details>
+        </main>
+
+        <footer className="mt-8 border-t border-border pt-5 text-xs text-muted-foreground">
+          <p>
+            Parking infringement data from{" "}
+            <a
+              className="underline underline-offset-2 hover:text-foreground"
+              href="https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              HCC infringement dataset
+            </a>
+            , licensed under{" "}
+            <a
+              className="underline underline-offset-2 hover:text-foreground"
+              href="https://creativecommons.org/licenses/by/4.0/"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              CC BY 4.0
+            </a>
+            .
+          </p>
+        </footer>
+      </div>
     </div>
-  </div>
-);
+  );
+};
