@@ -24,6 +24,12 @@ const extractBearerToken = (
   return match?.groups?.token?.trim() ?? null;
 };
 
+/**
+ * Checks a request bearer token or API key header against configured keys.
+ * @param request - Incoming request to authorize.
+ * @param env - Worker environment containing the configured keys.
+ * @returns Whether a configured API key matches.
+ */
 export const verifyApiKey = (request: Request, env: Env): boolean => {
   const validKeys = parseApiKeys(env.API_KEY);
 
@@ -46,6 +52,12 @@ export const verifyApiKey = (request: Request, env: Env): boolean => {
   );
 };
 
+/**
+ * Checks a request bearer token or cron header against the configured secret.
+ * @param request - Incoming request to authorize.
+ * @param env - Worker environment containing the cron secret.
+ * @returns Whether the configured secret matches.
+ */
 export const verifyCronSecret = (request: Request, env: Env): boolean => {
   const secret = env.CRON_SECRET?.trim();
 
@@ -66,5 +78,11 @@ export const verifyCronSecret = (request: Request, env: Env): boolean => {
   return headerSecret === secret;
 };
 
+/**
+ * Authorizes a request using either an API key or the cron secret.
+ * @param request - Incoming request to authorize.
+ * @param env - Worker environment containing the credentials.
+ * @returns Whether either credential matches.
+ */
 export const verifyApiKeyOrCronSecret = (request: Request, env: Env): boolean =>
   verifyApiKey(request, env) || verifyCronSecret(request, env);
