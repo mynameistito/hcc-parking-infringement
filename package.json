@@ -30,7 +30,8 @@
     "import:csv": "bun run scripts/import-csv.ts",
     "sync": "bun run scripts/sync.ts",
     "geocode": "bun run scripts/geocode.ts",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "seed:local": "bun run scripts/seed-local.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

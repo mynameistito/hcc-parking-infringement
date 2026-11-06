@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Live parking infringement ticker for Hamilton City Council open data."
+      content="Explore Hamilton parking infringements, ticket totals, daily trends and street breakdowns using Hamilton City Council open data."
     />
-    <title>HCC Parking Infringements — Live Ticker</title>
+    <title>Hamilton Parking Infringements &amp; Ticket Trends</title>
     <script>
       try {
         if (localStorage.getItem("hcc-theme") === "light") {
@@ -37,6 +37,27 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <style>
+        #root {
+          min-height: 0;
+        }
+      </style>
+      <main>
+        <h1>Hamilton parking infringements</h1>
+        <p>
+          Explore parking ticket totals, daily trends and street breakdowns for
+          Hamilton, New Zealand, using Hamilton City Council open data.
+        </p>
+        <p>
+          Source:
+          <a
+            href="https://data-waikatolass.opendata.arcgis.com/datasets/hcc::infringement/about"
+            >Hamilton City Council infringement dataset</a
+          >, licensed under CC BY 4.0.
+        </p>
+      </main>
+    </noscript>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
 </html>

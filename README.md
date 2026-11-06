@@ -41,6 +41,21 @@ The default seed deployment persists logs for 10% of requests and traces for 1%,
 
 The November 2026 Personal account audit reported 416,921,556 bytes across 707 Standard R2 objects account-wide. The current Standard allowance includes 10 GB-month of storage, 1 million Class A operations and 10 million Class B operations monthly. This supports retaining R2 snapshots with caching for the dashboard's read workload; storage volume alone cannot establish total cost. The billing API returned HTTP 403 for the available credentials, so billable request usage and total account spend were not verified. Cron triggers remain deliberately disabled; use the authenticated manual refresh operational client when a new snapshot is needed.
 
+## Cloudflare resource tags
+
+Production resources use Cloudflare's [Resource Tagging API](https://developers.cloudflare.com/resource-tagging/get-started/) with `project=hcc-parking-infringement`, `environment=production`, and a `component` tag:
+
+| Resource                                                  | Component       |
+| --------------------------------------------------------- | --------------- |
+| `hcc-parking-infringement` Worker                         | `dashboard`     |
+| `hcc-parking-infringement-seed` R2 bucket                 | `seed-storage`  |
+| `ParkingStore` Durable Object namespace                   | `parking-store` |
+| `SeedRefreshCoordinator` Durable Object namespace         | `seed-refresh`  |
+| `hcc-backfill` queue                                      | `backfill`      |
+| Both `hcc-parking-infringement` custom-domain DNS records | `dashboard-dns` |
+
+These tags were applied and read back through the API. They are managed separately from Wrangler's Worker script tags. When changing tags, GET the current tags, merge the desired keys, then PUT the full tag map to preserve unrelated metadata. Serialize this GET-through-PUT sequence per resource across all writers so concurrent updates cannot overwrite one another. Shared parent DNS zones are not project-specific resources.
+
 ## Local Development
 
 Install dependencies:
@@ -62,6 +77,36 @@ Run with Wrangler for the closest Cloudflare runtime behavior:
 ```powershell
 bun run dev:wrangler
 ```
+
+After clearing local Wrangler state, restore the dashboard snapshot from the existing `data/seed` export before starting Vite:
+
+```powershell
+bun run seed:local
+```
+
+This validates all referenced files before uploading the snapshot, infringement chunks, and optional watermarks to local R2, then publishes the manifest last. It does not write to remote R2. Full exports can take several minutes to load.
+
+Stop the local development server before restoring and restart it only after the command succeeds. Local uploads are not transactional: if an upload fails, fix the reported error and rerun the complete restore before using the dashboard. This command restores disposable development state; it does not stage or roll back an existing dataset.
+
+`data/seed` is ignored by Git. A fresh checkout needs a complete trusted export from a project maintainer, or Cloudflare login with R2 read access to the project account. To download the existing production export (read-only), run:
+
+```powershell
+bunx wrangler login
+New-Item -ItemType Directory -Force data/seed | Out-Null
+bunx wrangler r2 object get hcc-parking-infringement-seed/parking-store/v1/manifest.json --file data/seed/manifest.json --remote
+if ($LASTEXITCODE -ne 0) { throw "Manifest download failed" }
+$seedManifest = Get-Content data/seed/manifest.json -Raw | ConvertFrom-Json
+$snapshotKey = if ($null -ne $seedManifest.dashboardSnapshotKey) { $seedManifest.dashboardSnapshotKey } else { "dashboard-snapshot.json" }
+$seedFiles = @($seedManifest.infringementChunks) + @($snapshotKey)
+if ($seedManifest.watermarksKey) { $seedFiles += $seedManifest.watermarksKey }
+foreach ($seedFile in ($seedFiles | Select-Object -Unique)) {
+    bunx wrangler r2 object get "hcc-parking-infringement-seed/parking-store/v1/$seedFile" --file "data/seed/$seedFile" --remote
+    if ($LASTEXITCODE -ne 0) { throw "Seed download failed: $seedFile" }
+}
+bun run seed:local
+```
+
+Download while seed publication is idle to obtain a consistent export. Keep exports untracked.
 
 Or run the faster Vite development server:
 
