@@ -1,5 +1,6 @@
 import { addDaysInAuckland, todayInAuckland } from "@/lib/auckland-time";
 
+/** A comparison of current and previous totals with an optional percentage. */
 export interface TrendResult {
   current: number;
   previous: number;
@@ -7,6 +8,12 @@ export interface TrendResult {
   direction: "up" | "down" | "flat";
 }
 
+/**
+ * Calculates percentage change relative to a previous value.
+ * @param current - The current value.
+ * @param previous - The comparison value.
+ * @returns Zero when both values are zero, null when only the previous value is zero, or the percentage change.
+ */
 export const percentChange = (
   current: number,
   previous: number
@@ -18,6 +25,12 @@ export const percentChange = (
   return ((current - previous) / previous) * 100;
 };
 
+/**
+ * Builds a trend comparison and direction from two values.
+ * @param current - The current value.
+ * @param previous - The comparison value.
+ * @returns The values, percentage change, and direction.
+ */
 export const toTrendResult = (
   current: number,
   previous: number
@@ -32,6 +45,13 @@ export const toTrendResult = (
   return { current, direction, percent, previous };
 };
 
+/**
+ * Builds a daily series ending on a date, filling missing dates with zeroes.
+ * @param points - The available daily totals.
+ * @param days - The number of days to include.
+ * @param endDate - The final Auckland calendar date, defaulting to today.
+ * @returns Daily totals in date order.
+ */
 export const fillDailySeries = (
   points: { date: string; count: number; totalCents: number }[],
   days: number,
@@ -55,6 +75,12 @@ export const fillDailySeries = (
   return result;
 };
 
+/**
+ * Checks whether the earliest available date reaches the requested span.
+ * @param points - Daily points to inspect.
+ * @param days - The number of days ending today in Auckland.
+ * @returns Whether the earliest point reaches the start of that span.
+ */
 export const dailyTrendCoversDays = (
   points: { date: string }[],
   days: number
