@@ -60,11 +60,13 @@ export const RankedBarChart = ({
 }: RankedBarChartProps) => {
   const data = useMemo(
     () =>
-      items.map((item, index) => ({
-        fill: chartColorAt(index),
-        label: item.label,
-        value: item.count,
-      })),
+      [...items]
+        .toSorted((a, b) => b.count - a.count)
+        .map((item) => ({
+          fill: chartColorAt(0),
+          label: item.label,
+          value: item.count,
+        })),
     [items]
   );
 
@@ -87,7 +89,7 @@ export const RankedBarChart = ({
     );
   }
 
-  const contentHeight = data.length * 28 + 8;
+  const contentHeight = data.length * 36 + 8;
   const scrollable = contentHeight > maxHeight;
 
   const outerStyle: RankedChartStyle = {

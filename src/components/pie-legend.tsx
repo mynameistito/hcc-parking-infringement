@@ -52,7 +52,7 @@ export const PieLegend = ({ items, className, total }: PieLegendProps) => {
           return (
             <li
               key={item.label}
-              className="hover:bg-muted/60 grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-md px-1 py-0.5"
+              className="hover:bg-muted/60 grid grid-cols-[0.625rem_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-0.5 rounded-md px-1 py-2"
             >
               <span
                 className="chart-swatch size-2.5 shrink-0 rounded-full"

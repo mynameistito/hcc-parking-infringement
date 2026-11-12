@@ -7,7 +7,7 @@ const CHART_PALETTE = [
   "var(--chart-5)",
   "#5b8def",
   "#e85d75",
-  "#9b6bff",
+  "#e8c77b",
   "#2ec4b6",
   "#f4a261",
   "#7c9082",

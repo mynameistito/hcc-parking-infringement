@@ -10,7 +10,8 @@ import { isChartEntry } from "@/lib/chart-entry";
 import type { ChartEntry } from "@/lib/chart-entry";
 import { numberFmt } from "@/lib/format";
 
-const { Bar, BarChart, Cell, XAxis, YAxis } = await import("recharts");
+const { Bar, BarChart, Cell, LabelList, XAxis, YAxis } =
+  await import("recharts");
 
 const truncateLabel = (label: string, maxLength = 22): string =>
   label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
@@ -50,19 +51,20 @@ export const RankedBarChartInner = ({
   >
     <BarChart
       accessibilityLayer
+      aria-label="Streets ranked by ticket count"
       data={data}
       layout="vertical"
-      margin={{ bottom: 0, left: 0, right: 12, top: 0 }}
+      margin={{ bottom: 0, left: 0, right: 64, top: 0 }}
     >
       <XAxis domain={[0, yMax]} hide type="number" />
       <YAxis
         axisLine={false}
         dataKey="label"
-        tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+        tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
         tickFormatter={(value: string) => truncateLabel(value)}
         tickLine={false}
         type="category"
-        width={108}
+        width={120}
       />
       <ChartTooltip
         content={
@@ -81,7 +83,7 @@ export const RankedBarChartInner = ({
         cursor={{ fill: "var(--muted)", opacity: 0.35 }}
       />
       <Bar
-        barSize={14}
+        barSize={18}
         dataKey="value"
         isAnimationActive={false}
         radius={[0, 4, 4, 0]}
@@ -89,6 +91,20 @@ export const RankedBarChartInner = ({
         {data.map((entry) => (
           <Cell key={entry.label} fill={entry.fill} />
         ))}
+        <LabelList
+          dataKey="value"
+          position="right"
+          offset={8}
+          fill="var(--foreground)"
+          fontSize={12}
+          formatter={(value) => {
+            const parsed = z.number().safeParse(value);
+
+            return parsed.success
+              ? numberFmt.format(parsed.data)
+              : String(value);
+          }}
+        />
       </Bar>
     </BarChart>
   </ChartContainer>

@@ -30,4 +30,5 @@ export default defineConfig({
       "@scripts": path.resolve(rootDir, "scripts"),
     },
   },
+  server: { watch: { ignored: ["**/.taste-skill/**"] } },
 });

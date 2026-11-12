@@ -196,6 +196,9 @@ export const Dashboard = ({
 
   return (
     <div className="bg-background text-foreground min-h-screen">
+      <a href="#dashboard" className="skip-link">
+        Skip to dashboard
+      </a>
       <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 md:px-8 lg:py-10">
         <header className="border-border mb-6 border-b pb-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -203,12 +206,12 @@ export const Dashboard = ({
               <p className="text-muted-foreground mb-2 text-xs font-semibold uppercase">
                 Hamilton City Council Open Data
               </p>
-              <h1 className="text-primary text-3xl font-semibold tracking-tighter sm:text-5xl">
+              <h1 className="text-primary text-3xl font-medium tracking-tighter sm:text-4xl">
                 Hamilton parking infringements
               </h1>
               <p className="text-muted-foreground mt-3 max-w-3xl text-sm leading-6 sm:text-base">
-                Live infringement totals, hotspot streets, vehicle trends, and
-                ticket activity for Hamilton, New Zealand.
+                Infringement totals, street rankings, vehicle trends, and ticket
+                activity for Hamilton, New Zealand.
               </p>
             </div>
 
@@ -236,7 +239,7 @@ export const Dashboard = ({
           </Alert>
         ) : null}
 
-        <main className="grid min-w-0 gap-6">
+        <main id="dashboard" className="grid min-w-0 gap-6">
           <LiveTicker
             stats={live}
             dailyTrend={dailyTrend}
@@ -247,18 +250,11 @@ export const Dashboard = ({
             dailyTrend={dailyTrend}
             isLoading={dataStatus === "loading"}
           />
-          <details className="border-border bg-card rounded-lg border p-5 sm:p-6">
-            <summary className="focus-visible:outline-ring cursor-pointer font-medium focus-visible:outline-2">
-              Street and vehicle breakdowns
-            </summary>
-            <div className="mt-6">
-              <DistributionCharts
-                breakdowns={chartBreakdowns}
-                streets={streets}
-                isLoading={dataStatus === "loading"}
-              />
-            </div>
-          </details>
+          <DistributionCharts
+            breakdowns={chartBreakdowns}
+            streets={streets}
+            isLoading={dataStatus === "loading"}
+          />
           <details
             className="border-border bg-card rounded-lg border p-5 sm:p-6"
             onToggle={(event) => {

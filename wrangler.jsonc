@@ -6,7 +6,7 @@
   "account_id": "402722ab1f598e783cd6dcdedc37e1d0",
   "workers_dev": true,
   "triggers": {
-    "crons": [],
+    "crons": ["0 17 * * *"], // Daily at 17:00 UTC (06:00 NZDT / 05:00 NZST).
   },
   "routes": [
     {
