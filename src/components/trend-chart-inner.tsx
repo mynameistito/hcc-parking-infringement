@@ -164,7 +164,11 @@ const InteractiveTrendChart = ({
         }}
         dataKey="date"
         height={36}
-        interval={xAxisTickInterval(data.length, maxXLabels)}
+        interval={
+          data.length <= maxXLabels
+            ? "preserveStartEnd"
+            : xAxisTickInterval(data.length, maxXLabels)
+        }
         minTickGap={36}
         tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
         tickFormatter={(dateKey: string) =>
