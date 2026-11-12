@@ -92,7 +92,7 @@ interface DailyTrendPanelProps {
   isLoading?: boolean;
 }
 
-const CHART_MIN_HEIGHT = "min-h-[280px]";
+const CHART_MIN_HEIGHT = "min-h-[320px]";
 
 const ChartSkeleton = () => (
   <Skeleton
@@ -141,6 +141,40 @@ export const DailyTrendPanel = ({
     return total / pointCount;
   }, [chart.values.length, total]);
 
+  const hasRecordsInWindow = dailyTrend.some(
+    (point) => point.date >= (chart.dates[0] ?? "") && point.count > 0
+  );
+
+  const renderChart = () => {
+    if (loading) {
+      return <ChartSkeleton />;
+    }
+
+    if (!hasRecordsInWindow) {
+      return (
+        <div className="text-muted-foreground flex min-h-[320px] flex-col items-center justify-center gap-2 text-center text-sm">
+          <p className="text-foreground font-medium">
+            No records in this date range
+          </p>
+          <p>Choose a longer range to see the available history.</p>
+        </div>
+      );
+    }
+
+    return (
+      <Suspense fallback={<ChartSkeleton />}>
+        <TrendChart
+          className="h-full min-h-0 w-full flex-1"
+          dates={chart.dates}
+          maxXLabels={maxLabels}
+          valueStyle={metric === "totalCents" ? "currency" : "number"}
+          values={chart.values}
+          xLabels={chart.labels}
+        />
+      </Suspense>
+    );
+  };
+
   const pointLabel = window === "all" ? "Per day in range" : "Daily average";
 
   return (
@@ -154,7 +188,7 @@ export const DailyTrendPanel = ({
           <div className="flex flex-col gap-1">
             <CardTitle icon>
               <TrendingUp className="text-ring size-4" aria-hidden="true" />
-              Volume trend
+              <h2 className="text-lg">Daily infringements</h2>
             </CardTitle>
             <CardDescription>
               Every day in the selected window —{" "}
@@ -200,29 +234,13 @@ export const DailyTrendPanel = ({
         </div>
       </CardHeader>
 
-      <CardContent
-        variant="responsive"
-        className="lg:grid-cols-[minmax(0,1fr)_10.5rem] lg:items-stretch"
-      >
+      <CardContent variant="responsive">
         <div className={cn("flex min-w-0 flex-col", CHART_MIN_HEIGHT)}>
-          {loading ? (
-            <ChartSkeleton />
-          ) : (
-            <Suspense fallback={<ChartSkeleton />}>
-              <TrendChart
-                className="h-full min-h-0 w-full flex-1"
-                dates={chart.dates}
-                maxXLabels={maxLabels}
-                valueStyle={metric === "totalCents" ? "currency" : "number"}
-                values={chart.values}
-                xLabels={chart.labels}
-              />
-            </Suspense>
-          )}
+          {renderChart()}
         </div>
 
-        <dl className="grid grid-cols-2 gap-2 self-end lg:grid-cols-1 lg:self-stretch">
-          <div className="border-border bg-muted/40 rounded-lg border px-3 py-2">
+        <dl className="border-border grid grid-cols-2 gap-4 border-t pt-4">
+          <div className="px-1 py-2">
             <dt className="text-muted-foreground text-xs">
               {WINDOW_LABELS[window]} total
             </dt>
@@ -234,7 +252,7 @@ export const DailyTrendPanel = ({
               )}
             </dd>
           </div>
-          <div className="border-border bg-muted/40 rounded-lg border px-3 py-2">
+          <div className="px-1 py-2">
             <dt className="text-muted-foreground text-xs">{pointLabel}</dt>
             <dd
               className={cn(

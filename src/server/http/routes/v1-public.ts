@@ -24,6 +24,13 @@ import { listInfringements } from "@/server/stats.ts";
 export const createV1PublicRoutes = (): Hono<AppEnv> => {
   const routes = new Hono<AppEnv>();
 
+  routes.get("/dashboard", async (c) =>
+    c.body(await c.var.scope.parking.readDashboardSnapshotPayload(), 200, {
+      "Cache-Control": "no-store",
+      "Content-Type": "application/json",
+    })
+  );
+
   routes.get("/locations/streets", async (c) => {
     const limit = Math.min(parsePositiveInt(c.req.query("limit"), 10), 50);
     const streets = await getTopStreets(c.var.scope, limit);

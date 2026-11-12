@@ -80,7 +80,7 @@ const resolveDataStatus = (
  * @returns The rendered interface for the supplied data.
  */
 export const App = () => {
-  const { cached, connected, ready } = useLiveSocket();
+  const { cached, connected, ready, error } = useLiveSocket();
 
   const { data: liveData } = useDashboardCache<PublicLiveStats>([
     "public",
@@ -133,7 +133,7 @@ export const App = () => {
       recentInfringementsTotal={recentData?.total}
       connectionStatus={connectionStatus}
       dataStatus={dataStatus}
-      error={null}
+      error={error}
     />
   );
 };

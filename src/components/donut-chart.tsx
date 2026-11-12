@@ -131,7 +131,15 @@ export const DonutChart = ({
           />
         </Suspense>
       </div>
-      {showLegend ? <PieLegend items={items} total={total} /> : null}
+      {showLegend ? (
+        <PieLegend
+          items={data.map((entry) => ({
+            count: entry.value,
+            label: entry.label,
+          }))}
+          total={total}
+        />
+      ) : null}
     </div>
   );
 };

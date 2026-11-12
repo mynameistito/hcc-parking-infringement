@@ -51,7 +51,7 @@ export const DonutChartInner = ({
         config={donutChartConfig}
         initialDimension={{ height: 176, width: 176 }}
       >
-        <PieChart>
+        <PieChart aria-label="Ticket distribution by category">
           <Pie
             cx="50%"
             cy="50%"

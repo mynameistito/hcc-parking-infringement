@@ -75,23 +75,23 @@
 :root {
   color-scheme: dark;
   --radius: 6px;
-  --background: #000000;
+  --background: #0b0e11;
   --foreground: #ededed;
-  --card: #0a0a0a;
+  --card: #11161b;
   --card-foreground: #ededed;
-  --popover: #0a0a0a;
+  --popover: #161d24;
   --popover-foreground: #ededed;
   --primary: #ededed;
   --primary-foreground: #000000;
   --secondary: #1a1a1a;
   --secondary-foreground: #ededed;
-  --muted: #1a1a1a;
-  --muted-foreground: #a0a0a0;
+  --muted: #1c242d;
+  --muted-foreground: #adb8c2;
   --accent: #1f1f1f;
   --accent-foreground: #ededed;
   --destructive: #e2162a;
   --success: #00ca50;
-  --border: #ffffff24;
+  --border: #ffffff18;
   --input: #ffffff24;
   --ring: #47a8ff;
   --chart-1: #47a8ff;
@@ -184,4 +184,41 @@
 
 @utility animate-ticker-pulse {
   animation: ticker-pulse 0.55s ease;
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 12px 20px;
+  background: var(--foreground);
+  color: var(--background);
+  transform: translateY(-160%);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+button,
+summary,
+a {
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+button:active {
+  transform: translateY(1px);
+}
+summary {
+  min-height: 44px;
+  align-content: center;
+}
+[data-slot="card"] {
+  box-shadow: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
 }

@@ -39,7 +39,7 @@ const PieCard = ({
   description,
   items,
   isLoading,
-  collapseAfter,
+  collapseAfter = 7,
 }: PieCardProps) => (
   <Card variant="plain">
     <CardHeader>
@@ -84,11 +84,11 @@ export const DistributionCharts = ({
       <CardHeader variant="panel">
         <CardTitle icon>
           <PieChartIcon className="text-ring size-4" aria-hidden="true" />
-          Distributions
+          <h2 className="text-lg">Street and vehicle breakdowns</h2>
         </CardTitle>
         <CardDescription>
           Full breakdowns across suburbs, offences, vehicles, and enforcement
-          outcomes. Every category is listed in the legend.
+          outcomes. Smaller categories are grouped as Other.
         </CardDescription>
       </CardHeader>
       <CardContent variant="grid">
@@ -115,12 +115,7 @@ export const DistributionCharts = ({
           </CardContent>
         </Card>
 
-        <div
-          className={cn(
-            "grid gap-4 lg:grid-cols-2 xl:grid-cols-3",
-            "2xl:grid-cols-3"
-          )}
-        >
+        <div className={cn("grid gap-4 xl:grid-cols-2", "2xl:grid-cols-2")}>
           <PieCard
             description="Share of tickets by suburb"
             isLoading={loading}
@@ -141,7 +136,7 @@ export const DistributionCharts = ({
           />
           <PieCard
             description="Tickets by vehicle manufacturer"
-            collapseAfter={12}
+            collapseAfter={7}
             isLoading={loading}
             items={breakdowns.vehicleMakes}
             title="Vehicle makes"

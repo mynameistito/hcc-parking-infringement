@@ -58,6 +58,7 @@ const CompactTrendChart = ({
   yMax,
 }: CompactTrendChartProps) => (
   <AreaChart
+    accessibilityLayer={false}
     data={data}
     height={height}
     margin={margin}
@@ -66,7 +67,7 @@ const CompactTrendChart = ({
   >
     <defs>
       <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.28} />
+        <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.18} />
         <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
       </linearGradient>
     </defs>
@@ -133,12 +134,13 @@ const InteractiveTrendChart = ({
   >
     <AreaChart
       accessibilityLayer
+      aria-label="Daily infringement trend"
       data={data}
       margin={{ bottom: 8, left: 4, right: 8, top: 8 }}
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--color-value)" stopOpacity={0.28} />
+          <stop offset="0%" stopColor="var(--color-value)" stopOpacity={0.18} />
           <stop offset="100%" stopColor="var(--color-value)" stopOpacity={0} />
         </linearGradient>
       </defs>
@@ -148,11 +150,11 @@ const InteractiveTrendChart = ({
       <YAxis
         axisLine={false}
         domain={[0, yMax]}
-        tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
+        tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
         tickFormatter={(value: number) => formatYTick(value, valueStyle)}
         tickLine={false}
-        tickMargin={4}
-        width={36}
+        tickMargin={10}
+        width={56}
       />
 
       <XAxis
@@ -161,10 +163,10 @@ const InteractiveTrendChart = ({
           strokeDasharray: "3 4",
         }}
         dataKey="date"
-        height={28}
+        height={36}
         interval={xAxisTickInterval(data.length, maxXLabels)}
-        minTickGap={16}
-        tick={{ fill: "var(--muted-foreground)", fontSize: 9 }}
+        minTickGap={36}
+        tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
         tickFormatter={(dateKey: string) =>
           formatTrendAxisDate(dateKey, data.length)
         }
@@ -198,7 +200,7 @@ const InteractiveTrendChart = ({
         fill={`url(#${gradientId})`}
         isAnimationActive={false}
         stroke="var(--color-value)"
-        strokeWidth={1.5}
+        strokeWidth={2}
         type="linear"
       />
     </AreaChart>

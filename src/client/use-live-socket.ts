@@ -9,6 +9,7 @@ import {
   readPersistedDashboardSnapshot,
 } from "@/client/dashboard-snapshot";
 import { getDashboardSnapshotWeight } from "@/client/dashboard-snapshot-storage";
+import { fetchDashboardSnapshot } from "@/client/fetch-dashboard-snapshot";
 import type { FullDashboardMessage } from "@/contracts/public-api";
 
 const RECONNECT_DELAY_MS = 3000;
@@ -19,6 +20,7 @@ const SOCKET_IDLE_CLOSE_MS = 2000;
  * Readiness, connectivity, and cache availability of dashboard transport.
  */
 export interface LiveTransportState {
+  error: string | null;
   cached: boolean;
   connected: boolean;
   ready: boolean;
@@ -44,6 +46,7 @@ const listeners = new Set<Listener>();
 const store: LiveSocketStore = {
   cached: false,
   connected: false,
+  error: null,
   idleCloseTimer: null,
   lastSnapshotTime: 0,
   lastSnapshotWeight: 0,
@@ -58,11 +61,13 @@ const store: LiveSocketStore = {
 let snapshot: LiveTransportState = {
   cached: store.cached,
   connected: store.connected,
+  error: store.error,
   ready: store.ready,
 };
 
 const emit = (): void => {
   if (
+    snapshot.error !== store.error ||
     snapshot.connected !== store.connected ||
     snapshot.cached !== store.cached ||
     snapshot.ready !== store.ready
@@ -70,6 +75,7 @@ const emit = (): void => {
     snapshot = {
       cached: store.cached,
       connected: store.connected,
+      error: store.error,
       ready: store.ready,
     };
   }
@@ -106,7 +112,7 @@ const clearIdleCloseTimer = (): void => {
   }
 };
 
-const onSnapshot = (message: FullDashboardMessage): void => {
+const onSnapshot = (message: FullDashboardMessage, fromSocket = true): void => {
   const messageTime = getDashboardSnapshotTime(message);
   const messageWeight = getDashboardSnapshotWeight(message);
   const isStale = messageTime < store.lastSnapshotTime;
@@ -125,7 +131,8 @@ const onSnapshot = (message: FullDashboardMessage): void => {
 
   // Handshake complete: live socket delivered a snapshot (even if we kept newer
   // cached data). Stop showing the cache→live "Updating..." handoff state.
-  store.cached = false;
+  store.cached = !fromSocket;
+  store.error = null;
   emit();
 };
 
@@ -150,6 +157,7 @@ const connect = (): void => {
 
   ws.addEventListener("close", () => {
     store.connected = false;
+    store.cached = store.ready;
     store.ws = null;
     emit();
 
@@ -272,14 +280,52 @@ export const useLiveSocket = (): LiveTransportState => {
       store.lastSnapshotTime = cachedTime;
       store.lastSnapshotWeight = cachedWeight;
       store.ready = true;
-      store.cached = !store.connected;
+      store.cached = true;
       emit();
     })();
+
+    const controller = new AbortController();
+    let refreshing = false;
+
+    const refresh = async (): Promise<void> => {
+      if (refreshing || (store.connected && store.ready && !store.cached)) {
+        return;
+      }
+
+      refreshing = true;
+
+      const result = await fetchDashboardSnapshot(
+        "/api/v1/dashboard",
+        AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)])
+      );
+
+      refreshing = false;
+
+      if (cancelled || (store.connected && store.ready && !store.cached)) {
+        return;
+      }
+
+      if (result.ok) {
+        onSnapshot(result.value, false);
+      } else {
+        store.error =
+          "Unable to refresh data. Retrying automatically; any saved data remains available.";
+        emit();
+      }
+    };
+
+    void refresh();
+
+    const refreshTimer = window.setInterval(() => {
+      void refresh();
+    }, 30_000);
 
     acquireLiveSocket(queryClient);
 
     return () => {
       cancelled = true;
+      controller.abort();
+      window.clearInterval(refreshTimer);
       releaseLiveSocket();
     };
   }, [queryClient]);
